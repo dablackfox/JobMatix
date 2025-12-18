@@ -1,0 +1,163 @@
+name: .NET Framework Build
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.0.5
+      
+    - name: Setup .NET Framework
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '3.5'
+      continue-on-error: true
+
+    - name: Restore NuGet packages
+      run: nuget restore JobMatix62.Net/JobMatix62Main.sln
+      
+    - name: Build solution
+      run: msbuild JobMatix62.Net/JobMatix62Main.sln /p:Configuration=Release /p:Platform="Any CPU" /p:TargetFrameworkVersion=v3.5
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      if: success()
+      with:
+        name: JobMatix-Build-${{ github.sha }}
+        path: |
+          **/bin/Release/
+          !**/obj/
+        retention-days: 30
+
+  validate-structure:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate project structure
+      run: |
+        echo "Checking project structure..."
+        
+        # Check for main solution file
+        if [ ! -f "JobMatix62.Net/JobMatix62Main.sln" ]; then
+          echo "❌ Main solution file not found"
+          exit 1
+        fi
+        echo "✅ Main solution file found"
+        
+        # Check for key project files
+        projects=(
+          "JobMatix62.Net/JobMatix62.vbproj"
+          "JMxJT620.NET/JMxJT620.vbproj" 
+          "JMxPOS620.Net/JMxPOS620.vbproj"
+          "JMxKeyGen420_OS/JMxKeyGen420_OS.vbproj"
+        )
+        
+        for project in "${projects[@]}"; do
+          if [ -f "$project" ]; then
+            echo "✅ Found: $project"
+          else
+            echo "⚠️  Missing: $project"
+          fi
+        done
+        
+        # Check documentation
+        if [ -f "README.md" ]; then
+          echo "✅ README.md found"
+        fi
+        
+        if [ -f "documentation/JobMatix-docs.md" ]; then
+          echo "✅ Documentation found"
+        fi
+        
+        echo "Project structure validation complete"
+
+  security-scan:
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security scan
+      uses: security-code-scan/security-code-scan-add-action@main
+      continue-on-error: true
+      
+    - name: Check for sensitive files
+      run: |
+        echo "Checking for sensitive files..."
+        
+        # Check for common sensitive file patterns
+        $sensitiveFiles = @(
+          "*.key",
+          "*.pfx", 
+          "*.p12",
+          "*password*",
+          "*secret*",
+          "appsettings.production.json",
+          "web.config"
+        )
+        
+        $found = $false
+        foreach ($pattern in $sensitiveFiles) {
+          $files = Get-ChildItem -Recurse -Name $pattern -ErrorAction SilentlyContinue
+          if ($files) {
+            Write-Host "⚠️  Found potentially sensitive files: $files"
+            $found = $true
+          }
+        }
+        
+        if (-not $found) {
+          Write-Host "✅ No obvious sensitive files detected"
+        }
+
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check code quality metrics
+      run: |
+        echo "Running code quality checks..."
+        
+        # Count lines of code
+        echo "📊 Code Statistics:"
+        echo "VB.NET files: $(find . -name "*.vb" | wc -l)"
+        echo "Project files: $(find . -name "*.vbproj" | wc -l)"
+        echo "Solution files: $(find . -name "*.sln" | wc -l)"
+        
+        # Check for large files (potential issues)
+        echo ""
+        echo "📋 Large files check:"
+        find . -type f -size +10M -not -path "./.git/*" | while read file; do
+          size=$(du -h "$file" | cut -f1)
+          echo "⚠️  Large file: $file ($size)"
+        done
+        
+        # Check for TODO/FIXME comments
+        echo ""
+        echo "📝 TODO/FIXME analysis:"
+        todo_count=$(grep -r -i "TODO\|FIXME" --include="*.vb" . | wc -l || echo "0")
+        echo "Found $todo_count TODO/FIXME comments"
+        
+        echo ""
+        echo "✅ Code quality check complete"
