@@ -1,0 +1,13 @@
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\bin\JobMatixBackupAgent.exe.config
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\bin\JobMatixBackupAgent.exe
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\bin\JobMatixBackupAgent.pdb
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\bin\JobMatixBackupAgent.xml
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\obj\Debug\JobMatixBackupAgent.Resources.resources
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\obj\Debug\JobMatixBackupAgent.vbproj.GenerateResource.Cache
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\obj\Debug\JobMatixBackupAgent.exe
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\obj\Debug\JobMatixBackupAgent.xml
+C:\All-dev\Stuff\Database-Backup\JobMatixDbBackup.net\obj\Debug\JobMatixBackupAgent.pdb
+C:\All-dev\Stuff\Database-Backup\JobMatixBackupAgent.net\bin\JobMatixBackupAgent.exe.config
+C:\All-dev\Stuff\Database-Backup\JobMatixBackupAgent.net\obj\Debug\JobMatixBackupAgent.exe
+C:\All-dev\Stuff\Database-Backup\JobMatixBackupAgent.net\obj\Debug\JobMatixBackupAgent.xml
+C:\All-dev\Stuff\Database-Backup\JobMatixBackupAgent.net\obj\Debug\JobMatixBackupAgent.pdb

@@ -1,0 +1,15 @@
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\bin\JMxRetailHost620.dll
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\bin\JMxRetailHost620.pdb
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\bin\JMxRetailHost620.xml
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.vbprojAssemblyReference.cache
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost.frmAttachments.resources
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost.frmBrowse.resources
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost.frmLogin.resources
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost.frmWait.resources
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost.Resources.resources
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.vbproj.GenerateResource.cache
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.vbproj.CoreCompileInputs.cache
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.vbproj.CopyComplete
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.dll
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.xml
+C:\All-Dev\Dev-OpenSource\JobMatix-Build-6201\JMxRetailHost620.Net\obj\Debug\JMxRetailHost620.pdb

@@ -1,0 +1,194 @@
+﻿<?xml version="1.0"?>
+<doc>
+<assembly>
+<name>
+JobMatix34
+</name>
+</assembly>
+<members>
+<member name="M:JobMatix3.clsAttachments.mabConvertImageFiletoBytes(System.String)">
+	<summary>
+ Converts the Image File to array of Bytes
+ Thanks to:
+     http://www.codeproject.com/Articles/31921/Convert-Image-File-to-Bytes-and-Back  
+ </summary>
+	<param name="ImageFilePath">The path of the image file</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="P:JobMatix3.My.Resources.Resources.ResourceManager">
+	<summary>
+  Returns the cached ResourceManager instance used by this class.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Culture">
+	<summary>
+  Overrides the current thread's CurrentUICulture property for all
+  resource lookups using this strongly typed resource class.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources._086419_rounded_glossy_black_icon_business_tool7">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources._25_wheel">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.AcceptJob_85x36">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.alert">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.alert_alert">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.alert_wty">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Blank">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.BookJob_85x36">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Checked_T2">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Form_POS_Only">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Job_MainDetails_rtf_10">
+	<summary>
+  Looks up a localized string similar to {\rtf1\adeflang1025\ansi\ansicpg1252\uc1\adeff0\deff0\stshfdbch0\stshfloch0\stshfhich0\stshfbi0\deflang3081\deflangfe3081\themelang3081\themelangfe0\themelangcs0{\fonttbl{\f0\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}{\f34\fbidi \froman\fcharset0\fprq2{\*\panose 02040503050406030204}Cambria Math;}
+{\f39\fbidi \fswiss\fcharset0\fprq2{\*\panose 00000000000000000000}Verdana;}{\flomajor\f31500\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}
+{\ [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Job_MainDetails_rtf_8">
+	<summary>
+  Looks up a localized string similar to {\rtf1\adeflang1025\ansi\ansicpg1252\uc1\adeff0\deff0\stshfdbch0\stshfloch0\stshfhich0\stshfbi0\deflang3081\deflangfe3081\themelang3081\themelangfe0\themelangcs0{\fonttbl{\f0\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}{\f34\fbidi \froman\fcharset0\fprq2{\*\panose 02040503050406030204}Cambria Math;}
+{\f39\fbidi \fswiss\fcharset0\fprq2{\*\panose 020b0604030504040204}Verdana;}{\flomajor\f31500\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}
+{\ [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Job_MainDetails_rtf_9">
+	<summary>
+  Looks up a localized string similar to {\rtf1\adeflang1025\ansi\ansicpg1252\uc1\adeff0\deff0\stshfdbch0\stshfloch0\stshfhich0\stshfbi0\deflang3081\deflangfe3081\themelang3081\themelangfe0\themelangcs0{\fonttbl{\f0\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}{\f34\fbidi \froman\fcharset0\fprq2{\*\panose 02040503050406030204}Cambria Math;}
+{\f39\fbidi \fswiss\fcharset0\fprq2{\*\panose 020b0604030504040204}Verdana;}{\flomajor\f31500\fbidi \froman\fcharset0\fprq2{\*\panose 02020603050405020304}Times New Roman;}
+{\ [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.JobMatix_Trademark_Colour">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.NewInJobMatix32">
+	<summary>
+  Looks up a localized string similar to &lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;
+&lt;title&gt;New-In-JobMatix-3.2&lt;/title&gt;
+&lt;style&gt;
+  body {background-color:#f8f8f8; font-family:Verdana;
+          font-size:11px; padding-top:0px;
+         }
+		 
+	h1, h2, h3, h4 {color:#09F;}	 
+    h1  {font-size:16px; }
+    h2  {font-size:14px; color:#999; }
+   [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.NewInJobMatix33">
+	<summary>
+  Looks up a localized string similar to &lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;
+&lt;title&gt;New-In-JobMatix-3.3&lt;/title&gt;
+&lt;style&gt;
+  body {background-color:#f8f8f8; font-family:Verdana;
+          font-size:11px; padding-top:0px;
+         }
+		 
+	h1, h2, h3, h4 {color:#09F;}	 
+    h1  {font-size:16px; }
+    h2  {font-size:14px; color:#999; }
+   [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.NewInJobMatix34">
+	<summary>
+  Looks up a localized string similar to &lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;
+&lt;title&gt;New-In-JobMatix34&lt;/title&gt;
+&lt;style&gt;
+  body {background-color: #fff;  /*  #FFF29D;  */ /*#f8f8f8; */
+        font-family:Verdana;
+          font-size:11px; padding-top:0px;
+         }
+		 
+	h1, h2, h3, h4 {color:#09F;}	 
+    h1  {font-size:16px; }
+    h [rest of string was truncated]";.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.paperclip4_black">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.PawPrint">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.PawPrint1">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Pdf_by_mimooh_svg">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Print">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Printer_icon_thD0MUHEMG">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Quote_tool_24">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.Skipped">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.stop16">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.TRANSFRM16">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.trash01">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="P:JobMatix3.My.Resources.Resources.working_33">
+	<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member><member name="T:JobMatix3.My.Resources.Resources">
+	<summary>
+  A strongly-typed resource class, for looking up localized strings, etc.
+</summary>
+</member>
+</members>
+</doc>

@@ -1,0 +1,507 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
+  <PropertyGroup>
+    <ProjectType>Local</ProjectType>
+    <MyType>Windows</MyType>
+    <ProductVersion>8.0.50727</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{36B6B893-AD89-49C7-8584-4925416CB3AE}</ProjectGuid>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <PlatformTarget>x86</PlatformTarget>
+    <AssemblyName>JMxJT620</AssemblyName>
+    <OutputType>Library</OutputType>
+    <StartupObject>
+    </StartupObject>
+    <AssemblyMajorVersion>3</AssemblyMajorVersion>
+    <AssemblyMinorVersion>0</AssemblyMinorVersion>
+    <AssemblyRevisionNumber>3023</AssemblyRevisionNumber>
+    <GenerateRevisionNumber>False</GenerateRevisionNumber>
+    <AssemblyCompanyName>Aztrinity</AssemblyCompanyName>
+    <ApplicationIcon>Resources\PawPrint.ico</ApplicationIcon>
+    <RootNamespace>JobMatix3</RootNamespace>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
+    <ApplicationRevision>0</ApplicationRevision>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>.\bin\</OutputPath>
+    <DocumentationFile>JMxJT620.xml</DocumentationFile>
+    <DebugSymbols>True</DebugSymbols>
+    <DefineDebug>True</DefineDebug>
+    <DefineTrace>True</DefineTrace>
+    <DefineConstants>Win32=True</DefineConstants>
+    <PlatformTarget>x86</PlatformTarget>
+    <NoWarn>42016,42017,42018,42019,42032,42353,42354,42355</NoWarn>
+    <DebugType>full</DebugType>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>.\bin\</OutputPath>
+    <DocumentationFile>JMxJT620.xml</DocumentationFile>
+    <DebugSymbols>False</DebugSymbols>
+    <DefineDebug>False</DefineDebug>
+    <DefineTrace>True</DefineTrace>
+    <DefineConstants>Win32=True</DefineConstants>
+    <PlatformTarget>x86</PlatformTarget>
+    <NoWarn>42016,42017,42018,42019,42032,42353,42354,42355</NoWarn>
+    <DebugType>none</DebugType>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Interop.DAO, Version=5.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>bin\Interop.DAO.dll</HintPath>
+    </Reference>
+    <Reference Include="JMxKeyGen420_OS">
+      <HintPath>..\JMxKeyGen420_OS\bin\JMxKeyGen420_OS.dll</HintPath>
+    </Reference>
+    <Reference Include="JMxPOS620">
+      <HintPath>..\JMxPOS620.Net\bin\JMxPOS620.dll</HintPath>
+    </Reference>
+    <Reference Include="JMxRetailHost620">
+      <HintPath>..\JMxRetailHost620.Net\bin\JMxRetailHost620.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Exchange.WebServices, Version=15.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Microsoft.Exchange.WebServices.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Exchange.WebServices.Auth, Version=15.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Microsoft.Exchange.WebServices.Auth.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.StdFormat, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>bin\Microsoft.StdFormat.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic.Compatibility">
+      <Name>Microsoft.VisualBasic.Compatibility</Name>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic.Compatibility.Data">
+      <Name>Microsoft.VisualBasic.Compatibility.Data</Name>
+    </Reference>
+    <Reference Include="MSDATASRC, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>bin\MSDATASRC.dll</HintPath>
+    </Reference>
+    <Reference Include="stdole, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>bin\stdole.dll</HintPath>
+    </Reference>
+    <Reference Include="System">
+      <Name>System</Name>
+    </Reference>
+    <Reference Include="System.Data">
+      <Name>System.Data</Name>
+    </Reference>
+    <Reference Include="System.Drawing">
+      <Name>System.Drawing</Name>
+    </Reference>
+    <Reference Include="System.Windows.Forms">
+      <Name>System.Windows.Forms</Name>
+    </Reference>
+    <Reference Include="System.XML" />
+  </ItemGroup>
+  <ItemGroup>
+    <Import Include="JMxJT350" />
+    <Import Include="JMxPOS330" />
+    <Import Include="JMxRetailHost" />
+    <Import Include="Microsoft.Exchange" />
+    <Import Include="Microsoft.Exchange.WebServices" />
+    <Import Include="Microsoft.Exchange.WebServices.Auth" />
+    <Import Include="Microsoft.Exchange.WebServices.Auth.Validation" />
+    <Import Include="Microsoft.VisualBasic" />
+    <Import Include="Microsoft.VisualBasic.Compatibility" />
+    <Import Include="System" />
+    <Import Include="System.Collections" />
+    <Import Include="System.Data" />
+    <Import Include="System.Diagnostics" />
+    <Import Include="System.Drawing" />
+    <Import Include="System.Runtime.Serialization" />
+    <Import Include="System.Security" />
+    <Import Include="System.Windows.Forms" />
+    <Import Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.vb" />
+    <Compile Include="clsBrowse34.vb" />
+    <Compile Include="clsExchange20.vb" />
+    <Compile Include="clsGsPanel.vb">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="clsLocalSettings.vb" />
+    <Compile Include="clsMyDataGridView.vb">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="clsMyTreeView.vb">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="clsOnSiteJobs.vb" />
+    <Compile Include="clsPrintDocs3.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="clsStaffReminders.vb" />
+    <Compile Include="clsStrDictionary.vb" />
+    <Compile Include="clsSystemInfo.vb" />
+    <Compile Include="clsWinSpecial.vb" />
+    <Compile Include="dlgNoShow.Designer.vb">
+      <DependentUpon>dlgNoShow.vb</DependentUpon>
+    </Compile>
+    <Compile Include="dlgNoShow.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmBrowse33.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmBrowse33.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmBrowse33.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCustHistory3.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmCustHistory3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCustHistory3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmDirSearch.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmDirSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmDirSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FrmFindPart.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>FrmFindPart.vb</DependentUpon>
+    </Compile>
+    <Compile Include="FrmFindPart.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmGoodsInCare.Designer.vb">
+      <DependentUpon>frmGoodsInCare.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmGoodsInCare.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmImportRM.Designer.vb">
+      <DependentUpon>frmImportRM.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmImportRM.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmJobMaintBase.Designer.vb">
+      <DependentUpon>frmJobMaintBase.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmJobMaintBase.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmJobMatix42Main.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmJobMatix42Main.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmJobMatix42Main.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmListEdit.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmListEdit.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmListEdit.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLogin.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmLogin.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmLogin.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMigration.Designer.vb">
+      <DependentUpon>frmMigration.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmMigration.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmModelEdit3.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmModelEdit3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmModelEdit3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmNewJob32.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmNewJob32.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmNewJob32.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmNewJobBase.Designer.vb">
+      <DependentUpon>frmNewJobBase.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmNewJobBase.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmNewPart3.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmNewPart3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmNewPart3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmNotifyCust22.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmNotifyCust22.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmNotifyCust22.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPrtSelect3.Designer.vb">
+      <DependentUpon>frmPrtSelect3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPrtSelect3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmQuoteJobs3.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmQuoteJobs3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmQuoteJobs3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSetupJobsDB3.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmSetupJobsDB3.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSetupJobsDB3.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSMSUpdate.Designer.vb">
+      <SubType>Code</SubType>
+      <DependentUpon>frmSMSUpdate.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSMSUpdate.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmWait.Designer.vb">
+      <DependentUpon>frmWait.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmWait.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="inetWebRequest.vb" />
+    <Compile Include="modAlterTableTrigger.vb" />
+    <Compile Include="modCrc32.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="modInetSubs.vb" />
+    <Compile Include="modJetLogin.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="modJobSubs3.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ModMD5.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="modMyMsgBox.vb" />
+    <Compile Include="modOnsiteCalendar.vb" />
+    <Compile Include="modReportSubs.vb" />
+    <Compile Include="My Project\Application.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Application.myapp</DependentUpon>
+    </Compile>
+    <Compile Include="My Project\Resources.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="MyJmxButton.vb">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="registry2.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShapedPanel.vb">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ucChildJobMaint.Designer.vb">
+      <DependentUpon>ucChildJobMaint.vb</DependentUpon>
+    </Compile>
+    <Compile Include="ucChildJobMaint.vb">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ucChildJobReports42.Designer.vb">
+      <DependentUpon>ucChildJobReports42.vb</DependentUpon>
+    </Compile>
+    <Compile Include="ucChildJobReports42.vb">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ucChildNewJob.Designer.vb">
+      <DependentUpon>ucChildNewJob.vb</DependentUpon>
+    </Compile>
+    <Compile Include="ucChildNewJob.vb">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UpgradeSupport.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <EmbeddedResource Include="frmJobMaintBase.resx">
+      <DependentUpon>frmJobMaintBase.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmNewJobBase.resx">
+      <DependentUpon>frmNewJobBase.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ucChildJobMaint.resx">
+      <DependentUpon>ucChildJobMaint.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ucChildJobReports42.resX">
+      <DependentUpon>ucChildJobReports42.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ucChildNewJob.resX">
+      <DependentUpon>ucChildNewJob.vb</DependentUpon>
+    </EmbeddedResource>
+    <None Include="Resources\alert_wty.png" />
+    <None Include="Resources\paperclip4_black.png" />
+    <None Include="Resources\Printer-icon-thD0MUHEMG.jpg" />
+    <None Include="Resources\Pdf_by_mimooh.svg.png" />
+    <None Include="app.config" />
+    <None Include="My Project\Application.myapp">
+      <Generator>MyApplicationCodeGenerator</Generator>
+      <LastGenOutput>Application.Designer.vb</LastGenOutput>
+    </None>
+    <EmbeddedResource Include="dlgNoShow.resx">
+      <DependentUpon>dlgNoShow.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmBrowse33.resX">
+      <DependentUpon>frmBrowse33.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCustHistory3.resX">
+      <DependentUpon>frmCustHistory3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmDirSearch.resX">
+      <DependentUpon>frmDirSearch.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FrmFindPart.resX">
+      <DependentUpon>FrmFindPart.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmGoodsInCare.resx">
+      <DependentUpon>frmGoodsInCare.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmImportRM.resx">
+      <DependentUpon>frmImportRM.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmJobMatix42Main.resX">
+      <DependentUpon>frmJobMatix42Main.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmListEdit.resX">
+      <DependentUpon>frmListEdit.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLogin.resX">
+      <DependentUpon>frmLogin.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmMigration.resx">
+      <SubType>Designer</SubType>
+      <DependentUpon>frmMigration.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmModelEdit3.resX">
+      <DependentUpon>frmModelEdit3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmNewJob32.resX">
+      <DependentUpon>frmNewJob32.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmNewPart3.resX">
+      <DependentUpon>frmNewPart3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmNotifyCust22.resX">
+      <DependentUpon>frmNotifyCust22.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPrtSelect3.resX">
+      <DependentUpon>frmPrtSelect3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmQuoteJobs3.resX">
+      <DependentUpon>frmQuoteJobs3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSetupJobsDB3.resX">
+      <DependentUpon>frmSetupJobsDB3.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSMSUpdate.resX">
+      <DependentUpon>frmSMSUpdate.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmWait.resx">
+      <DependentUpon>frmWait.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="My Project\Resources.resx">
+      <SubType>Designer</SubType>
+      <CustomToolNamespace>My.Resources</CustomToolNamespace>
+      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
+    </EmbeddedResource>
+    <Content Include="JobMatix3.ico" />
+    <None Include="Resources\Form_POS_Only.png" />
+    <None Include="Resources\25_wheel.gif" />
+    <None Include="Resources\working-33.gif" />
+    <EmbeddedResource Include="Job_MainDetails_10.rtf" />
+    <EmbeddedResource Include="Job_MainDetails_8.rtf" />
+    <EmbeddedResource Include="Job_MainDetails_9.rtf" />
+    <None Include="Resources\alert_alert.ico" />
+    <None Include="Resources\alert.gif" />
+    <None Include="Resources\Quote-tool-24.ico" />
+    <None Include="Resources\086419-rounded-glossy-black-icon-business-tool7.png" />
+    <None Include="Resources\PawPrint1.ico" />
+    <None Include="Resources\JobMatix_Trademark_Colour.png" />
+    <None Include="Resources\BookJob_85x36.GIF" />
+    <None Include="Resources\AcceptJob_85x36.GIF" />
+    <None Include="Resources\PawPrint.ico" />
+    <None Include="Resources\Print.ico" />
+    <None Include="Resources\trash01.ico" />
+    <EmbeddedResource Include="Resources\Blank.ico" />
+    <EmbeddedResource Include="Resources\Skipped.ico" />
+    <EmbeddedResource Include="Resources\stop16.ico" />
+    <EmbeddedResource Include="Resources\TRANSFRM16.ico" />
+    <EmbeddedResource Include="Resources\Checked_T2.ico" />
+    <EmbeddedResource Include="Job_MainDetails.rtf" />
+    <None Include="_UpgradeReport.htm">
+      <SubType>Preview</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.VisualBasic.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+</Project>

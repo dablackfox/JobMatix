@@ -1,0 +1,15 @@
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340\bin\Debug\JmxPOSex340.exe.config
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340\bin\JmxPOSex340.exe.config
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340\obj\Debug\JmxPOSex340.Resources.resources
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340\obj\Debug\JmxPOSex340.vbproj.GenerateResource.Cache
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\bin\JmxPOSex340.exe.config
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\bin\JmxPOSex340.exe
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\bin\JmxPOSex340.pdb
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\bin\JmxPOSex340.xml
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.vbprojResolveAssemblyReference.cache
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.frmWait.resources
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.Resources.resources
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.vbproj.GenerateResource.Cache
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.exe
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.xml
+C:\All-dev\Dev-JT34\JmxPOSex340\JmxPOSex340.Net\obj\Debug\JmxPOSex340.pdb

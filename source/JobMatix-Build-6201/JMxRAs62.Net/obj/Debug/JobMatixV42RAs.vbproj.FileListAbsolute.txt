@@ -1,0 +1,15 @@
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\bin\JobMatixRAs42.exe.config
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\bin\JobMatixRAs42.exe
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\bin\JobMatixRAs42.pdb
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\bin\JobMatixRAs42.xml
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixV42RAs.vbprojResolveAssemblyReference.cache
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.frmBrowse.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.frmLogin.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.frmNewRA.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.frmRAs35Main.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.frmWait.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs34.Resources.resources
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixV42RAs.vbproj.GenerateResource.Cache
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs42.exe
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs42.xml
+C:\All-dev\Dev-JT42\JobMatixV42RAs\JobMatixV42RAs.Net\obj\Debug\JobMatixRAs42.pdb

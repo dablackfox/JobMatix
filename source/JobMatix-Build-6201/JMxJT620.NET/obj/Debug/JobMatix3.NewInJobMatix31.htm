@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>New-In-JobMatix-3.1</title>
+<style>
+  body {background-color:white; font-family:Verdana;
+          font-size:11px; padding-top:0px;
+         }
+		 
+	h1, h2, h3, h4 {color:#09F;}	 
+    h1  {font-size:16px; }
+    h2  {font-size:14px; }
+    h3  {font-size:12px; }
+    h4  {font-size:11px; font-weight:bold; }
+   
+</style>
+
+</head>
+
+<body>
+
+<p>&nbsp;</p>
+
+<p><em>JobMatix  provides proven reliable job-tracking and RMA-tracking functionality for computer service shops as a support product to both JobMatixPOS and MYOB Retail Manager POS systems.  For all customer, stock, sales quotes etc information, JobMatix refers to the relevant retail  database. Where MYOB is used, Jobmatix accesses the   Retail Manager Jet database in read-only mode only.</em></p>
+<h3><strong>JobMatixPOS</strong> </h3> 
+<p>JobMatix 3.1 introduces new POS functionality as an alternative to MYOB Retail Manager.  POS functionality is built in the JobMatix version 3.1 Most basic retail POS functions are supported, incl Stock Control and Goods Received, customer  account and cash sales, most payment types, Cashout facility etc., Account payments and statements.. </p>
+<p>For JobMatix POS users, JobTracking job delivery is now done directly via the POS Sale screen, bypassing the need to scan in the list of job parts barcodes into the sale.</p>
+<p><em>NB: POS functionality in JobMatix 3.1.3107 is at Alpha stage only, and not yet in full release mode.</em></p>
+<p>&nbsp;</p>
+<h3>New in JobMatix 3.1.3107 Job Tracking</h3>
+<p><strong>JobMatix Startup-</strong> </p>
+<p>-The splash form has been discontinued  to improve startup performance.  For admin users, a Startup form is offered for access to DB Create/Restore functionality. <br/>- Also, more Help Info has been added to various forms.</p>
+<p><strong>New Job Form-</strong></p>
+<p>- The capacity of the Problem Description text box has been expanded to 4000 chars to allow for more detail in logging the customer problem..  (However, not all this will print out on the Service Agreement due to lack of space)..<br/>
+</p>
+<p><strong>Job ServiceUpdate-</strong> </p>
+<p>- The labour hours previously booked to the job can now be cleared to zero (in case wrongly entered).  This event is logged to the service notes to help tracking. <br/>
+  - Also, a full-text search has been added to the stock lookup form for adding parts. <br/>
+  - A bug that occasionally printed incorrect hours on the Service Record has been fixed. <br/>
+  - On the Service Record printout (for Delivery), a new total value of Parts and Labour hours been added.</p>
+<p><strong>Jobs Treeview-</strong> </p>
+<p>- The current tech job &quot;owner&quot; has been added to Job info line. </p>
+<p><strong></strong><strong>RA's -</strong> </p>
+<p>- A printer selection drop-down has been added to New/Update RAs form.. <br/>
+  - Also, on the New RA form, the F2 key can be used to look up the product barcode from the stock table if the product code is not available.</p>
+<p><strong></strong></p>
+<h3></h3>
+<h4>Previously- was new in JobMatix 3.0.3083</h4>
+<p><strong>Date Promised</strong>: This is a new optional field that is now available on the New Job  (Service Agreement) form.  On the Active Jobs Tree, any job that carries a Date Promised will show the Job text line in orange if the job is due, and in red if overdue. The Job Details Panel (Main screen RHS) will also show the Date Promised if relevant, as well as a Due/Overdue indication.</p>
+<p><strong>On-Site Jobs (Customer site calls)</strong>: Since On-Site jobs are usually scheduled in advance, they need to be tracked on a calendar basis, rather than on a FIFO basis as with workshop jobs. In JobMatix, On-Site jobs follow the same work cycle as in-house jobs, and can have labour, service and stock items attached as needed. This means that on-site jobs and their charges can be accounted for in the same way as other jobs.</p>
+<p>On-Site jobs can now be created via the New On-Site Job button, and with the completion of the New Job (Service Agreement) form. They can be tracked normally via the Active Jobs Tree, and can also can be tracked separately on the new On-Site Jobs Schedule Tab on the main screen.  NB: the fields Date Promised and Time Promised are mandatory for new On-Site jobs.</p>
+<h3>Jobs and Customers</h3>
+<p><strong>Creating new Jobs:</strong>  As before, a customer has to be selected before clicking on &quot;New Job&quot;. To select a customer, click on the Customers  tab on the main screen, and browse the retail customer grid. If the customer is not found, then switch over to the Retail Manager application itself to create the new customer record; then browse again in JobMatix to select the customer for the job.</p>
+<p>-- For more Info on JobMatix see:</p>
+<p>&nbsp;&nbsp; <a href="http://jobmatix.com.au/" target="_blank"> http://jobmatix.com.au/</a></p>
+<p></p>
+<p>==&nbsp; the end ==</p>
+</body>
+</html>

@@ -1,0 +1,361 @@
+= = = = = = = = = = = 
+
+
+GetDBInfo: Reading sql  tables info for DB: Boondall_PC_Repairs_JobTracking
+== GetDBInfo: .. DATABASE: Boondall_PC_Repairs_JobTracking
+ - Found 13 tables:  SystemInfo GoodsTypes JobTaskTypes JobBrands Symptoms JobTasks JobParts QuoteJobParts ServiceModelChecklists JobServiceCheckLists JobOtherDetails RAItems Jobs 
+- - - -
+Reading sql primary key info for table: SystemInfo
+Reading sql Foreign key info for table: SystemInfo
+  FOREIGN key cols : 
+
+Reading Other index info for table: SystemInfo
+Reading sql primary key info for table: GoodsTypes
+Reading sql Foreign key info for table: GoodsTypes
+  FOREIGN key cols : 
+
+Reading Other index info for table: GoodsTypes
+Reading sql primary key info for table: JobTaskTypes
+Reading sql Foreign key info for table: JobTaskTypes
+  FOREIGN key cols : 
+
+Reading Other index info for table: JobTaskTypes
+Reading sql primary key info for table: JobBrands
+Reading sql Foreign key info for table: JobBrands
+  FOREIGN key cols : 
+
+Reading Other index info for table: JobBrands
+Reading sql primary key info for table: Symptoms
+Reading sql Foreign key info for table: Symptoms
+  FOREIGN key cols : 
+
+Reading Other index info for table: Symptoms
+Reading sql primary key info for table: JobTasks
+Reading sql Foreign key info for table: JobTasks
+  FOREIGN key cols : 
+TaskJob_Id (REF Jobs, Job_Id) 
+
+Reading Other index info for table: JobTasks
+Reading sql primary key info for table: JobParts
+Reading sql Foreign key info for table: JobParts
+  FOREIGN key cols : 
+PartJob_Id (REF Jobs, Job_Id) 
+
+Reading Other index info for table: JobParts
+Reading sql primary key info for table: QuoteJobParts
+Reading sql Foreign key info for table: QuoteJobParts
+  FOREIGN key cols : 
+QuotePart_JobId (REF Jobs, Job_Id) 
+
+Reading Other index info for table: QuoteJobParts
+Reading sql primary key info for table: ServiceModelChecklists
+Reading sql Foreign key info for table: ServiceModelChecklists
+  FOREIGN key cols : 
+
+Reading Other index info for table: ServiceModelChecklists
+Reading sql primary key info for table: JobServiceCheckLists
+Reading sql Foreign key info for table: JobServiceCheckLists
+  FOREIGN key cols : 
+JobCheckList_JobId (REF Jobs, Job_Id) 
+
+Reading Other index info for table: JobServiceCheckLists
+Reading sql primary key info for table: JobOtherDetails
+Reading sql Foreign key info for table: JobOtherDetails
+  FOREIGN key cols : 
+JobOther_JobId (REF Jobs, Job_Id) 
+
+Reading Other index info for table: JobOtherDetails
+Reading sql primary key info for table: RAItems
+Reading sql Foreign key info for table: RAItems
+  FOREIGN key cols : 
+
+Reading Other index info for table: RAItems
+Reading sql primary key info for table: Jobs
+Reading sql Foreign key info for table: Jobs
+  FOREIGN key cols : 
+
+Reading Other index info for table: Jobs
+=== Build catalogue for: Boondall_PC_Repairs_JobTracking done..  ===
+
+
+
+= loaded info for DATABASE:  Boondall_PC_Repairs_JobTracking  = = = =
+
+ == Displaying catalogue for DB: Boondall_PC_Repairs_JobTracking
+
+== TABLE:  'SystemInfo' has columns..
+SystemKey-[Type:129-L:48)-(sqlType:varchar)] (not-null) 
+SystemValue-[Type:129-L:4000)-(sqlType:varchar)] (not-null) 
+DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+DateUpdated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: SystemKey 
+       Foreign Key fields: 
+Name column is: 
+
+
+== TABLE:  'GoodsTypes' has columns..
+GoodsType_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+GoodsTypeDescription-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+GoodsTypeCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: GoodsType_Id 
+       Foreign Key fields: 
+      Other indexes on : 
+01.  GoodsTypeDescription
+
+Name column is: GoodsTypeDescription
+
+
+== TABLE:  'JobTaskTypes' has columns..
+TaskType_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+TaskTypeDescription-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+TaskTypeCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: TaskType_Id 
+       Foreign Key fields: 
+      Other indexes on : 
+01.  TaskTypeDescription
+
+Name column is: TaskTypeDescription
+
+
+== TABLE:  'JobBrands' has columns..
+Brand_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+BrandName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+BrandCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: Brand_Id 
+       Foreign Key fields: 
+      Other indexes on : 
+01.  BrandName
+
+Name column is: BrandName
+
+
+== TABLE:  'Symptoms' has columns..
+Symptom_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+SymptomDescr-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: Symptom_Id 
+       Foreign Key fields: 
+      Other indexes on : 
+01.  SymptomDescr
+
+Name column is: SymptomDescr
+
+
+== TABLE:  'JobTasks' has columns..
+Task_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+TaskJob_Id-[Type:3-L:0)-(sqlType:int)] (not-null)  (Foreign-Key)  (REF Jobs) 
+TaskType_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+Description-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+PerformedByRMStaff_id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+PerformedByStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: Task_Id 
+       Foreign Key fields: TaskJob_Id REF Jobs,Job_Id
+
+Name column is: Description
+
+
+== TABLE:  'JobParts' has columns..
+Part_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+PartJob_Id-[Type:3-L:0)-(sqlType:int)] (not-null)  (Foreign-Key)  (REF Jobs) 
+PartSerialNumber-[Type:129-L:40)-(sqlType:varchar)] (not-null) 
+RMBarcode-[Type:129-L:24)-(sqlType:varchar)] (not-null) 
+RMstock_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RMDescription-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RMLongDescription-[Type:129-L:600)-(sqlType:varchar)] (not-null) 
+RMCost-[Type:6-L:0)-(sqlType:money)] (not-null) 
+RMSell-[Type:6-L:0)-(sqlType:money)] (not-null) 
+RMCat1-[Type:129-L:16)-(sqlType:varchar)] (not-null) 
+RMCat2-[Type:129-L:16)-(sqlType:varchar)] (not-null) 
+RMCat3-[Type:129-L:16)-(sqlType:varchar)] (not-null) 
+IsWarrantyPart-[Type:129-L:1)-(sqlType:char)] (not-null) 
+WarrantyPartNo-[Type:129-L:24)-(sqlType:varchar)] (not-null) 
+ServicedByRMStaff_id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+ServicedByStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: Part_Id 
+       Foreign Key fields: PartJob_Id REF Jobs,Job_Id
+
+Name column is: RMDescription
+
+
+== TABLE:  'QuoteJobParts' has columns..
+QuotePart_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+QuotePart_JobId-[Type:3-L:0)-(sqlType:int)] (not-null)  (Foreign-Key)  (REF Jobs) 
+QuotePart_OrderId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+QuotePartBarcode-[Type:129-L:15)-(sqlType:varchar)] (not-null) 
+QuotePartDescription-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+QuotePartCat1-[Type:129-L:6)-(sqlType:varchar)] (not-null) 
+QuotePartCat2-[Type:129-L:6)-(sqlType:varchar)] (not-null) 
+QuotePart_OrderQty-[Type:3-L:0)-(sqlType:int)] (not-null) 
+QuotePart_StockId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+QuotePart_Sell_inc-[Type:6-L:0)-(sqlType:money)] (not-null) 
+QuotePartDateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: QuotePart_Id 
+       Foreign Key fields: QuotePart_JobId REF Jobs,Job_Id
+
+Name column is: QuotePartDescription
+
+
+== TABLE:  'ServiceModelChecklists' has columns..
+ModelCheckList_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+ModelCheckList_RMStockId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+ModelCheckListTaskDescription-[Type:129-L:80)-(sqlType:varchar)] (not-null) 
+ModelCheckListDateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: ModelCheckList_Id 
+       Foreign Key fields: 
+Name column is: ModelCheckListTaskDescription
+
+
+== TABLE:  'JobServiceCheckLists' has columns..
+JobCheckList_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobCheckList_JobId-[Type:3-L:0)-(sqlType:int)] (not-null)  (Foreign-Key)  (REF Jobs) 
+JobCheckList_RMStockId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobCheckListSequence-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobCheckListTaskDescription-[Type:129-L:80)-(sqlType:varchar)] (not-null) 
+JobCheckListStatus-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+JobCheckListComments-[Type:129-L:255)-(sqlType:varchar)] (not-null) 
+JobCheckList_StaffId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobCheckListStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+JobCheckListDateUpdated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: JobCheckList_Id 
+       Foreign Key fields: JobCheckList_JobId REF Jobs,Job_Id
+
+Name column is: JobCheckListTaskDescription
+
+
+== TABLE:  'JobOtherDetails' has columns..
+JobOther_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobOther_JobId-[Type:3-L:0)-(sqlType:int)] (not-null)  (Foreign-Key)  (REF Jobs) 
+JobOtherType-[Type:129-L:16)-(sqlType:varchar)] (not-null) 
+JobOtherStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+JobOtherBarcode-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+JobOtherIntegerData1-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobOtherIntegerData2-[Type:3-L:0)-(sqlType:int)] (not-null) 
+JobOtherTextData1-[Type:129-L:4000)-(sqlType:varchar)] (not-null) 
+JobOtherTextData2-[Type:129-L:4000)-(sqlType:varchar)] (not-null) 
+JobOtherDateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: JobOther_Id 
+       Foreign Key fields: JobOther_JobId REF Jobs,Job_Id
+
+Name column is: JobOtherStaffName
+
+
+== TABLE:  'RAItems' has columns..
+RA_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RA_RecordLocked-[Type:129-L:1)-(sqlType:char)] (not-null) 
+RA_Status-[Type:129-L:24)-(sqlType:varchar)] (not-null) 
+RA_SerialNumber-[Type:129-L:40)-(sqlType:varchar)] (not-null) 
+RA_Origin-[Type:129-L:24)-(sqlType:varchar)] (not-null) 
+RA_JobId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RA_CustomerBarcode-[Type:129-L:25)-(sqlType:varchar)] (not-null) 
+RA_RMCustomer_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RA_CustomerCompany-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RA_CustomerName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RA_CustomerPhone-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RA_CustomerMobile-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RA_DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+RM_StockId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_ItemSupplierCode-[Type:129-L:15)-(sqlType:varchar)] (not-null) 
+RM_ItemBarcode-[Type:129-L:15)-(sqlType:varchar)] (not-null) 
+RM_ItemDescription-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RM_ItemCat1-[Type:129-L:6)-(sqlType:varchar)] (not-null) 
+RM_ItemCat2-[Type:129-L:6)-(sqlType:varchar)] (not-null) 
+RM_ItemCat3-[Type:129-L:6)-(sqlType:varchar)] (not-null) 
+RM_Item_Sell_ex-[Type:6-L:0)-(sqlType:money)] (not-null) 
+RM_GoodsId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_InvoiceNo-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RM_InvoiceDate-[Type:135-L:0)-(sqlType:datetime)] 
+RM_GoodsDate-[Type:135-L:0)-(sqlType:datetime)] 
+RM_OrderNo-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RM_OrderId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_SupplierId-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_SupplierBarcode-[Type:129-L:15)-(sqlType:varchar)] (not-null) 
+RM_Supplier-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RM_Supplier_main_phone-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RM_Supplier_main_fax-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+RM_Supplier_main_email-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+RM_Supplier_AddressInfo-[Type:129-L:500)-(sqlType:varchar)] (not-null) 
+RA_Symptoms-[Type:129-L:240)-(sqlType:varchar)] (not-null) 
+RA_DateRMA_Requested-[Type:135-L:0)-(sqlType:datetime)] 
+RA_DateRMA_Response-[Type:135-L:0)-(sqlType:datetime)] 
+RA_RMA_RequestNotes-[Type:129-L:2040)-(sqlType:varchar)] (not-null) 
+RA_RMA_Granted-[Type:129-L:1)-(sqlType:char)] (not-null) 
+RA_SupplierRMA_No-[Type:129-L:48)-(sqlType:varchar)] (not-null) 
+RA_CourierBarcode-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+RA_DateGoodsSentBack-[Type:135-L:0)-(sqlType:datetime)] 
+RA_DateGoodsReceivedBack-[Type:135-L:0)-(sqlType:datetime)] 
+RA_ReturnResult-[Type:129-L:15)-(sqlType:varchar)] (not-null) 
+RA_ReturnResultComment-[Type:129-L:64)-(sqlType:varchar)] (not-null) 
+RM_StaffIdCreated-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_StaffNameCreated-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RM_StaffIdUpdated-[Type:3-L:0)-(sqlType:int)] (not-null) 
+RM_StaffNameUpdated-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RA_X1-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+RA_X2-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+RA_DateUpdated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: RA_Id 
+       Foreign Key fields: 
+Name column is: RA_CustomerCompany
+
+
+== TABLE:  'Jobs' has columns..
+Job_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+CustomerBarcode-[Type:129-L:25)-(sqlType:varchar)] (not-null) 
+RMCustomer_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+CustomerCompany-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+CustomerName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+CustomerPhone-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+CustomerMobile-[Type:129-L:20)-(sqlType:varchar)] (not-null) 
+Priority-[Type:129-L:1)-(sqlType:varchar)] (not-null) 
+NominatedTech-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+JobStatus-[Type:129-L:16)-(sqlType:varchar)] (not-null) 
+GoodsInCare-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+GoodsOther-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+GoodsBrand-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+GoodsModel-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+GoodsExtras-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+MultiAccounts-[Type:129-L:1)-(sqlType:varchar)] (not-null) 
+Username-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+UserPassword-[Type:129-L:32)-(sqlType:varchar)] (not-null) 
+DataBackupReqd-[Type:129-L:1)-(sqlType:varchar)] (not-null) 
+DataDiskReqd-[Type:129-L:1)-(sqlType:varchar)] (not-null) 
+ProblemShort-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+ProblemLong-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+ProblemSymptoms-[Type:129-L:250)-(sqlType:varchar)] (not-null) 
+JobReturned-[Type:129-L:1)-(sqlType:varchar)] (not-null) 
+DateCreated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+DatePromised-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+RcvdStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+RcvdRMStaff_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+Diagnosis-[Type:129-L:550)-(sqlType:varchar)] (not-null) 
+ServiceNotes-[Type:129-L:3250)-(sqlType:varchar)] (not-null) 
+SessionTimes-[Type:129-L:1024)-(sqlType:varchar)] (not-null) 
+TotalServiceTime-[Type:131-L:0)-(sqlType:decimal)] (not-null) 
+DateCompleted-[Type:135-L:0)-(sqlType:datetime)] 
+TechStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+TechRMStaff_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+Notifications-[Type:129-L:1024)-(sqlType:varchar)] (not-null) 
+DateDelivered-[Type:135-L:0)-(sqlType:datetime)] 
+DeliveredStaffName-[Type:129-L:50)-(sqlType:varchar)] (not-null) 
+DeliveredRMStaff_Id-[Type:3-L:0)-(sqlType:int)] (not-null) 
+DateUpdated-[Type:135-L:0)-(sqlType:datetime)] (not-null) 
+       Primary Key fields: Job_Id 
+       Foreign Key fields: 
+      Other indexes on : 
+01.  CustomerCompany JobStatus
+02.  CustomerName JobStatus
+03.  RcvdStaffName JobStatus
+04.  JobStatus CustomerName
+05.  DateCreated CustomerName JobStatus
+06.  Priority CustomerName JobStatus
+07.  TechStaffName CustomerName JobStatus
+
+Name column is: CustomerCompany
+
+=== All Done == 
+
+
+==  sql catalogue show all done ==  (see log file).
+
+= = = Log Saved: 08-44-13 05:44 = = =

@@ -1,0 +1,3 @@
+PRTCOLOUR=Send To OneNote 2010
+SQLSERVER=dev-win7\sqlexpress
+PRTRECEIPT=Send To OneNote 2010

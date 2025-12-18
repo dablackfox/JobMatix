@@ -1,0 +1,33 @@
+﻿<?xml version="1.0"?>
+<doc>
+<assembly>
+<name>
+JobMatixRAs34
+</name>
+</assembly>
+<members>
+<member name="M:JobMatixRAs34.clsAttachments.mabConvertImageFiletoBytes(System.String)">
+	<summary>
+ Converts the Image File to array of Bytes
+ Thanks to:
+     http://www.codeproject.com/Articles/31921/Convert-Image-File-to-Bytes-and-Back  
+ </summary>
+	<param name="ImageFilePath">The path of the image file</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="P:JobMatixRAs34.My.Resources.Resources.ResourceManager">
+	<summary>
+  Returns the cached ResourceManager instance used by this class.
+</summary>
+</member><member name="P:JobMatixRAs34.My.Resources.Resources.Culture">
+	<summary>
+  Overrides the current thread's CurrentUICulture property for all
+  resource lookups using this strongly typed resource class.
+</summary>
+</member><member name="T:JobMatixRAs34.My.Resources.Resources">
+	<summary>
+  A strongly-typed resource class, for looking up localized strings, etc.
+</summary>
+</member>
+</members>
+</doc>
