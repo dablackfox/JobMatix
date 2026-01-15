@@ -10,6 +10,8 @@ Imports System.Windows.Forms
 Imports System.Windows.Forms.Application
 Imports System.ComponentModel
 Imports System.Data.OleDb
+Imports System.Data
+Imports JMxRetailHost620
 
 '==--V3.5 = Main MDI Mother Form..
 '== -- Started  v3.5.3501.0702=
@@ -355,7 +357,7 @@ Public Class frmPosMainMdi
     Private mIntJobMatixDBid As Integer = -1
 
     '== Private mCnnSql As ADODB.Connection '--
-    Private mCnnSql As OleDbConnection   '== SqlConnection '--
+    Private mCnnSql As IDbConnection   ' Changed from OleDbConnection to support both SQL Server and PostgreSQL
     Private mlJobId As Integer = -1
 
     'Private msStaffBarcodeSignedOn As String = ""

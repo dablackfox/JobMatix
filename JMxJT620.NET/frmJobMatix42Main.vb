@@ -9,11 +9,13 @@ Imports System.Windows.Forms
 Imports System.Windows.Forms.Application
 Imports System.ComponentModel
 Imports System.Data.OleDb
+Imports System.Data
 '== 3411.1221= Imports clsJMxPOS31
 Imports System.Runtime.InteropServices
 Imports System.Collections.Generic
 Imports System.Xml
 Imports System.Text
+Imports JMxRetailHost620
 
 Public Class frmJobMatix42Main
 	Inherits System.Windows.Forms.Form
@@ -358,7 +360,7 @@ Public Class frmJobMatix42Main
     '==        >> staffTimeout..  test POS for timeoutSuspended
     '==        >> For POS Delivery- point user to POS Sales Tab..
     '==        >> For JobMaint (Update)- Allow Zeroizing SessionTimes..
-    '==        >>  3103.129 Jan29.  Make 'Salë' the default Transaction.
+    '==        >>  3103.129 Jan29.  Make 'Salï¿½' the default Transaction.
     '==
     '==  grh. JobMatix 3.1.3103.0205 ---  03Feb2005 ===
     '==   >>  - Added gbIsSqlServer2008Plus()
@@ -1134,7 +1136,7 @@ Public Class frmJobMatix42Main
 
     Private msSqlDbName As String = ""
 	Private mColSqlDBInfo As Collection '--  jobs DB info--
-    Private mCnnSql As OleDbConnection '= ADODB.Connection '-- 
+    Private mCnnSql As IDbConnection  ' Changed from OleDbConnection to support both SQL Server and PostgreSQL
     Private msOriginalJobMatixDBName As String = ""
 
     '==  WAS for REPORTS..=  Private mCnnShape As ADODB.Connection '--for jobs SHAPE commands..--
@@ -1969,7 +1971,21 @@ Public Class frmJobMatix42Main
 
          ' RunWorkerCompleted eventhandler.
         '== mbSqlServerSearchOk = gbSQL_Enumerate_Main(mColSQLServerInstances)
-        mbSqlServerConnectOK = gbConnectSql(mCnnSql, msSqlConnect)
+        
+        ' Use abstraction layer for connection
+        mCnnSql = modDatabaseAbstraction.GetDatabaseConnection(msSqlConnect, DatabaseConfig.UseSqlServer)
+        If Not mCnnSql Is Nothing Then
+            Try
+                mCnnSql.Open()
+                mbSqlServerConnectOK = True
+            Catch ex As Exception
+                mbSqlServerConnectOK = False
+                gsSetLastSqlErrorMessage(ex.Message)
+            End Try
+        Else
+            mbSqlServerConnectOK = False
+            gsSetLastSqlErrorMessage("Failed to create database connection")
+        End If
 
     End Sub '=SqlConnect_DoWork=
     '= = = = = = =  = = = = = = = =
@@ -1981,11 +1997,22 @@ Public Class frmJobMatix42Main
         Dim sConnect As String
 
         mbSqlConnect = False
-        sConnect = "Provider=SQLOLEDB; Server=" & msServer & _
-                   "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
+        
+        ' Load database configuration
+        DatabaseConfig.LoadConfiguration()
+        
+        If DatabaseConfig.UseSqlServer Then
+            ' Use SQL Server (original behavior)
+            sConnect = "Provider=SQLOLEDB; Server=" & msServer & _
+                       "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
+            Call mWaitFormOn("Connecting to SQL Server: " & vbCrLf & msServer & "..")
+        Else
+            ' Use PostgreSQL
+            sConnect = DatabaseConfig.GetJobsConnectionString()
+            Call mWaitFormOn("Connecting to PostgreSQL: " & vbCrLf & DatabaseConfig.PostgreSqlHost & "..")
+        End If
+        
         msSqlConnect = sConnect  '= pass to async event..-
-
-        Call mWaitFormOn("Connecting to Sql Server: " & vbCrLf & msServer & "..")
         mFormWait1.BackColor = Color.LavenderBlush
 
         mbSqlServerConnectOK = False
@@ -2008,9 +2035,11 @@ Public Class frmJobMatix42Main
         Else
             System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default
             '= Call mWaitFormOff()
-            If MsgBox("Login to Sql-Server '" & msServer & "' has failed." & vbCrLf & _
+            
+            Dim dbType As String = If(DatabaseConfig.UseSqlServer, "SQL Server", "PostgreSQL")
+            If MsgBox("Login to " & dbType & " has failed." & vbCrLf & _
                    "Error text:" & vbCrLf & gsGetLastSqlErrorMessage() & vbCrLf & vbCrLf & _
-              "Check that your Windows Logon has been added to SQL-Server logins.." & vbCrLf & vbCrLf & _
+              "Check your database connection settings." & vbCrLf & vbCrLf & _
                 "Do you want to retry ?", _
                      MsgBoxStyle.Exclamation + MsgBoxStyle.YesNo + MsgBoxStyle.DefaultButton1) <> MsgBoxResult.Yes Then
                 '=3107.902= Me.Close()
@@ -6086,10 +6115,10 @@ loadMaintError:
         worker.ReportProgress(2)  '--say started (working)...  1%..
 
         '-- SORT by date modified..
-        '== FROM the Net-  I’ve been forced in to using vb.net for a windows service project which scans a folder of xml 
+        '== FROM the Net-  Iï¿½ve been forced in to using vb.net for a windows service project which scans a folder of xml 
         '== files, they need to be processed in order of the files modified date & time.  Directory.GetFiles() 
         '== returns an array of filenames in alphabetic order, I could find precious little information on the 
-        '== net so I thought I’d share what I came up with :-
+        '== net so I thought Iï¿½d share what I came up with :-
         '==  http://geekswithblogs.net/ntsmith/archive/2006/08/17/88250.aspx
         Array.Sort(aFiles, New clsCompareFileInfo)
 
@@ -6954,7 +6983,7 @@ loadMaintError:
             '            End If '-select-
             '        Else  '-- no ESC request..  GO ahead with the ONLY DB-
             '            msSqlDbName = colUserJobsDBs(1)("dbname")
-            '        End If  '-- ÉSC-
+            '        End If  '-- ï¿½SC-
             '    Else  '-- not admin..  GO ahead with the ONLY DB-
             '        msSqlDbName = colUserJobsDBs(1)("dbname")
             '    End If '--admin
@@ -8177,7 +8206,7 @@ loadMaintError:
             End If
             '--don't show added underscores in ShortName....-
             LabBusiness.Text = Replace(msBusinessShortName, "_", " ") & " " & msBusinessState & " " & msBusinessPostCode
-            LabBusiness.Text &= "; DB: " & msSqlDbName & "  Copyright © Aztrinity 2014-2019.."
+            LabBusiness.Text &= "; DB: " & msSqlDbName & "  Copyright ï¿½ Aztrinity 2014-2019.."
 
             If Not mbLicenceOK Then
                 mIntMaxUsersPermitted = 1

@@ -13,6 +13,7 @@ Imports System.Security.AccessControl
 Imports System.Diagnostics
 Imports System.Security
 Imports System.Threading
+Imports JMxRetailHost620
 
 Module modBackupMain
 
@@ -70,7 +71,7 @@ Module modBackupMain
     Private mbIsTesting As Boolean = False   '-- allows the console.readline cmds to work.
 
     Private msServer As String = ""
-    Private mCnnSql As OleDbConnection
+    Private mCnnSql As IDbConnection  ' Changed from OleDbConnection to support both SQL Server and PostgreSQL
     Private mbIsSqlAdmin As Boolean = False
     Private msSqlDbName As String = ""
     Private mColSqlDBInfo As Collection
@@ -288,23 +289,45 @@ Module modBackupMain
         Dim sConnect, sMsg As String
 
         mbSqlConnect = False
-        sConnect = "Provider=SQLOLEDB; Server=" & msServer & _
-                   "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
-        showMsg("Wait- Connecting to Sql Server: [" & msServer & "]..")
-        If gbConnectSql(mCnnSql, sConnect) Then
-            '= Call mWaitFormOff()
-            '==bConnected = True '== bLoggedOn = True
-            msSqlConnectString = sConnect
-            mbSqlConnect = True
+        
+        ' Load database configuration
+        DatabaseConfig.LoadConfiguration()
+        
+        If DatabaseConfig.UseSqlServer Then
+            ' Use SQL Server (original behavior)
+            sConnect = "Provider=SQLOLEDB; Server=" & msServer & _
+                       "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
+            showMsg("Wait- Connecting to SQL Server: [" & msServer & "]..")
         Else
-            sMsg = "Login to Sql-Server: ['" & msServer & "'] has failed." & vbCrLf & _
-                  "Error text:" & vbCrLf & gsGetLastSqlErrorMessage() & vbCrLf & vbCrLf & _
-             "Check that your Windows Logon has been added to SQL-Server logins.."
+            ' Use PostgreSQL
+            sConnect = DatabaseConfig.GetMainConnectionString()
+            showMsg("Wait- Connecting to PostgreSQL: [" & DatabaseConfig.PostgreSqlHost & "]..")
+        End If
+        
+        ' Use abstraction layer for connection
+        mCnnSql = modDatabaseAbstraction.GetDatabaseConnection(sConnect, DatabaseConfig.UseSqlServer)
+        
+        If Not mCnnSql Is Nothing Then
+            Try
+                mCnnSql.Open()
+                msSqlConnectString = sConnect
+                mbSqlConnect = True
+            Catch ex As Exception
+                Dim dbType As String = If(DatabaseConfig.UseSqlServer, "SQL Server", "PostgreSQL")
+                sMsg = "Login to " & dbType & ": ['" & msServer & "'] has failed." & vbCrLf & _
+                      "Error text:" & vbCrLf & ex.Message & vbCrLf & vbCrLf & _
+                      "Check your database connection settings."
 
-            Call gbLogMsg(gsRuntimeLogPath, "=== ERROR in SQL Connect in JobMatix DbBackup- [Sub] Main Function.." & _
-                          vbCrLf & vbCrLf & sMsg)
-            showMsg("=== ERROR in SQL Connect in JobMatix DbBackup- [Sub] Main Function.." & _
-                          vbCrLf & vbCrLf & sMsg, True, True)
+                Call gbLogMsg(gsRuntimeLogPath, "=== ERROR in Database Connect in JobMatix DbBackup [Sub] Main Function.." & _
+                              vbCrLf & vbCrLf & sMsg)
+                showMsg("=== ERROR in Database Connect in JobMatix DbBackup [Sub] Main Function.." & _
+                              vbCrLf & vbCrLf & sMsg, True, True)
+                Exit Function
+            End Try
+        Else
+            sMsg = "Failed to create database connection object."
+            Call gbLogMsg(gsRuntimeLogPath, "=== ERROR: " & sMsg)
+            showMsg("=== ERROR: " & sMsg, True, True)
             Exit Function
         End If '--connected-
     End Function '--mbSqlConnect-

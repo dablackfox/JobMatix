@@ -113,11 +113,16 @@
     <Compile Include="modAllFileAndSqlSubs.vb" />
     <Compile Include="modBackupRestore35.vb" />
     <Compile Include="modCreateJobs3.vb" />
+    <Compile Include="modDatabaseAbstraction.vb" />
+    <Compile Include="modPostgreSqlSupport.vb" />
     <Compile Include="modJetLogin.vb" />
     <Compile Include="modRetailHostIF.vb" />
     <Compile Include="registry2.vb" />
     <Compile Include="RetaiHost_Class1.vb" />
     <Compile Include="AssemblyInfo.vb" />
+    <Compile Include="..\DatabaseConfig.vb">
+      <Link>DatabaseConfig.vb</Link>
+    </Compile>
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
       <DependentUpon>Application.myapp</DependentUpon>

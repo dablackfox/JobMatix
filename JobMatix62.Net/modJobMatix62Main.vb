@@ -7,6 +7,7 @@ Imports System.ComponentModel
 Imports System
 Imports System.Data
 Imports System.Data.OleDb
+Imports JMxRetailHost620
 
 Module modJobMatix62Main
 
@@ -91,7 +92,7 @@ Module modJobMatix62Main
 
     Private msServer As String = ""
     Private msSqlConnectString As String = ""
-    Private mCnnSql As OleDbConnection
+    Private mCnnSql As IDbConnection  ' Changed from OleDbConnection to support both SQL Server and PostgreSQL
     Private mbIsSqlAdmin As Boolean = False
     Private msSqlDbName As String = ""
     Private mColSqlDBInfo As Collection
@@ -204,27 +205,52 @@ Module modJobMatix62Main
         Dim sConnect, sMsg As String
 
         mbSqlConnect = False
-        sConnect = "Provider=SQLOLEDB; Server=" & msServer &
-                   "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
-        msSqlConnectString = sConnect
+        
+        ' Load database configuration
+        DatabaseConfig.LoadConfiguration()
+        
+        If DatabaseConfig.UseSqlServer Then
+            ' Use SQL Server (original behavior)
+            sConnect = "Provider=SQLOLEDB; Server=" & msServer &
+                       "; Trusted_Connection=true; Integrated Security=SSPI; ConnectionTimeout=10; "
+            msSqlConnectString = sConnect
+            Call mWaitFormOn("Connecting to SQL Server: " & vbCrLf & msServer & "..")
+        Else
+            ' Use PostgreSQL
+            sConnect = DatabaseConfig.GetMainConnectionString()
+            msSqlConnectString = sConnect
+            Call mWaitFormOn("Connecting to PostgreSQL: " & vbCrLf & DatabaseConfig.PostgreSqlHost & "..")
+        End If
+        
+        ' Use abstraction layer for connection
+        mCnnSql = modDatabaseAbstraction.GetDatabaseConnection(sConnect, DatabaseConfig.UseSqlServer)
+        
+        If Not mCnnSql Is Nothing Then
+            Try
+                mCnnSql.Open()
+                Call mWaitFormOff()
+                mbSqlConnect = True
+            Catch ex As Exception
+                System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default
+                Call mWaitFormOff()
+                
+                Dim dbType As String = If(DatabaseConfig.UseSqlServer, "SQL Server", "PostgreSQL")
+                sMsg = "Login to " & dbType & " has failed." & vbCrLf &
+                      "Error text:" & vbCrLf & ex.Message & vbCrLf & vbCrLf &
+                      "Check your database connection settings."
 
-        Call mWaitFormOn("Connecting to Sql Server: " & vbCrLf & msServer & "..")
-        If gbConnectSql(mCnnSql, sConnect) Then
-            Call mWaitFormOff()
-            '==bConnected = True '== bLoggedOn = True
-            mbSqlConnect = True
+                Call gbLogMsg(gsRuntimeLogPath, "=== ERROR in Database Connect in JobMatix [Sub] Main Function.." &
+                              vbCrLf & vbCrLf & sMsg)
+
+                MsgBox(sMsg, MsgBoxStyle.Exclamation)
+                Exit Function
+            End Try
         Else
             System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default
             Call mWaitFormOff()
-            sMsg = "Login to Sql-Server '" & msServer & "' has failed." & vbCrLf &
-                  "Error text:" & vbCrLf & gsGetLastSqlErrorMessage() & vbCrLf & vbCrLf &
-             "Check that your Windows Logon has been added to SQL-Server logins.."
-
-            Call gbLogMsg(gsRuntimeLogPath, "=== ERROR in SQL Connect in JobMatix [Sub] Main Function.." &
-                          vbCrLf & vbCrLf & sMsg)
-
+            sMsg = "Failed to create database connection object."
+            Call gbLogMsg(gsRuntimeLogPath, "=== ERROR: " & sMsg)
             MsgBox(sMsg, MsgBoxStyle.Exclamation)
-            '== Me.Close()
             Exit Function
         End If '--connected-
     End Function '--mbSqlConnect-
@@ -804,7 +830,7 @@ Module modJobMatix62Main
                             End If '-select-
                         Else  '-- no ESC request..  GO ahead with the ONLY DB-
                             msSqlDbName = colUserJobsDBs(1)("dbname")
-                        End If  '-- ÉSC-
+                        End If  '-- ï¿½SC-
                     Else  '-- not admin..  GO ahead with the ONLY DB-
                         msSqlDbName = colUserJobsDBs(1)("dbname")
                     End If '--admin
