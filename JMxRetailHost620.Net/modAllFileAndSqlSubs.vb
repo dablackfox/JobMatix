@@ -10,6 +10,7 @@ Imports System.Security.AccessControl
 Imports System.Text
 '= Imports System.Data.sqlclient
 Imports System.Data.OleDb
+Imports Npgsql
 '== Imports VB = Microsoft.VisualBasic.Compatibility.VB6
 Imports System.Drawing.Printing
 Imports System.Collections.Generic
