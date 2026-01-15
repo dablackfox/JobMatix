@@ -110,6 +110,9 @@
       <Name>System.Windows.Forms</Name>
     </Reference>
     <Reference Include="System.XML" />
+    <Reference Include="Npgsql">
+      <HintPath>..\packages\Npgsql.3.2.7\lib\net35\Npgsql.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Import Include="JMxJT350" />

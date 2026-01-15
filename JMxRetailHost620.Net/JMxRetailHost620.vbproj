@@ -44,6 +44,9 @@
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Npgsql">
+      <HintPath>..\packages\Npgsql.3.2.7\lib\net35\Npgsql.dll</HintPath>
+    </Reference>
     <Reference Include="Interop.DAO">
       <HintPath>..\JMxJT420.NET\bin\Interop.DAO.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
