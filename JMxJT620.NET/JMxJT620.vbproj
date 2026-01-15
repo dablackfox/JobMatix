@@ -391,7 +391,7 @@
       <DependentUpon>frmBrowse33.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmCustHistory3.resX">
+    <EmbeddedResource Include="frmCustHistory3.resx">
       <DependentUpon>frmCustHistory3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -399,7 +399,7 @@
       <DependentUpon>frmDirSearch.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="FrmFindPart.resX">
+    <EmbeddedResource Include="FrmFindPart.resx">
       <DependentUpon>FrmFindPart.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -415,11 +415,11 @@
       <DependentUpon>frmJobMatix42Main.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmListEdit.resX">
+    <EmbeddedResource Include="frmListEdit.resx">
       <DependentUpon>frmListEdit.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmLogin.resX">
+    <EmbeddedResource Include="frmLogin.resx">
       <DependentUpon>frmLogin.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -427,7 +427,7 @@
       <SubType>Designer</SubType>
       <DependentUpon>frmMigration.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmModelEdit3.resX">
+    <EmbeddedResource Include="frmModelEdit3.resx">
       <DependentUpon>frmModelEdit3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -435,27 +435,27 @@
       <DependentUpon>frmNewJob32.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmNewPart3.resX">
+    <EmbeddedResource Include="frmNewPart3.resx">
       <DependentUpon>frmNewPart3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmNotifyCust22.resX">
+    <EmbeddedResource Include="frmNotifyCust22.resx">
       <DependentUpon>frmNotifyCust22.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmPrtSelect3.resX">
+    <EmbeddedResource Include="frmPrtSelect3.resx">
       <DependentUpon>frmPrtSelect3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmQuoteJobs3.resX">
+    <EmbeddedResource Include="frmQuoteJobs3.resx">
       <DependentUpon>frmQuoteJobs3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmSetupJobsDB3.resX">
+    <EmbeddedResource Include="frmSetupJobsDB3.resx">
       <DependentUpon>frmSetupJobsDB3.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmSMSUpdate.resX">
+    <EmbeddedResource Include="frmSMSUpdate.resx">
       <DependentUpon>frmSMSUpdate.vb</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>

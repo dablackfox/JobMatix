@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+        x:Class="JMxPOS_Avalonia.MainWindow"
+        Title="JobMatix POS - Avalonia Demo"
+        Width="1200" Height="700">
+    
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="E_xit" Click="OnExit"/>
+            </MenuItem>
+            <MenuItem Header="_Database">
+                <MenuItem Header="Test _Connection" Click="OnTestConnection"/>
+                <MenuItem Header="View _Stock" Click="OnViewStock"/>
+                <MenuItem Header="View _Customers" Click="OnViewCustomers"/>
+            </MenuItem>
+            <MenuItem Header="_Sales">
+                <MenuItem Header="_New Sale" Click="OnNewSale"/>
+                <MenuItem Header="_Today's Sales" Click="OnTodaysSales"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Click="OnAbout"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Main Content Area -->
+        <TabControl Grid.Row="1" Margin="5">
+            <!-- Dashboard Tab -->
+            <TabItem Header="Dashboard">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+                        <Button Content="Test Connection" Click="OnTestConnection" Margin="5" Padding="10"/>
+                        <Button Content="View Stock" Click="OnViewStock" Margin="5" Padding="10"/>
+                        <Button Content="View Customers" Click="OnViewCustomers" Margin="5" Padding="10"/>
+                        <Button Content="Clear Output" Click="OnClearOutput" Margin="5" Padding="10"/>
+                    </StackPanel>
+                    
+                    <TextBox Grid.Row="1" 
+                             Name="OutputTextBox"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             FontFamily="Courier New"
+                             FontSize="12"
+                             Margin="10"
+                             Text="JobMatix POS - Avalonia Demo&#10;Ready to test PostgreSQL connection...&#10;&#10;Click 'Test Connection' to begin."/>
+                </Grid>
+            </TabItem>
+
+            <!-- Stock Tab -->
+            <TabItem Header="Stock">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+                        <TextBox Name="SearchBox" Watermark="Search stock..." Width="300" Margin="5"/>
+                        <Button Content="Search" Click="OnSearchStock" Margin="5" Padding="10"/>
+                        <Button Content="Refresh" Click="OnViewStock" Margin="5" Padding="10"/>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1" 
+                              Name="StockDataGrid"
+                              Margin="10"
+                              IsReadOnly="True"
+                              GridLinesVisibility="All"
+                              BorderBrush="Gray"
+                              BorderThickness="1"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Customers Tab -->
+            <TabItem Header="Customers">
+                <Grid RowDefinitions="Auto,*">
+                    <Button Grid.Row="0" Content="Refresh Customers" Click="OnViewCustomers" Margin="10" Padding="10" HorizontalAlignment="Left"/>
+                    <DataGrid Grid.Row="1" 
+                              Name="CustomerDataGrid"
+                              Margin="10"
+                              IsReadOnly="True"
+                              GridLinesVisibility="All"
+                              BorderBrush="Gray"
+                              BorderThickness="1"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="Gray" BorderThickness="0,1,0,0">
+            <TextBlock Name="StatusText" 
+                       Text="Ready" 
+                       Margin="10,5"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Window>
