@@ -227,7 +227,7 @@ namespace JMxPOS8.Services
                             sellprice = @sellprice,
                             inactive = @inactive,
                             requiresserial = @requiresserial,
-                            reorderlevel = @reorderlevel,
+                            minstocklevel = @minstocklevel,
                             reorderquantity = @reorderquantity,
                             notes = @notes
                         WHERE stock_id = @stock_id";
@@ -283,7 +283,7 @@ namespace JMxPOS8.Services
                 ["@sellprice"] = stock.SellPrice,
                 ["@inactive"] = stock.Inactive,
                 ["@requiresserial"] = stock.RequiresSerial,
-                ["@reorderlevel"] = stock.ReorderLevel,
+                ["@minstocklevel"] = stock.ReorderLevel,
                 ["@reorderquantity"] = stock.ReorderQuantity,
                 ["@supplier"] = stock.Supplier,
                 ["@location"] = stock.Location,

@@ -19,6 +19,15 @@ public partial class StockViewModel : ViewModelBase
     [ObservableProperty]
     private StockItem? _selectedStock;
 
+    partial void OnSelectedStockChanged(StockItem? value)
+    {
+        if (value != null && !IsEditing)
+        {
+            LoadStockToForm(value);
+            StatusMessage = $"Viewing: {value.Description}";
+        }
+    }
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 

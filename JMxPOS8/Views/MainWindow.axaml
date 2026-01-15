@@ -155,21 +155,40 @@
                             </Grid>
 
                             <!-- Items List -->
-                            <DataGrid Grid.Row="1" Name="dgSaleItems" 
-                                     ItemsSource="{Binding SaleViewModel.SaleItems}"
-                                     AutoGenerateColumns="False"
-                                     IsReadOnly="True"
-                                     GridLinesVisibility="All"
-                                     BorderThickness="0">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Binding="{Binding LineNumber}" Width="50"/>
-                                    <DataGridTextColumn Header="Barcode" Binding="{Binding Barcode}" Width="120"/>
-                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="80"/>
-                                    <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice}" Width="100"/>
-                                    <DataGridTextColumn Header="Extension" Binding="{Binding Extension}" Width="100"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1">
+                                <ListBox Name="dgSaleItems" 
+                                        ItemsSource="{Binding SaleViewModel.SaleItems}"
+                                        SelectedItem="{Binding SaleViewModel.SelectedSaleItem}"
+                                        SelectionMode="Single">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="100"/>
+                                                        <ColumnDefinition Width="100"/>
+                                                        <ColumnDefinition Width="60"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding LineNumber}" Margin="5,0"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Barcode}" Margin="5,0"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Description}" Margin="5,0"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Quantity}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding UnitPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <TextBlock Grid.Column="5" Text="{Binding Extension, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <Button Grid.Column="6" Content="Remove" 
+                                                           Command="{Binding $parent[Window].DataContext.SaleViewModel.RemoveItemCommand}" 
+                                                           CommandParameter="{Binding}"
+                                                           Width="55" Height="25" Margin="5,0"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
 
                             <!-- Totals -->
                             <Grid Grid.Row="2" Margin="5">
@@ -259,8 +278,6 @@
                         <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding StockViewModel.DeleteStockCommand}"/>
                         <Button Content="Adjust Qty" Width="90" Margin="5,0" Command="{Binding StockViewModel.AdjustQuantityCommand}"/>
                         <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding StockViewModel.RefreshCommand}"/>
-                        <TextBlock Text="{Binding StockViewModel.StockItems.Count, StringFormat='Items: {0}'}" 
-                                   VerticalAlignment="Center" Margin="10,0" FontWeight="Bold" Foreground="Blue"/>
                     </StackPanel>
 
                     <!-- Stock List -->
@@ -293,8 +310,7 @@
                     </Border>
 
                     <!-- Stock Detail Form -->
-                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10"
-                            IsVisible="{Binding StockViewModel.IsEditing}">
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10">
                         <ScrollViewer>
                             <StackPanel Spacing="5">
                                 <TextBlock Text="Stock Item Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
@@ -314,19 +330,28 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Barcode:*" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Barcode}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Barcode}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Stock Code:*" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.StockCode}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.StockCode}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Description:*" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.Description}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.Description}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Category:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Category}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Category}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Inactive:" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.Inactive}" Margin="0,2"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.Inactive}" 
+                                              IsEnabled="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Pricing -->
@@ -343,10 +368,14 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Cost Price:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.CostPrice}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.CostPrice}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Sell Price:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.SellPrice}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.SellPrice}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Inventory -->
@@ -366,19 +395,28 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Quantity:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.QuantityInStock}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.QuantityInStock}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Reorder Level:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.ReorderLevel}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.ReorderLevel}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Reorder Qty:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.ReorderQuantity}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.ReorderQuantity}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Location:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Location}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Location}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Requires Serial:" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.RequiresSerial}" Margin="0,2"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.RequiresSerial}" 
+                                              IsEnabled="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Supplier -->
@@ -394,17 +432,21 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Supplier:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Supplier}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Supplier}" 
+                                             IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Notes -->
                                 <Separator Margin="0,10"/>
                                 <TextBlock Text="Notes" FontWeight="Bold"/>
                                 <TextBox Text="{Binding StockViewModel.Notes}" AcceptsReturn="True" Height="80" 
-                                         TextWrapping="Wrap" Margin="0,2"/>
+                                         TextWrapping="Wrap" IsReadOnly="{Binding !StockViewModel.IsEditing}" 
+                                         IsHitTestVisible="{Binding StockViewModel.IsEditing}" Margin="0,2"/>
 
                                 <!-- Action Buttons -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0"
+                                            IsVisible="{Binding StockViewModel.IsEditing}">
                                     <Button Content="Save" Width="100" Margin="0,0,10,0" 
                                             Command="{Binding StockViewModel.SaveStockCommand}"
                                             Background="Green" Foreground="White"/>
@@ -477,8 +519,7 @@
                     </Border>
 
                     <!-- Customer Detail Form -->
-                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10"
-                            IsVisible="{Binding CustomerViewModel.IsEditing}">
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10">
                         <ScrollViewer>
                             <StackPanel Spacing="5">
                                 <TextBlock Text="Customer Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
@@ -498,19 +539,28 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Barcode:*" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Barcode}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Barcode}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer Name:*" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.CustomerName}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.CustomerName}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Company Name:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.CompanyName}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.CompanyName}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Grade:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Grade}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Grade}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Inactive:" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding CustomerViewModel.Inactive}" Margin="0,2"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding CustomerViewModel.Inactive}" 
+                                              IsEnabled="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Contact Info -->
@@ -527,10 +577,14 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Contact Name:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.ContactName}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.ContactName}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Position:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.ContactPosition}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.ContactPosition}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Address -->
@@ -551,19 +605,29 @@
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Address:" VerticalAlignment="Center"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Address}" 
-                                             AcceptsReturn="True" Height="60" Margin="0,2"/>
+                                             AcceptsReturn="True" Height="60" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Suburb:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Suburb}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Suburb}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="State:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.State}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.State}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Postcode:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Postcode}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Postcode}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Country:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.Country}" Margin="0,2"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.Country}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Phone Numbers -->
@@ -582,16 +646,24 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Business:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.BusinessPhone}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.BusinessPhone}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Home:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.HomePhone}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.HomePhone}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Mobile:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.Mobile}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.Mobile}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Fax:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Fax}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Fax}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Email & Web -->
@@ -608,10 +680,14 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Email:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.EmailAddress}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.EmailAddress}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Website:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Website}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Website}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Tax & Account -->
@@ -631,29 +707,41 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="ABN:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Abn}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Abn}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Tax Code:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.TaxCode}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.TaxCode}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Is Account:" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding CustomerViewModel.IsAccount}" Margin="0,2"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding CustomerViewModel.IsAccount}" 
+                                              IsEnabled="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Account Balance:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.AccountBalance}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.AccountBalance}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Credit Limit:" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.CreditLimit}" Margin="0,2"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.CreditLimit}" 
+                                             IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                             IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
                                 </Grid>
 
                                 <!-- Notes -->
                                 <Separator Margin="0,10"/>
                                 <TextBlock Text="Notes" FontWeight="Bold"/>
                                 <TextBox Text="{Binding CustomerViewModel.Notes}" AcceptsReturn="True" Height="80" 
-                                         TextWrapping="Wrap" Margin="0,2"/>
+                                         TextWrapping="Wrap" 
+                                         IsReadOnly="{Binding !CustomerViewModel.IsEditing}" 
+                                         IsHitTestVisible="{Binding CustomerViewModel.IsEditing}" Margin="0,2"/>
 
                                 <!-- Action Buttons -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0"
+                                            IsVisible="{Binding CustomerViewModel.IsEditing}">
                                     <Button Content="Save" Width="100" Margin="0,0,10,0" 
                                             Command="{Binding CustomerViewModel.SaveCustomerCommand}"
                                             Background="Green" Foreground="White"/>

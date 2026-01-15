@@ -19,6 +19,15 @@ public partial class CustomerViewModel : ViewModelBase
     [ObservableProperty]
     private Customer? _selectedCustomer;
 
+    partial void OnSelectedCustomerChanged(Customer? value)
+    {
+        if (value != null && !IsEditing)
+        {
+            LoadCustomerToForm(value);
+            StatusMessage = $"Viewing: {value.CustomerName}";
+        }
+    }
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 

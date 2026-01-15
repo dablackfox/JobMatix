@@ -129,6 +129,11 @@ namespace JMxPOS8.Services
             }
         }
 
+        public void RemoveItem(SaleLineItem item)
+        {
+            SaleItems.Remove(item);
+        }
+
         public void AddPayment(string paymentType, decimal amount, string reference = "")
         {
             Payments.Add(new Payment
@@ -219,15 +224,16 @@ namespace JMxPOS8.Services
                     {
                         // 1. Insert invoice
                         int invoiceId;
+                        string invoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{DateTime.Now:HHmmss}";
                         using (var cmd = conn.CreateCommand())
                         {
                             cmd.Transaction = transaction;
                             cmd.CommandText = @"
                                 INSERT INTO invoice (
-                                    customer_id, staff_id, transactiontype, invoicedate,
+                                    customer_id, staff_id, transactiontype, invoicedate, invoicenumber,
                                     subtotal, taxamount, total_inc, notes
                                 ) VALUES (
-                                    @customerId, @staffId, @transType, @transDate,
+                                    @customerId, @staffId, @transType, @transDate, @invoiceNumber,
                                     @subtotalEx, @taxAmount, @totalInc, @notes
                                 ) RETURNING invoice_id";
 
@@ -235,13 +241,14 @@ namespace JMxPOS8.Services
                             AddParameter(cmd, "@staffId", CurrentStaff!.StaffId);
                             AddParameter(cmd, "@transType", "SALE");
                             AddParameter(cmd, "@transDate", DateTime.Now);
+                            AddParameter(cmd, "@invoiceNumber", invoiceNumber);
                             AddParameter(cmd, "@subtotalEx", SubtotalEx);
                             AddParameter(cmd, "@taxAmount", TaxAmount);
                             AddParameter(cmd, "@totalInc", TotalInc);
                             AddParameter(cmd, "@notes", string.Empty);
 
                             Console.WriteLine($"[SQL INVOICE] {cmd.CommandText}");
-                            Console.WriteLine($"[PARAMS] customer={CurrentCustomer?.CustomerId ?? 1}, staff={CurrentStaff!.StaffId}, subtotal={SubtotalEx}, tax={TaxAmount}, total={TotalInc}");
+                            Console.WriteLine($"[PARAMS] invoiceNumber={invoiceNumber}, customer={CurrentCustomer?.CustomerId ?? 1}, staff={CurrentStaff!.StaffId}, subtotal={SubtotalEx}, tax={TaxAmount}, total={TotalInc}");
 
                             invoiceId = Convert.ToInt32(cmd.ExecuteScalar());
                             Console.WriteLine($"[INVOICE CREATED] invoice_id={invoiceId}");
@@ -303,21 +310,21 @@ namespace JMxPOS8.Services
                                 cmd.Transaction = transaction;
                                 cmd.CommandText = @"
                                     INSERT INTO payments (
-                                        invoice_id, customer_id, staff_id, payment_date,
-                                        payment_type, amount, reference, cashdrawer_id
+                                        invoice_id, customer_id, staff_id, paymentdate,
+                                        paymentmethod, amount, paymentreference, transactiontype
                                     ) VALUES (
                                         @invoiceId, @customerId, @staffId, @paymentDate,
-                                        @paymentType, @amount, @reference, @cashDrawerId
+                                        @paymentMethod, @amount, @reference, @transactionType
                                     )";
 
                                 AddParameter(cmd, "@invoiceId", invoiceId);
                                 AddParameter(cmd, "@customerId", CurrentCustomer?.CustomerId ?? 1);
                                 AddParameter(cmd, "@staffId", CurrentStaff!.StaffId);
                                 AddParameter(cmd, "@paymentDate", payment.PaymentDate);
-                                AddParameter(cmd, "@paymentType", payment.PaymentType);
+                                AddParameter(cmd, "@paymentMethod", payment.PaymentType);
                                 AddParameter(cmd, "@amount", payment.Amount);
                                 AddParameter(cmd, "@reference", payment.Reference);
-                                AddParameter(cmd, "@cashDrawerId", CashDrawerId);
+                                AddParameter(cmd, "@transactionType", "SALE");
 
                                 cmd.ExecuteNonQuery();
                             }

@@ -43,7 +43,18 @@ namespace JMxPOS8.ViewModels
         private Customer? _currentCustomer;
 
         [ObservableProperty]
+        private SaleLineItem? _selectedSaleItem;
+
+        [ObservableProperty]
         private string _transactionType = "Sale";
+
+        public string StaffDisplay => CurrentStaff != null 
+            ? $"{CurrentStaff.DocketName} (ID: {CurrentStaff.StaffId})" 
+            : "";
+
+        public string CustomerDisplay => CurrentCustomer != null 
+            ? $"{CurrentCustomer.CustomerName} (ID: {CurrentCustomer.CustomerId})" 
+            : "Walk-in Customer";
 
         [ObservableProperty]
         private decimal _discountAmount = 0;
@@ -78,36 +89,54 @@ namespace JMxPOS8.ViewModels
         public decimal TotalPaid => _saleService.TotalPaid;
         public decimal Change => _saleService.Change;
 
+        partial void OnCurrentStaffChanged(Staff? value)
+        {
+            OnPropertyChanged(nameof(CustomerInfo));
+            OnPropertyChanged(nameof(StaffDisplay));
+        }
+
+        partial void OnCurrentCustomerChanged(Customer? value)
+        {
+            OnPropertyChanged(nameof(CustomerInfo));
+            OnPropertyChanged(nameof(CustomerDisplay));
+        }
+
         [RelayCommand]
         private async Task ProcessStaffNumber()
         {
             if (string.IsNullOrWhiteSpace(StaffNumber))
                 return;
 
+            Console.WriteLine($"[SALE] Processing staff number: {StaffNumber}");
             try
             {
                 if (int.TryParse(StaffNumber.Trim(), out int staffId))
                 {
+                    Console.WriteLine($"[SALE] Looking up staff ID: {staffId}");
                     var staff = await _staffService.GetStaffByIdAsync(staffId);
                     if (staff != null)
                     {
                         CurrentStaff = staff;
                         _saleService.SetStaff(staff);
                         StatusMessage = $"Staff: {staff.DocketName}";
+                        Console.WriteLine($"[SALE] ✅ Staff authenticated: {staff.DocketName} (ID: {staff.StaffId})");
                     }
                     else
                     {
                         StatusMessage = "Staff not found!";
+                        Console.WriteLine($"[SALE] ❌ Staff not found for ID: {staffId}");
                     }
                 }
                 else
                 {
                     StatusMessage = "Staff number must be numeric";
+                    Console.WriteLine($"[SALE] ❌ Invalid staff number format: {StaffNumber}");
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                Console.WriteLine($"[SALE] ❌ ERROR in ProcessStaffNumber: {ex.Message}");
             }
         }
 
@@ -117,6 +146,7 @@ namespace JMxPOS8.ViewModels
             if (string.IsNullOrWhiteSpace(CustomerBarcode))
                 return;
 
+            Console.WriteLine($"[SALE] Processing customer barcode: {CustomerBarcode}");
             try
             {
                 var customer = await _customerService.FindCustomerByBarcodeAsync(CustomerBarcode.Trim());
@@ -126,17 +156,21 @@ namespace JMxPOS8.ViewModels
                     _saleService.SetCustomer(customer);
                     OnPropertyChanged(nameof(CustomerInfo));
                     StatusMessage = $"Customer: {customer.CustomerName}";
+                    Console.WriteLine($"[SALE] ✅ Customer found: {customer.CustomerName} (ID: {customer.CustomerId}, Barcode: {customer.Barcode})");
+                    Console.WriteLine($"[SALE]    Account: {customer.IsAccount}, Balance: ${customer.AccountBalance:F2}, Credit Limit: ${customer.CreditLimit:F2}");
                 }
                 else
                 {
                     StatusMessage = "Customer not found!";
                     CurrentCustomer = null;
                     _saleService.SetCustomer(null!);
+                    Console.WriteLine($"[SALE] ❌ Customer not found for barcode: {CustomerBarcode}");
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                Console.WriteLine($"[SALE] ❌ ERROR in ProcessCustomerBarcode: {ex.Message}");
             }
         }
 
@@ -146,6 +180,7 @@ namespace JMxPOS8.ViewModels
             if (string.IsNullOrWhiteSpace(ItemBarcode))
                 return;
 
+            Console.WriteLine($"[SALE] Processing item barcode: {ItemBarcode}");
             try
             {
                 var stock = await _stockService.FindStockByBarcodeAsync(ItemBarcode.Trim());
@@ -155,6 +190,8 @@ namespace JMxPOS8.ViewModels
                     ItemPrice = stock.SellPrice;
                     ItemExtension = ItemQuantity * ItemPrice;
                     StatusMessage = $"Item found: {stock.Description}";
+                    Console.WriteLine($"[SALE] ✅ Item found: {stock.Description} (Stock ID: {stock.StockId}, Barcode: {stock.Barcode})");
+                    Console.WriteLine($"[SALE]    Price: ${stock.SellPrice:F2}, Qty in Stock: {stock.QuantityInStock}, Requires Serial: {stock.RequiresSerial}");
                     
                     // Auto-add the item
                     await AddItem();
@@ -162,11 +199,13 @@ namespace JMxPOS8.ViewModels
                 else
                 {
                     StatusMessage = "Item not found!";
+                    Console.WriteLine($"[SALE] ❌ Item not found for barcode: {ItemBarcode}");
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                Console.WriteLine($"[SALE] ❌ ERROR in ProcessItemBarcode: {ex.Message}");
             }
         }
 
@@ -179,23 +218,28 @@ namespace JMxPOS8.ViewModels
                 return;
             }
 
+            Console.WriteLine($"[SALE] Adding item to sale: Barcode={ItemBarcode}, Qty={ItemQuantity}, Price=${ItemPrice:F2}");
             try
             {
                 bool added = await _saleService.AddItemByBarcodeAsync(ItemBarcode.Trim(), ItemQuantity);
                 if (added)
                 {
                     StatusMessage = $"Added: {ItemDescription}";
+                    Console.WriteLine($"[SALE] ✅ Item added to sale: {ItemDescription} x{ItemQuantity} = ${ItemExtension:F2}");
+                    Console.WriteLine($"[SALE]    Sale now has {SaleItems.Count} items, Total: ${TotalInc:F2}");
                     ClearItemEntry();
                     UpdateTotals();
                 }
                 else
                 {
                     StatusMessage = "Failed to add item";
+                    Console.WriteLine($"[SALE] ❌ Failed to add item: {ItemBarcode}");
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                Console.WriteLine($"[SALE] ❌ ERROR in AddItem: {ex.Message}");
             }
         }
 
@@ -205,6 +249,7 @@ namespace JMxPOS8.ViewModels
             TransactionType = type;
             _saleService.TransactionType = type;
             StatusMessage = $"Transaction type: {type}";
+            Console.WriteLine($"[SALE] Transaction type set to: {type}");
         }
 
         [RelayCommand]
@@ -213,12 +258,15 @@ namespace JMxPOS8.ViewModels
             if (AmountDue <= 0)
             {
                 StatusMessage = "No amount due";
+                Console.WriteLine($"[SALE] ⚠️ Cannot add cash payment - no amount due");
                 return;
             }
 
+            Console.WriteLine($"[SALE] Adding CASH payment: ${AmountDue:F2}");
             _saleService.AddPayment("CASH", AmountDue);
             UpdateTotals();
             StatusMessage = $"Cash payment added: ${AmountDue:F2}";
+            Console.WriteLine($"[SALE] ✅ Cash payment added. Total paid: ${TotalPaid:F2}, Change: ${Change:F2}");
         }
 
         [RelayCommand]
@@ -227,12 +275,15 @@ namespace JMxPOS8.ViewModels
             if (AmountDue <= 0)
             {
                 StatusMessage = "No amount due";
+                Console.WriteLine($"[SALE] ⚠️ Cannot add EFTPOS payment - no amount due");
                 return;
             }
 
+            Console.WriteLine($"[SALE] Adding EFTPOS payment: ${AmountDue:F2}");
             _saleService.AddPayment("EFTPOS", AmountDue);
             UpdateTotals();
             StatusMessage = $"EFTPOS payment added: ${AmountDue:F2}";
+            Console.WriteLine($"[SALE] ✅ EFTPOS payment added. Total paid: ${TotalPaid:F2}, Change: ${Change:F2}");
         }
 
         [RelayCommand]
@@ -241,12 +292,15 @@ namespace JMxPOS8.ViewModels
             if (AmountDue <= 0)
             {
                 StatusMessage = "No amount due";
+                Console.WriteLine($"[SALE] ⚠️ Cannot add credit card payment - no amount due");
                 return;
             }
 
+            Console.WriteLine($"[SALE] Adding CREDIT_CARD payment: ${AmountDue:F2}");
             _saleService.AddPayment("CREDIT_CARD", AmountDue);
             UpdateTotals();
             StatusMessage = $"Credit card payment added: ${AmountDue:F2}";
+            Console.WriteLine($"[SALE] ✅ Credit card payment added. Total paid: ${TotalPaid:F2}, Change: ${Change:F2}");
         }
 
         [RelayCommand]
@@ -255,9 +309,11 @@ namespace JMxPOS8.ViewModels
             if (CurrentCustomer == null || !CurrentCustomer.IsAccount)
             {
                 StatusMessage = "Customer must be an account customer";
+                Console.WriteLine($"[SALE] ⚠️ Cannot charge to account - customer is not an account customer");
                 return;
             }
 
+            Console.WriteLine($"[SALE] Charging ${AmountDue:F2} to account: {CurrentCustomer.CustomerName} (ID: {CurrentCustomer.CustomerId})");
             StatusMessage = "Sale will be charged to account";
         }
 
@@ -267,20 +323,43 @@ namespace JMxPOS8.ViewModels
             if (CurrentStaff == null)
             {
                 StatusMessage = "Please sign in staff first";
+                Console.WriteLine($"[SALE] ❌ Cannot commit - no staff signed in");
                 return;
             }
 
             if (SaleItems.Count == 0)
             {
                 StatusMessage = "No items in sale";
+                Console.WriteLine($"[SALE] ❌ Cannot commit - no items in sale");
                 return;
             }
 
+            Console.WriteLine($"\n[SALE] ═══════════════════════════════════════════════════════");
+            Console.WriteLine($"[SALE] 🛒 COMMITTING SALE");
+            Console.WriteLine($"[SALE] ═══════════════════════════════════════════════════════");
+            Console.WriteLine($"[SALE] Staff: {CurrentStaff.DocketName} (ID: {CurrentStaff.StaffId})");
+            Console.WriteLine($"[SALE] Customer: {(CurrentCustomer != null ? CurrentCustomer.CustomerName : "Walk-in")} (ID: {CurrentCustomer?.CustomerId ?? 0})");
+            Console.WriteLine($"[SALE] Transaction Type: {TransactionType}");
+            Console.WriteLine($"[SALE] Items: {SaleItems.Count}");
+            foreach (var item in SaleItems)
+            {
+                Console.WriteLine($"[SALE]   - {item.Description} x{item.Quantity} @ ${item.UnitPrice:F2} = ${item.Extension:F2}");
+            }
+            Console.WriteLine($"[SALE] Subtotal (ex): ${SubtotalEx:F2}");
+            Console.WriteLine($"[SALE] Tax: ${TaxAmount:F2}");
+            Console.WriteLine($"[SALE] Total (inc): ${TotalInc:F2}");
+            Console.WriteLine($"[SALE] Discount: ${DiscountAmount:F2}");
+            Console.WriteLine($"[SALE] Total Paid: ${TotalPaid:F2}");
+            Console.WriteLine($"[SALE] Change: ${Change:F2}");
+            
             try
             {
                 _saleService.DiscountAmount = DiscountAmount;
+                Console.WriteLine($"[SALE] Calling SaleService.CommitSaleAsync()...");
                 int invoiceId = await _saleService.CommitSaleAsync();
                 StatusMessage = $"Sale committed! Invoice #{invoiceId}";
+                Console.WriteLine($"[SALE] ✅ Sale committed successfully! Invoice ID: {invoiceId}");
+                Console.WriteLine($"[SALE] ═══════════════════════════════════════════════════════\n");
                 
                 // Clear the sale
                 await Task.Delay(1500); // Show message briefly
@@ -289,12 +368,36 @@ namespace JMxPOS8.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"Error committing sale: {ex.Message}";
+                Console.WriteLine($"[SALE] ❌ ERROR committing sale: {ex.Message}");
+                Console.WriteLine($"[SALE] Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"[SALE] ═══════════════════════════════════════════════════════\n");
+            }
+        }
+
+        [RelayCommand]
+        private void RemoveItem(SaleLineItem? item)
+        {
+            if (item != null)
+            {
+                Console.WriteLine($"[SALE] Removing item: {item.Description} (Line {item.LineNumber})");
+                _saleService.RemoveItem(item);
+                
+                // Renumber remaining items
+                for (int i = 0; i < SaleItems.Count; i++)
+                {
+                    SaleItems[i].LineNumber = i + 1;
+                }
+                
+                UpdateTotals();
+                StatusMessage = $"Removed: {item.Description}";
+                Console.WriteLine($"[SALE] ✅ Item removed. Sale now has {SaleItems.Count} items");
             }
         }
 
         [RelayCommand]
         private void ClearSale()
         {
+            Console.WriteLine($"[SALE] Clearing sale (had {SaleItems.Count} items)");
             _saleService.ClearSale();
             ClearItemEntry();
             CustomerBarcode = "";
@@ -302,6 +405,7 @@ namespace JMxPOS8.ViewModels
             DiscountAmount = 0;
             UpdateTotals();
             StatusMessage = "Sale cleared";
+            Console.WriteLine($"[SALE] ✅ Sale cleared and ready for next transaction\n");
         }
 
         private void ClearItemEntry()
