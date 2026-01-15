@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using System.Threading.Tasks;
 
 namespace JMxPOS8;
 
@@ -9,8 +10,27 @@ sealed class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        // Handle unhandled exceptions (especially DBus shutdown issues on Linux)
+        TaskScheduler.UnobservedTaskException += (sender, e) =>
+        {
+            if (e.Exception.InnerException is TaskCanceledException)
+            {
+                // Suppress TaskCanceledException during shutdown (known Avalonia/DBus issue on Linux)
+                e.SetObserved();
+            }
+        };
+
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (TaskCanceledException)
+        {
+            // Suppress TaskCanceledException during shutdown
+        }
+    }
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()

@@ -800,17 +800,50 @@
 
                     <!-- Report Data Grid -->
                     <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1">
-                        <DataGrid ItemsSource="{Binding ReportsViewModel.ReportData}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  GridLinesVisibility="All">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Column 1" Binding="{Binding Column1}" Width="*"/>
-                                <DataGridTextColumn Header="Column 2" Binding="{Binding Column2}" Width="2*"/>
-                                <DataGridTextColumn Header="Column 3" Binding="{Binding Column3}" Width="*"/>
-                                <DataGridTextColumn Header="Column 4" Binding="{Binding Column4}" Width="*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Header Row -->
+                            <Grid Grid.Row="0" Background="LightGray" Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Column 1" Margin="5" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="1" Text="Column 2" Margin="5" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="2" Text="Column 3" Margin="5" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="3" Text="Column 4" Margin="5" FontWeight="Bold"/>
+                            </Grid>
+                            
+                            <!-- Data ListBox -->
+                            <ListBox Grid.Row="1" 
+                                     ItemsSource="{Binding ReportsViewModel.ReportData}"
+                                     Background="White">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="2*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Column1}" Margin="5,0"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Column2}" Margin="5,0"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Column3}" Margin="5,0"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Column4}" Margin="5,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
                     </Border>
 
                     <!-- Summary Panel -->
@@ -858,6 +891,114 @@
                                    VerticalAlignment="Center" 
                                    Margin="20,0,0,0"
                                    Foreground="Green"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Transactions Tab -->
+            <TabItem Header="Transactions">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Search Filters -->
+                    <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Transaction Lookup" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                            
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="10"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="10"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Type Selection -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Type:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding TransactionLookupViewModel.LookupType}">
+                                    <ComboBoxItem Content="Invoice"/>
+                                    <ComboBoxItem Content="Payment"/>
+                                    <ComboBoxItem Content="Quote"/>
+                                </ComboBox>
+
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Period:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox Grid.Row="0" Grid.Column="4" SelectedItem="{Binding TransactionLookupViewModel.DatePeriod}" HorizontalAlignment="Left" Width="150">
+                                    <ComboBoxItem Content="Today"/>
+                                    <ComboBoxItem Content="ThisMonth"/>
+                                    <ComboBoxItem Content="12Months"/>
+                                    <ComboBoxItem Content="Any" IsSelected="True"/>
+                                    <ComboBoxItem Content="Custom"/>
+                                </ComboBox>
+
+                                <!-- Staff Filter -->
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding TransactionLookupViewModel.StaffBarcode}" Watermark="Staff barcode"/>
+
+                                <!-- Customer Filter -->
+                                <TextBlock Grid.Row="2" Grid.Column="3" Text="Customer:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding TransactionLookupViewModel.CustomerBarcode}" Watermark="Customer barcode"/>
+
+                                <!-- Item Filter -->
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Item:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding TransactionLookupViewModel.ItemBarcode}" Watermark="Item barcode"/>
+
+                                <!-- Buttons -->
+                                <StackPanel Grid.Row="4" Grid.Column="4" Orientation="Horizontal">
+                                    <Button Content="Search" Command="{Binding TransactionLookupViewModel.SearchCommand}" Width="80" Margin="0,0,10,0"/>
+                                    <Button Content="Clear" Command="{Binding TransactionLookupViewModel.ClearFiltersCommand}" Width="80"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Results List -->
+                    <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1">
+                        <ListBox ItemsSource="{Binding TransactionLookupViewModel.Transactions}"
+                                SelectedItem="{Binding TransactionLookupViewModel.SelectedTransaction}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="150"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding TransactionId}" Margin="5,0" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayDate}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding DisplayType}" Margin="5,0" Foreground="DarkBlue"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding InvoiceNumber}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding CustomerName}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding DisplayAmount}" Margin="5,0" HorizontalAlignment="Right" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding StaffName}" Margin="5,0"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- Action Buttons -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button Content="View/Print Invoice" Command="{Binding TransactionLookupViewModel.ViewTransactionCommand}" Width="150" Margin="0,0,10,0"/>
+                        <Button Content="Print Receipt" Command="{Binding TransactionLookupViewModel.PrintTransactionCommand}" Width="120" Margin="0,0,10,0"/>
+                        <TextBlock Text="{Binding TransactionLookupViewModel.StatusMessage}" VerticalAlignment="Center" Margin="20,0,0,0" FontStyle="Italic"/>
                     </StackPanel>
                 </Grid>
             </TabItem>

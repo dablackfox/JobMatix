@@ -49,7 +49,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
-        ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
+        TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
 
         LoadTestData();
     }
@@ -59,6 +59,8 @@ public partial class MainWindowViewModel : ViewModelBase
         : "Staff: Not signed in";
 
     public string TillInfo => $"Till: {CurrentTill}";
+
+    public TransactionLookupViewModel TransactionLookupViewModel { get; }
 
     public StockService StockService => _stockService;
     public CustomerService CustomerService => _customerService;
