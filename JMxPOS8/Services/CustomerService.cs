@@ -1,0 +1,319 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Threading.Tasks;
+using JMxPOS8.Models;
+
+namespace JMxPOS8.Services
+{
+    public class CustomerService
+    {
+        private readonly DatabaseService _db;
+
+        public CustomerService(DatabaseService db)
+        {
+            _db = db;
+        }
+
+        public async Task<List<Customer>> GetAllCustomersAsync(int limit = 100)
+        {
+            var customers = new List<Customer>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT customer_id, barcode, customername, companyname, grade,
+                               address, suburb, state, postcode,
+                               homephone, businessphone, mobile, emailaddress,
+                               isaccount, accountbalance, creditlimit, inactive
+                        FROM customer 
+                        WHERE inactive = false
+                        ORDER BY customername 
+                        LIMIT {limit}";
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            customers.Add(new Customer
+                            {
+                                CustomerId = Convert.ToInt32(reader["customer_id"]),
+                                Barcode = reader["barcode"].ToString() ?? "",
+                                CustomerName = reader["customername"].ToString() ?? "",
+                                CompanyName = reader["companyname"].ToString() ?? "",
+                                Grade = reader["grade"].ToString() ?? "",
+                                Address = reader["address"].ToString() ?? "",
+                                Suburb = reader["suburb"].ToString() ?? "",
+                                State = reader["state"].ToString() ?? "",
+                                Postcode = reader["postcode"].ToString() ?? "",
+                                HomePhone = reader["homephone"].ToString() ?? "",
+                                BusinessPhone = reader["businessphone"].ToString() ?? "",
+                                Mobile = reader["mobile"].ToString() ?? "",
+                                EmailAddress = reader["emailaddress"].ToString() ?? "",
+                                IsAccount = Convert.ToBoolean(reader["isaccount"]),
+                                AccountBalance = Convert.ToDecimal(reader["accountbalance"]),
+                                CreditLimit = Convert.ToDecimal(reader["creditlimit"]),
+                                Inactive = Convert.ToBoolean(reader["inactive"])
+                            });
+                        }
+                    }
+                }
+            }
+
+            return customers;
+        }
+
+        public async Task<Customer?> FindCustomerByBarcodeAsync(string barcode)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT customer_id, barcode, customername, companyname, grade,
+                               address, suburb, state, postcode,
+                               homephone, businessphone, mobile, emailaddress,
+                               isaccount, accountbalance, creditlimit, inactive
+                        FROM customer 
+                        WHERE barcode = @barcode
+                        LIMIT 1";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@barcode";
+                    param.Value = barcode;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        if (await Task.Run(() => reader.Read()))
+                        {
+                            return new Customer
+                            {
+                                CustomerId = Convert.ToInt32(reader["customer_id"]),
+                                Barcode = reader["barcode"].ToString() ?? "",
+                                CustomerName = reader["customername"].ToString() ?? "",
+                                CompanyName = reader["companyname"].ToString() ?? "",
+                                Grade = reader["grade"].ToString() ?? "",
+                                Address = reader["address"].ToString() ?? "",
+                                Suburb = reader["suburb"].ToString() ?? "",
+                                State = reader["state"].ToString() ?? "",
+                                Postcode = reader["postcode"].ToString() ?? "",
+                                HomePhone = reader["homephone"].ToString() ?? "",
+                                BusinessPhone = reader["businessphone"].ToString() ?? "",
+                                Mobile = reader["mobile"].ToString() ?? "",
+                                EmailAddress = reader["emailaddress"].ToString() ?? "",
+                                IsAccount = Convert.ToBoolean(reader["isaccount"]),
+                                AccountBalance = Convert.ToDecimal(reader["accountbalance"]),
+                                CreditLimit = Convert.ToDecimal(reader["creditlimit"]),
+                                Inactive = Convert.ToBoolean(reader["inactive"])
+                            };
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public async Task<List<Customer>> SearchCustomersAsync(string searchTerm, int limit = 50)
+        {
+            var customers = new List<Customer>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT customer_id, barcode, customername, companyname, grade,
+                               address, suburb, state, postcode,
+                               homephone, businessphone, mobile, emailaddress,
+                               isaccount, accountbalance, creditlimit, inactive
+                        FROM customer 
+                        WHERE inactive = false
+                          AND (LOWER(customername) LIKE LOWER(@search) 
+                           OR LOWER(companyname) LIKE LOWER(@search)
+                           OR LOWER(barcode) LIKE LOWER(@search))
+                        ORDER BY customername 
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@search";
+                    param.Value = $"%{searchTerm}%";
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            customers.Add(new Customer
+                            {
+                                CustomerId = Convert.ToInt32(reader["customer_id"]),
+                                Barcode = reader["barcode"].ToString() ?? "",
+                                CustomerName = reader["customername"].ToString() ?? "",
+                                CompanyName = reader["companyname"].ToString() ?? "",
+                                Grade = reader["grade"].ToString() ?? "",
+                                Address = reader["address"].ToString() ?? "",
+                                Suburb = reader["suburb"].ToString() ?? "",
+                                State = reader["state"].ToString() ?? "",
+                                Postcode = reader["postcode"].ToString() ?? "",
+                                HomePhone = reader["homephone"].ToString() ?? "",
+                                BusinessPhone = reader["businessphone"].ToString() ?? "",
+                                Mobile = reader["mobile"].ToString() ?? "",
+                                EmailAddress = reader["emailaddress"].ToString() ?? "",
+                                IsAccount = Convert.ToBoolean(reader["isaccount"]),
+                                AccountBalance = Convert.ToDecimal(reader["accountbalance"]),
+                                CreditLimit = Convert.ToDecimal(reader["creditlimit"]),
+                                Inactive = Convert.ToBoolean(reader["inactive"])
+                            });
+                        }
+                    }
+                }
+            }
+
+            return customers;
+        }
+
+        public async Task<int> AddCustomerAsync(Customer customer)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        INSERT INTO customer (
+                            barcode, customername, companyname, grade, inactive,
+                            contactname, contactposition, address, suburb, state, postcode, country,
+                            businessphone, homephone, fax, mobile, emailaddress, website,
+                            abn, taxcode, isaccount, accountbalance, creditlimit, notes
+                        ) VALUES (
+                            @barcode, @customername, @companyname, @grade, @inactive,
+                            @contactname, @contactposition, @address, @suburb, @state, @postcode, @country,
+                            @businessphone, @homephone, @fax, @mobile, @emailaddress, @website,
+                            @abn, @taxcode, @isaccount, @accountbalance, @creditlimit, @notes
+                        )
+                        RETURNING customer_id";
+
+                    AddCustomerParameters(cmd, customer);
+
+                    var result = await Task.Run(() => cmd.ExecuteScalar());
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+        public async Task UpdateCustomerAsync(Customer customer)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        UPDATE customer SET
+                            barcode = @barcode,
+                            customername = @customername,
+                            companyname = @companyname,
+                            grade = @grade,
+                            inactive = @inactive,
+                            contactname = @contactname,
+                            contactposition = @contactposition,
+                            address = @address,
+                            suburb = @suburb,
+                            state = @state,
+                            postcode = @postcode,
+                            country = @country,
+                            businessphone = @businessphone,
+                            homephone = @homephone,
+                            fax = @fax,
+                            mobile = @mobile,
+                            emailaddress = @emailaddress,
+                            website = @website,
+                            abn = @abn,
+                            taxcode = @taxcode,
+                            isaccount = @isaccount,
+                            accountbalance = @accountbalance,
+                            creditlimit = @creditlimit,
+                            notes = @notes
+                        WHERE customer_id = @customer_id";
+
+                    AddCustomerParameters(cmd, customer);
+                    
+                    var idParam = cmd.CreateParameter();
+                    idParam.ParameterName = "@customer_id";
+                    idParam.Value = customer.CustomerId;
+                    cmd.Parameters.Add(idParam);
+
+                    await Task.Run(() => cmd.ExecuteNonQuery());
+                }
+            }
+        }
+
+        public async Task DeleteCustomerAsync(int customerId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    // Soft delete by setting inactive flag
+                    cmd.CommandText = @"
+                        UPDATE customer 
+                        SET inactive = true 
+                        WHERE customer_id = @customer_id";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customer_id";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    await Task.Run(() => cmd.ExecuteNonQuery());
+                }
+            }
+        }
+
+        private void AddCustomerParameters(IDbCommand cmd, Customer customer)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                ["@barcode"] = customer.Barcode,
+                ["@customername"] = customer.CustomerName,
+                ["@companyname"] = customer.CompanyName,
+                ["@grade"] = customer.Grade,
+                ["@inactive"] = customer.Inactive,
+                ["@contactname"] = customer.ContactName,
+                ["@contactposition"] = customer.ContactPosition,
+                ["@address"] = customer.Address,
+                ["@suburb"] = customer.Suburb,
+                ["@state"] = customer.State,
+                ["@postcode"] = customer.Postcode,
+                ["@country"] = customer.Country,
+                ["@businessphone"] = customer.BusinessPhone,
+                ["@homephone"] = customer.HomePhone,
+                ["@fax"] = customer.Fax,
+                ["@mobile"] = customer.Mobile,
+                ["@emailaddress"] = customer.EmailAddress,
+                ["@website"] = customer.Website,
+                ["@abn"] = customer.Abn,
+                ["@taxcode"] = customer.TaxCode,
+                ["@isaccount"] = customer.IsAccount,
+                ["@accountbalance"] = customer.AccountBalance,
+                ["@creditlimit"] = customer.CreditLimit,
+                ["@notes"] = customer.Notes
+            };
+
+            foreach (var kvp in parameters)
+            {
+                var param = cmd.CreateParameter();
+                param.ParameterName = kvp.Key;
+                param.Value = kvp.Value ?? DBNull.Value;
+                cmd.Parameters.Add(param);
+            }
+        }
+    }
+}

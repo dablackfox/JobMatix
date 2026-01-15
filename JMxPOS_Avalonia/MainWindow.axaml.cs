@@ -136,7 +136,7 @@ public partial class MainWindow : Window
 
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT customer_id, customercode, customername, phone, email, balance FROM customer ORDER BY customername LIMIT 50";
+                    cmd.CommandText = "SELECT customer_id, barcode, customername, homephone, emailaddress, accountbalance FROM customer ORDER BY customername LIMIT 50";
                     
                     var items = new List<CustomerItem>();
                     using (var reader = await Task.Run(() => cmd.ExecuteReader()))
@@ -146,11 +146,11 @@ public partial class MainWindow : Window
                             items.Add(new CustomerItem
                             {
                                 CustomerId = Convert.ToInt32(reader["customer_id"]),
-                                CustomerCode = reader["customercode"].ToString() ?? "",
+                                CustomerCode = reader["barcode"].ToString() ?? "",
                                 CustomerName = reader["customername"].ToString() ?? "",
-                                Phone = reader["phone"].ToString() ?? "",
-                                Email = reader["email"].ToString() ?? "",
-                                Balance = Convert.ToDecimal(reader["balance"])
+                                Phone = reader["homephone"].ToString() ?? "",
+                                Email = reader["emailaddress"].ToString() ?? "",
+                                Balance = Convert.ToDecimal(reader["accountbalance"])
                             });
                         }
                     }

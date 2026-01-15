@@ -1,0 +1,779 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:JMxPOS8.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="JMxPOS8.Views.MainWindow"
+        Title="JobMatix POS v8.0"
+        Width="1200" Height="800">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" InputGesture="Alt+F4"/>
+            </MenuItem>
+            <MenuItem Header="_Sales">
+                <MenuItem Header="_New Sale" Command="{Binding NewSaleCommand}" InputGesture="F9"/>
+                <MenuItem Header="_Hold Sale" InputGesture="F6"/>
+                <Separator/>
+                <MenuItem Header="_Show Last Invoice" InputGesture="F8"/>
+            </MenuItem>
+            <MenuItem Header="S_tock">
+                <MenuItem Header="_Stock List" Command="{Binding StockListCommand}" InputGesture="Ctrl+O"/>
+                <MenuItem Header="_Find Stock" InputGesture="F2"/>
+                <Separator/>
+                <MenuItem Header="_New Stock Item" InputGesture="F5"/>
+            </MenuItem>
+            <MenuItem Header="_Customers">
+                <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
+                <MenuItem Header="_Find Customer" InputGesture="F3"/>
+                <Separator/>
+                <MenuItem Header="_New Customer" InputGesture="F5"/>
+            </MenuItem>
+            <MenuItem Header="_Reports">
+                <MenuItem Header="_Sales Report"/>
+                <MenuItem Header="S_tock Report"/>
+                <MenuItem Header="C_ustomer Report"/>
+                <Separator/>
+                <MenuItem Header="_Cash Up"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Status Bar -->
+        <Panel DockPanel.Dock="Bottom" Height="30" Background="#F0F0F0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0">
+                <TextBlock Text="{Binding StatusText}" Margin="0,0,20,0"/>
+                <Rectangle Width="1" Fill="Gray" Margin="0,2"/>
+                <TextBlock Text="{Binding StaffInfo}" Margin="20,0"/>
+                <Rectangle Width="1" Fill="Gray" Margin="0,2"/>
+                <TextBlock Text="{Binding TillInfo}" Margin="20,0"/>
+                <Rectangle Width="1" Fill="Gray" Margin="0,2"/>
+                <TextBlock Text="{Binding Source={x:Static sys:DateTime.Now}, StringFormat='HH:mm:ss'}" Margin="20,0"/>
+            </StackPanel>
+        </Panel>
+
+        <!-- Main Content Area with Tabs -->
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+            <!-- Sales Tab -->
+            <TabItem Header="Sale">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Staff/Customer Section -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Staff &amp; Customer" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="1" Name="txtStaffNumber" 
+                                     Text="{Binding SaleViewModel.StaffNumber}" 
+                                     Watermark="Enter staff number (1, 2, 3...)"/>
+
+                        <TextBlock Grid.Column="3" Text="Customer:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="4" Name="txtCustomerBarcode" 
+                                 Text="{Binding SaleViewModel.CustomerBarcode}" 
+                                 Watermark="Scan customer barcode (F2=Search)"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Transaction Type -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Transaction:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Content="Sale" Margin="0,0,5,0" Width="80" 
+                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
+                                CommandParameter="Sale"/>
+                        <Button Content="Refund" Margin="0,0,5,0" Width="80" 
+                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
+                                CommandParameter="Refund"/>
+                        <Button Content="Quote" Margin="0,0,5,0" Width="80" 
+                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
+                                CommandParameter="Quote"/>
+                        <Button Content="Layby" Width="80" 
+                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
+                                CommandParameter="Layby"/>
+                    </StackPanel>
+
+                    <!-- Sale Items Grid -->
+                    <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Item Entry -->
+                            <Grid Grid.Row="0" Background="LightGray" Margin="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0" Name="txtItemBarcode" 
+                                         Text="{Binding SaleViewModel.ItemBarcode}" 
+                                         Watermark="Barcode (F2)"/>
+                                <TextBox Grid.Column="1" 
+                                         Text="{Binding SaleViewModel.ItemDescription}" 
+                                         Watermark="Description" Margin="5,0" IsReadOnly="True"/>
+                                <TextBox Grid.Column="2" 
+                                         Text="{Binding SaleViewModel.ItemQuantity}" 
+                                         Watermark="Qty" Margin="5,0"/>
+                                <TextBox Grid.Column="3" 
+                                         Text="{Binding SaleViewModel.ItemPrice}" 
+                                         Watermark="Price" Margin="5,0"/>
+                                <TextBox Grid.Column="4" 
+                                         Text="{Binding SaleViewModel.ItemExtension}" 
+                                         Watermark="Ext" Margin="5,0" IsReadOnly="True"/>
+                                <Button Grid.Column="5" Content="+" Width="40" Margin="5,0" 
+                                        Command="{Binding SaleViewModel.AddItemCommand}"/>
+                            </Grid>
+
+                            <!-- Items List -->
+                            <DataGrid Grid.Row="1" Name="dgSaleItems" 
+                                     ItemsSource="{Binding SaleViewModel.SaleItems}"
+                                     AutoGenerateColumns="False"
+                                     IsReadOnly="True"
+                                     GridLinesVisibility="All"
+                                     BorderThickness="0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding LineNumber}" Width="50"/>
+                                    <DataGridTextColumn Header="Barcode" Binding="{Binding Barcode}" Width="120"/>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="80"/>
+                                    <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice}" Width="100"/>
+                                    <DataGridTextColumn Header="Extension" Binding="{Binding Extension}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Totals -->
+                            <Grid Grid.Row="2" Margin="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="200"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Subtotal:" Margin="0,0,10,5"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SaleViewModel.SubtotalEx, StringFormat='${0:F2}'}" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Tax (GST):" Margin="0,0,10,5"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SaleViewModel.TaxAmount, StringFormat='${0:F2}'}" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Discount:" Margin="0,0,10,5"/>
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SaleViewModel.DiscountAmount}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Total:" FontWeight="Bold" FontSize="16" Margin="0,0,10,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SaleViewModel.TotalInc, StringFormat='${0:F2}'}" FontWeight="Bold" FontSize="16" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Payment Section -->
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="200"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Content="Cash (F1)" Width="100" Margin="0,0,5,0" 
+                                    Command="{Binding SaleViewModel.AddCashPaymentCommand}"/>
+                            <Button Content="EFTPOS (F2)" Width="100" Margin="0,0,5,0" 
+                                    Command="{Binding SaleViewModel.AddEftposPaymentCommand}"/>
+                            <Button Content="Credit Card" Width="100" Margin="0,0,5,0" 
+                                    Command="{Binding SaleViewModel.AddCreditCardPaymentCommand}"/>
+                            <Button Content="Account" Width="100" 
+                                    Command="{Binding SaleViewModel.ChargeToAccountCommand}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <Button Content="Commit Sale (F12)" Height="40" 
+                                    Command="{Binding SaleViewModel.CommitSaleCommand}" 
+                                    Background="Green" Foreground="White" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Stock Tab -->
+            <TabItem Header="Stock">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="3*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Search and Actions -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Name="txtStockSearch" Width="300" Watermark="Search by code, barcode, or description..."
+                                 Text="{Binding StockViewModel.SearchText}"/>
+                        <Button Content="🔍" Width="30" Margin="5,0" Command="{Binding StockViewModel.SearchStockCommand}"/>
+                        <Button Content="New" Width="80" Margin="10,0,5,0" Command="{Binding StockViewModel.NewStockCommand}"/>
+                        <Button Content="Edit" Width="80" Margin="5,0" Command="{Binding StockViewModel.EditStockCommand}"/>
+                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding StockViewModel.DeleteStockCommand}"/>
+                        <Button Content="Adjust Qty" Width="90" Margin="5,0" Command="{Binding StockViewModel.AdjustQuantityCommand}"/>
+                        <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding StockViewModel.RefreshCommand}"/>
+                        <TextBlock Text="{Binding StockViewModel.StockItems.Count, StringFormat='Items: {0}'}" 
+                                   VerticalAlignment="Center" Margin="10,0" FontWeight="Bold" Foreground="Blue"/>
+                    </StackPanel>
+
+                    <!-- Stock List -->
+                    <Border Grid.Row="1" Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="0,0,10,0">
+                        <ListBox Name="dgStock" 
+                                 ItemsSource="{Binding StockViewModel.StockItems}"
+                                 SelectedItem="{Binding StockViewModel.SelectedStock}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="90"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Barcode}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding StockCode}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Description}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding QuantityInStock}" Margin="5,0" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding SellPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- Stock Detail Form -->
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10"
+                            IsVisible="{Binding StockViewModel.IsEditing}">
+                        <ScrollViewer>
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Stock Item Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <!-- Basic Info -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Barcode:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Barcode}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Stock Code:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.StockCode}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Description:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.Description}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Category:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Category}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Inactive:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.Inactive}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Pricing -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Pricing" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Cost Price:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.CostPrice}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Sell Price:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.SellPrice}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Inventory -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Inventory" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Quantity:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.QuantityInStock}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Reorder Level:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StockViewModel.ReorderLevel}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Reorder Qty:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StockViewModel.ReorderQuantity}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Location:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StockViewModel.Location}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Requires Serial:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding StockViewModel.RequiresSerial}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Supplier -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Supplier" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Supplier:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StockViewModel.Supplier}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Notes -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Notes" FontWeight="Bold"/>
+                                <TextBox Text="{Binding StockViewModel.Notes}" AcceptsReturn="True" Height="80" 
+                                         TextWrapping="Wrap" Margin="0,2"/>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button Content="Save" Width="100" Margin="0,0,10,0" 
+                                            Command="{Binding StockViewModel.SaveStockCommand}"
+                                            Background="Green" Foreground="White"/>
+                                    <Button Content="Cancel" Width="100" 
+                                            Command="{Binding StockViewModel.CancelEditCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Status Message -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
+                               Text="{Binding StockViewModel.StatusMessage}" 
+                               Margin="0,10,0,0" FontStyle="Italic"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Customers Tab -->
+            <TabItem Header="Customers">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="3*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Search and Actions -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Name="txtCustomerSearch" Width="300" Watermark="Search by name, company, or barcode..."
+                                 Text="{Binding CustomerViewModel.SearchText}"/>
+                        <Button Content="🔍" Width="30" Margin="5,0" Command="{Binding CustomerViewModel.SearchCustomersCommand}"/>
+                        <Button Content="New" Width="80" Margin="10,0,5,0" Command="{Binding CustomerViewModel.NewCustomerCommand}"/>
+                        <Button Content="Edit" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.EditCustomerCommand}"/>
+                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.DeleteCustomerCommand}"/>
+                        <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.RefreshCommand}"/>
+                    </StackPanel>
+
+                    <!-- Customer List -->
+                    <Border Grid.Row="1" Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="0,0,10,0">
+                        <ListBox Name="dgCustomers" 
+                                 ItemsSource="{Binding CustomerViewModel.Customers}"
+                                 SelectedItem="{Binding CustomerViewModel.SelectedCustomer}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Barcode}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CustomerName}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding CompanyName}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding BusinessPhone}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding AccountBalance, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- Customer Detail Form -->
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10"
+                            IsVisible="{Binding CustomerViewModel.IsEditing}">
+                        <ScrollViewer>
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Customer Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <!-- Basic Info -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Barcode:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Barcode}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Customer Name:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.CustomerName}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Company Name:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.CompanyName}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Grade:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Grade}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Inactive:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding CustomerViewModel.Inactive}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Contact Info -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Contact Information" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Contact Name:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.ContactName}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Position:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.ContactPosition}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Address -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Address" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Address:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Address}" 
+                                             AcceptsReturn="True" Height="60" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Suburb:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Suburb}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="State:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.State}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Postcode:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Postcode}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Country:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.Country}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Phone Numbers -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Phone Numbers" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Business:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.BusinessPhone}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Home:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.HomePhone}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Mobile:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CustomerViewModel.Mobile}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Fax:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.Fax}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Email & Web -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Email &amp; Website" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Email:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.EmailAddress}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Website:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.Website}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Tax & Account -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Tax &amp; Account Information" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ABN:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CustomerViewModel.Abn}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tax Code:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CustomerViewModel.TaxCode}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Is Account:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding CustomerViewModel.IsAccount}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Account Balance:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CustomerViewModel.AccountBalance}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Credit Limit:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CustomerViewModel.CreditLimit}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Notes -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Notes" FontWeight="Bold"/>
+                                <TextBox Text="{Binding CustomerViewModel.Notes}" AcceptsReturn="True" Height="80" 
+                                         TextWrapping="Wrap" Margin="0,2"/>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button Content="Save" Width="100" Margin="0,0,10,0" 
+                                            Command="{Binding CustomerViewModel.SaveCustomerCommand}"
+                                            Background="Green" Foreground="White"/>
+                                    <Button Content="Cancel" Width="100" 
+                                            Command="{Binding CustomerViewModel.CancelEditCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Status Message -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
+                               Text="{Binding CustomerViewModel.StatusMessage}" 
+                               Margin="0,10,0,0" FontStyle="Italic"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Reports Tab -->
+            <TabItem Header="Reports">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Report Selection and Date Range -->
+                    <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
+                        <TextBlock Text="Report Type" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Daily Sales" Command="{Binding ReportsViewModel.RunDailySalesReportCommand}" Width="120"/>
+                            <Button Content="Stock Value" Command="{Binding ReportsViewModel.RunStockValueReportCommand}" Width="120"/>
+                            <Button Content="Low Stock" Command="{Binding ReportsViewModel.RunLowStockReportCommand}" Width="120"/>
+                            <Button Content="Customer Accounts" Command="{Binding ReportsViewModel.RunCustomerAccountsReportCommand}" Width="140"/>
+                            <Button Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
+                            <Button Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
+                        </StackPanel>
+
+                        <!-- Date Range Selection -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                            <TextBlock Text="From:" VerticalAlignment="Center"/>
+                            <DatePicker SelectedDate="{Binding ReportsViewModel.StartDate}" Width="150"/>
+                            <TextBlock Text="To:" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <DatePicker SelectedDate="{Binding ReportsViewModel.EndDate}" Width="150"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Report Title -->
+                    <TextBlock Grid.Row="1" 
+                               Text="{Binding ReportsViewModel.ReportTitle}" 
+                               FontSize="18" 
+                               FontWeight="Bold" 
+                               Margin="0,0,0,10"/>
+
+                    <!-- Report Data Grid -->
+                    <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding ReportsViewModel.ReportData}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Column 1" Binding="{Binding Column1}" Width="*"/>
+                                <DataGridTextColumn Header="Column 2" Binding="{Binding Column2}" Width="2*"/>
+                                <DataGridTextColumn Header="Column 3" Binding="{Binding Column3}" Width="*"/>
+                                <DataGridTextColumn Header="Column 4" Binding="{Binding Column4}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <!-- Summary Panel -->
+                    <Border Grid.Row="3" 
+                            Background="#F0F0F0" 
+                            BorderBrush="#CCCCCC" 
+                            BorderThickness="1" 
+                            Padding="10" 
+                            Margin="0,10,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ReportsViewModel.Summary1Label}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding ReportsViewModel.Summary1Value}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ReportsViewModel.Summary2Label}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding ReportsViewModel.Summary2Value}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ReportsViewModel.Summary3Label}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding ReportsViewModel.Summary3Value}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ReportsViewModel.Summary4Label}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding ReportsViewModel.Summary4Value}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Buttons and Status -->
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                        <Button Content="Export to CSV" Command="{Binding ReportsViewModel.ExportReportCommand}" Width="120"/>
+                        <Button Content="Print" Command="{Binding ReportsViewModel.PrintReportCommand}" Width="100"/>
+                        <TextBlock Text="{Binding ReportsViewModel.StatusMessage}" 
+                                   VerticalAlignment="Center" 
+                                   Margin="20,0,0,0"
+                                   Foreground="Green"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+
+</Window>
