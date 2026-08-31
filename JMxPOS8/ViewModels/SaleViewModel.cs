@@ -13,14 +13,24 @@ namespace JMxPOS8.ViewModels
         private readonly SaleService _saleService;
         private readonly StockService _stockService;
         private readonly CustomerService _customerService;
+        private readonly StaffService _staffService;
         private int _nextHoldId = 1;
 
         // Raised with the invoice id whenever a sale is successfully committed, so other
         // parts of the app (e.g. "Show Last Invoice") can react without polling.
         public event Action<int>? SaleCommitted;
 
+        // Raised whenever the staff attributed to the current sale changes, so the app
+        // shell can mirror it in the status bar without owning staff identity itself -
+        // attribution is per-sale here (communal till, quick-swap between staff), not a
+        // persistent app-wide session.
+        public event Action<Staff?>? StaffChanged;
+
         public ObservableCollection<HeldSale> HeldSales { get; } = new();
         public bool HasHeldSales => HeldSales.Count > 0;
+
+        [ObservableProperty]
+        private string _staffNumber = "";
 
         [ObservableProperty]
         private string _customerBarcode = "";
@@ -75,10 +85,11 @@ namespace JMxPOS8.ViewModels
         public ObservableCollection<SaleLineItem> SaleItems { get; }
 
         public SaleViewModel(DatabaseService dbService, StockService stockService,
-                            CustomerService customerService)
+                            CustomerService customerService, StaffService staffService)
         {
             _stockService = stockService;
             _customerService = customerService;
+            _staffService = staffService;
             _saleService = new SaleService(dbService, stockService, customerService);
             
             SaleItems = _saleService.SaleItems;
@@ -103,6 +114,7 @@ namespace JMxPOS8.ViewModels
         {
             OnPropertyChanged(nameof(CustomerInfo));
             OnPropertyChanged(nameof(StaffDisplay));
+            StaffChanged?.Invoke(value);
         }
 
         partial void OnCurrentCustomerChanged(Customer? value)
@@ -111,12 +123,32 @@ namespace JMxPOS8.ViewModels
             OnPropertyChanged(nameof(CustomerDisplay));
         }
 
-        // Staff sign-in is now app-wide (see MainWindowViewModel's login gate) rather than
-        // entered per-sale here - this just reflects whoever is currently signed in.
-        public void SetSignedInStaff(Staff? staff)
+        [RelayCommand]
+        private async Task ProcessStaffNumber()
         {
-            CurrentStaff = staff;
-            _saleService.SetStaff(staff);
+            if (string.IsNullOrWhiteSpace(StaffNumber))
+                return;
+
+            try
+            {
+                // Staff attribute each sale by their own barcode/employee number (e.g.
+                // "3"), not the internal database staff_id - those are unrelated.
+                var staff = await _staffService.FindStaffByBarcodeAsync(StaffNumber.Trim());
+                if (staff != null)
+                {
+                    CurrentStaff = staff;
+                    _saleService.SetStaff(staff);
+                    StatusMessage = $"Staff: {staff.DocketName}";
+                }
+                else
+                {
+                    StatusMessage = $"Staff not found for number '{StaffNumber}'";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error: {ex.Message}";
+            }
         }
 
         [ObservableProperty]

@@ -81,9 +81,16 @@ public partial class MainWindow : Window
         if (e.Source is not Visual sourceVisual)
             return;
 
-        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtLoginBarcode" })
+        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtStaffNumber" })
         {
-            await viewModel.SignInCommand.ExecuteAsync(null);
+            await viewModel.SaleViewModel.ProcessStaffNumberCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtStaffOverrideBarcode" })
+        {
+            await viewModel.UnlockStaffAdminCommand.ExecuteAsync(null);
             e.Handled = true;
             return;
         }

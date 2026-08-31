@@ -28,19 +28,23 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _selectedTabIndex;
 
     [ObservableProperty]
-    private string _loginBarcode = "";
+    private string _staffOverrideBarcode = "";
 
     [ObservableProperty]
-    private string _loginStatusMessage = "";
+    private string _staffOverrideStatusMessage = "";
+
+    [ObservableProperty]
+    private bool _isStaffAdminUnlocked;
 
     private int _lastInvoiceId;
 
-    // Every feature is gated behind a staff member being signed in (see the login overlay
-    // in MainWindow.axaml); the Staff admin area is further gated to administrators only.
-    // A PIN or other stronger auth is deferred - barcode/staff-number entry is the login
-    // mechanism for now, same as it already was for the till itself.
-    public bool IsSignedIn => CurrentStaff != null;
-    public bool IsAdminSignedIn => CurrentStaff?.IsAdministrator == true;
+    // This is a communal till shared by many staff across a shift - ordinary sales/stock/
+    // customer/reports access has no login gate at all, matching real POS practice (staff
+    // attribute each individual sale via the barcode field on the Sale tab instead, see
+    // SaleViewModel.ProcessStaffNumber). Only the Staff admin area requires a manager
+    // override, checked at the point of access rather than via a persistent session.
+    // A PIN or other stronger override auth is deferred - barcode/staff-number entry is
+    // the mechanism for now.
 
     partial void OnSelectedTabIndexChanged(int value)
     {
@@ -63,7 +67,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _serialService = new SerialService(_dbService);
 
         // Create ViewModels
-        SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService);
+        SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService, _staffService);
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
@@ -71,8 +75,11 @@ public partial class MainWindowViewModel : ViewModelBase
         StaffViewModel = new StaffViewModel(_staffService);
 
         SaleViewModel.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
+        // Status bar mirrors whoever is currently attributed to the sale in progress -
+        // display only, this drives no access control (see IsStaffAdminUnlocked instead).
+        SaleViewModel.StaffChanged += staff => CurrentStaff = staff;
 
-        StatusText = "Please sign in";
+        StatusText = "Ready";
     }
 
     public string StaffInfo => CurrentStaff != null 
@@ -211,66 +218,62 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task StaffList()
+    private void StaffList()
     {
-        StatusText = "Loading staff...";
         SelectedTabIndex = 3;
-        await StaffViewModel.LoadStaffAsync();
     }
 
     [RelayCommand]
     private void NewStaffItem()
     {
         SelectedTabIndex = 3;
-        StaffViewModel.NewStaffCommand.Execute(null);
-        StatusText = StaffViewModel.StatusMessage;
+        if (IsStaffAdminUnlocked)
+        {
+            StaffViewModel.NewStaffCommand.Execute(null);
+            StatusText = StaffViewModel.StatusMessage;
+        }
     }
 
     partial void OnCurrentStaffChanged(Staff? value)
     {
         OnPropertyChanged(nameof(StaffInfo));
-        OnPropertyChanged(nameof(IsSignedIn));
-        OnPropertyChanged(nameof(IsAdminSignedIn));
     }
 
+    // Manager override for the Staff admin area - checked at the point of access, not tied
+    // to whoever is currently attributed to the sale in progress (deliberately independent:
+    // the last person to ring up a sale might not be who's authorizing this).
     [RelayCommand]
-    private async Task SignIn()
+    private async Task UnlockStaffAdmin()
     {
-        if (string.IsNullOrWhiteSpace(LoginBarcode))
+        if (string.IsNullOrWhiteSpace(StaffOverrideBarcode))
             return;
 
-        var staff = await _staffService.FindStaffByBarcodeAsync(LoginBarcode.Trim());
+        var staff = await _staffService.FindStaffByBarcodeAsync(StaffOverrideBarcode.Trim());
         if (staff == null)
         {
-            LoginStatusMessage = $"Staff not found for '{LoginBarcode}'";
+            StaffOverrideStatusMessage = $"Staff not found for '{StaffOverrideBarcode}'";
             return;
         }
 
-        CurrentStaff = staff;
-        SaleViewModel.SetSignedInStaff(staff);
-        LoginBarcode = "";
-        LoginStatusMessage = "";
-        StatusText = $"Signed in: {staff.DocketName}";
+        if (!staff.IsAdministrator)
+        {
+            StaffOverrideStatusMessage = $"{staff.DocketName} is not an administrator";
+            return;
+        }
 
-        // A non-admin can't be on the Staff tab (it's hidden for them), but if they were
-        // signed in there by another admin and handed the till, bounce back to Sale.
-        if (!staff.IsAdministrator && SelectedTabIndex == 3)
-            SelectedTabIndex = 0;
+        IsStaffAdminUnlocked = true;
+        StaffOverrideBarcode = "";
+        StaffOverrideStatusMessage = "";
+        StatusText = $"Staff admin unlocked by {staff.DocketName}";
+        await StaffViewModel.LoadStaffAsync();
     }
 
     [RelayCommand]
-    private void SignOut()
+    private void LockStaffAdmin()
     {
-        if (SaleViewModel.SaleItems.Count > 0)
-        {
-            StatusText = "Hold or complete the current sale before signing out";
-            return;
-        }
-
-        CurrentStaff = null;
-        SaleViewModel.SetSignedInStaff(null);
+        IsStaffAdminUnlocked = false;
         SelectedTabIndex = 0;
-        StatusText = "Please sign in";
+        StatusText = "Staff admin locked";
     }
 
     partial void OnCurrentTillChanged(string value)
@@ -298,9 +301,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusText = $"Customers loaded: {CustomerViewModel.Customers.Count} records";
                     break;
                 case 3: // Staff tab
-                    StatusText = "Loading staff...";
-                    await StaffViewModel.LoadStaffAsync();
-                    StatusText = $"Staff loaded: {StaffViewModel.StaffMembers.Count} records";
+                    if (IsStaffAdminUnlocked)
+                    {
+                        StatusText = "Loading staff...";
+                        await StaffViewModel.LoadStaffAsync();
+                        StatusText = $"Staff loaded: {StaffViewModel.StaffMembers.Count} records";
+                    }
                     break;
                 case 4: // Reports tab
                     StatusText = "Select a report to run...";
