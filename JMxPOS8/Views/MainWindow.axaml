@@ -61,6 +61,9 @@
                 <Separator/>
                 <MenuItem Header="_Lock Staff Admin" Command="{Binding LockStaffAdminCommand}" IsEnabled="{Binding IsStaffAdminUnlocked}"/>
             </MenuItem>
+            <MenuItem Header="_Jobs">
+                <MenuItem Header="Job _List" Command="{Binding JobsCommand}"/>
+            </MenuItem>
             <MenuItem Header="_Reports">
                 <MenuItem Header="_Sales Report" Command="{Binding SalesReportCommand}"/>
                 <MenuItem Header="S_tock Report" Command="{Binding StockReportCommand}"/>
@@ -1561,6 +1564,104 @@
                                     <Button Content="Refuse" Command="{Binding ReturnAuthorizationViewModel.RefuseRaCommand}" Background="Crimson" Foreground="White"/>
                                     <Button Content="Cancel RA" Command="{Binding ReturnAuthorizationViewModel.CancelRaCommand}"/>
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Jobs Tab -->
+            <TabItem Header="Jobs">
+                <Grid Margin="10" ColumnDefinitions="1.2*,2*">
+                    <!-- New job intake -->
+                    <ScrollViewer Grid.Column="0" Margin="0,0,10,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="New Job" FontWeight="Bold" FontSize="16" Margin="0,0,0,5"/>
+                            <TextBox Text="{Binding JobViewModel.NewCustomerBarcode}" Watermark="Customer barcode (optional)"/>
+                            <TextBox Text="{Binding JobViewModel.NewGoodsInCare}" Watermark="Goods in care"/>
+                            <TextBox Text="{Binding JobViewModel.NewGoodsBrand}" Watermark="Brand"/>
+                            <TextBox Text="{Binding JobViewModel.NewGoodsModel}" Watermark="Model"/>
+                            <ComboBox SelectedItem="{Binding JobViewModel.NewPriority}" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="H"/>
+                                <ComboBoxItem Content="B"/>
+                            </ComboBox>
+                            <TextBox Text="{Binding JobViewModel.NewProblemShort}" Watermark="Problem (short)"/>
+                            <TextBox Text="{Binding JobViewModel.NewProblemLong}" Watermark="Problem (details)" AcceptsReturn="True" Height="60"/>
+                            <TextBox Text="{Binding JobViewModel.NewSymptoms}" Watermark="Symptoms"/>
+                            <CheckBox Content="Data backup required" IsChecked="{Binding JobViewModel.NewDataBackupReqd}"/>
+                            <CheckBox Content="Data disk required" IsChecked="{Binding JobViewModel.NewDataDiskReqd}"/>
+                            <CheckBox Content="Under warranty" IsChecked="{Binding JobViewModel.NewSystemUnderWarranty}"/>
+                            <TextBox Text="{Binding JobViewModel.NewStaffBarcode}" Watermark="Your staff barcode"/>
+                            <Button Content="Create Job" Command="{Binding JobViewModel.CreateJobCommand}" Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
+                            <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Job list + selected job detail -->
+                    <Grid Grid.Column="1" RowDefinitions="1.4*,Auto">
+                        <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding JobViewModel.OpenJobs}"
+                                     SelectedItem="{Binding JobViewModel.SelectedJob}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding ProblemShort}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding JobStatus}" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="4" Text="🔒" IsVisible="{Binding IsLocked}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <Border Grid.Row="1" Margin="0,10,0,0" Padding="10" Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1"
+                                IsVisible="{Binding JobViewModel.SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding JobViewModel.SelectedJob.Summary}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerName}"/>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox Width="150" Watermark="Staff barcode" Text="{Binding JobViewModel.ActionStaffBarcode}"/>
+                                    <Button Content="Start Work" Command="{Binding JobViewModel.StartWorkCommand}" IsVisible="{Binding JobViewModel.CanStartWork}"/>
+                                    <Button Content="Suspend" Command="{Binding JobViewModel.SuspendCommand}" IsVisible="{Binding JobViewModel.CanSuspend}"/>
+                                    <Button Content="Send to QA" Command="{Binding JobViewModel.SendToQaCommand}" IsVisible="{Binding JobViewModel.CanSendToQa}"/>
+                                    <Button Content="Back to Work" Command="{Binding JobViewModel.ReopenFromQaCommand}" IsVisible="{Binding JobViewModel.CanReopenFromQa}"/>
+                                    <Button Content="Deliver" Command="{Binding JobViewModel.DeliverCommand}" IsVisible="{Binding JobViewModel.CanDeliver}" Background="ForestGreen" Foreground="White"/>
+                                    <Button Content="Cancel Job" Command="{Binding JobViewModel.CancelJobCommand}" IsVisible="{Binding JobViewModel.CanCancel}" Background="Crimson" Foreground="White"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding JobViewModel.CanComplete}">
+                                    <TextBox Width="300" Watermark="Service notes" Text="{Binding JobViewModel.ActionServiceNotes}"/>
+                                    <Button Content="Complete" Command="{Binding JobViewModel.CompleteCommand}" Background="ForestGreen" Foreground="White"/>
+                                </StackPanel>
+
+                                <!-- Parts -->
+                                <TextBlock Text="Parts" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBox Text="{Binding JobViewModel.ScanPartBarcode}" Watermark="Scan part barcode" IsEnabled="{Binding JobViewModel.CanAddParts}">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding JobViewModel.AddPartCommand}"/>
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                                <ListBox ItemsSource="{Binding JobViewModel.Parts}" Height="120">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,60,90,90,30" Margin="5,2">
+                                                <TextBlock Grid.Column="0" Text="{Binding PartDescr}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat=N0}" HorizontalAlignment="Right"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding SellPrice, StringFormat=C}" HorizontalAlignment="Right"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding CurrentSellPrice, StringFormat=C}" HorizontalAlignment="Right" Foreground="Crimson"
+                                                           IsVisible="{Binding HasPriceDrift}"/>
+                                                <Button Grid.Column="4" Content="x" Width="30"
+                                                        Command="{Binding $parent[Window].DataContext.JobViewModel.RemovePartCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic"/>
                             </StackPanel>
                         </Border>
                     </Grid>

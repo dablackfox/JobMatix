@@ -179,6 +179,66 @@ namespace JMxPOS8.Models
         public string Priority { get; set; } = string.Empty;
     }
 
+    // The core Job Tracking record. JobStatus follows the legacy 11-state vocabulary
+    // (ROADMAP.md Phase 3): 05-WaitListed, 10-Created, 20-Suspended, 23-InProcessSusp,
+    // 30-Started, 33-InProcess, 40-QA, 43-InProcessQA, 50-Completed, 70-Delivered,
+    // 97-Cancelled. The "InProcess" variants are a real optimistic-locking mechanism (a job
+    // being actively edited shows as locked to anyone else looking at the list) - preserved
+    // here, not simplified away.
+    public class JobRecord
+    {
+        public int JobId { get; set; }
+        public string CustomerBarcode { get; set; } = string.Empty;
+        public int? RmCustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerPhone { get; set; } = string.Empty;
+        public string CustomerMobile { get; set; } = string.Empty;
+        public string Priority { get; set; } = "H";
+        public string NominatedTech { get; set; } = string.Empty;
+        public string JobStatus { get; set; } = "10-Created";
+        public string GoodsInCare { get; set; } = string.Empty;
+        public string GoodsBrand { get; set; } = string.Empty;
+        public string GoodsModel { get; set; } = string.Empty;
+        public bool DataBackupReqd { get; set; }
+        public bool DataDiskReqd { get; set; }
+        public string ProblemShort { get; set; } = string.Empty;
+        public string ProblemLong { get; set; } = string.Empty;
+        public string ProblemSymptoms { get; set; } = string.Empty;
+        public bool SystemUnderWarranty { get; set; }
+        public DateTime DateCreated { get; set; }
+        public string RcvdStaffName { get; set; } = string.Empty;
+        public string Diagnosis { get; set; } = string.Empty;
+        public string ServiceNotes { get; set; } = string.Empty;
+        public DateTime? DateCompleted { get; set; }
+        public string TechStaffName { get; set; } = string.Empty;
+        public int? TechRmStaffId { get; set; }
+        public DateTime? DateDelivered { get; set; }
+        public string DeliveredStaffName { get; set; } = string.Empty;
+        public DateTime DateUpdated { get; set; }
+
+        public string Summary => $"#{JobId} - {CustomerName} - {ProblemShort} - {JobStatus}";
+        public bool IsLocked => JobStatus is "23-InProcessSusp" or "33-InProcess" or "43-InProcessQA";
+    }
+
+    public class JobPartLine
+    {
+        public int PartId { get; set; }
+        public int JobId { get; set; }
+        public int? StockId { get; set; }
+        public string PartCode { get; set; } = string.Empty;
+        public string PartDescr { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1;
+        public decimal CostPrice { get; set; }
+        public decimal SellPrice { get; set; }
+        public bool IsWarrantyPart { get; set; }
+
+        // Populated at read-time by comparing against the live stock sell price - flags
+        // drift since the part was added to the job (the legacy app's gbShowAllParts
+        // repricing feature, ROADMAP.md Phase 3).
+        public decimal? CurrentSellPrice { get; set; }
+        public bool HasPriceDrift => CurrentSellPrice.HasValue && CurrentSellPrice.Value != SellPrice;
+    }
+
     // A physical stock count session - stays open while staff scan items, then gets
     // committed (adjusting stock.quantityinstock to match what was counted) or cancelled.
     public class StocktakeSession

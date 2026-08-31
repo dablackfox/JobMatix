@@ -73,6 +73,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StocktakeViewModel StocktakeViewModel { get; }
     public GoodsReceivedViewModel GoodsReceivedViewModel { get; }
     public ReturnAuthorizationViewModel ReturnAuthorizationViewModel { get; }
+    public JobViewModel JobViewModel { get; }
 
     public MainWindowViewModel()
     {
@@ -95,6 +96,7 @@ public partial class MainWindowViewModel : ViewModelBase
             new GoodsReceivedService(_dbService), supplierService, _stockService, _staffService);
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
+        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService);
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -346,6 +348,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task Jobs()
+    {
+        SelectedTabIndex = 9;
+        StatusText = "Loading open jobs...";
+        await JobViewModel.LoadOpenJobsAsync();
+        StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
+    }
+
+    [RelayCommand]
     private void NewStaffItem()
     {
         SelectedTabIndex = 3;
@@ -447,6 +458,11 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusText = "Loading open return authorisations...";
                     await ReturnAuthorizationViewModel.LoadOpenRAsAsync();
                     StatusText = $"RAs loaded: {ReturnAuthorizationViewModel.OpenRAs.Count} open";
+                    break;
+                case 9: // Jobs tab
+                    StatusText = "Loading open jobs...";
+                    await JobViewModel.LoadOpenJobsAsync();
+                    StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
                     break;
             }
         }
