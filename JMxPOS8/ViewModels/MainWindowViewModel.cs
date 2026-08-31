@@ -118,6 +118,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         ActiveSaleDocument = CreateSaleDocument();
         SelectedTabIndex = 0;
+        StatusText = "Starting new sale...";
     }
 
     [RelayCommand]
@@ -183,21 +184,6 @@ public partial class MainWindowViewModel : ViewModelBase
         Environment.Exit(0);
     }
 
-    [RelayCommand]
-    private void NewSale()
-    {
-        SelectedTabIndex = 0;
-
-        // If the current tab is already mid-sale, open a fresh tab rather than disturbing
-        // it - an empty current tab is just reused instead of piling up empty tabs.
-        var active = ActiveSaleDocument;
-        if (active != null && (active.SaleItems.Count > 0 || active.CurrentCustomer != null))
-        {
-            NewSaleTab();
-        }
-
-        StatusText = "Starting new sale...";
-    }
 
     [RelayCommand]
     private async Task StockList()
