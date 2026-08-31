@@ -165,6 +165,38 @@ namespace JMxPOS8.Models
         public string TransactionType { get; set; } = string.Empty;
     }
 
+    // A physical stock count session - stays open while staff scan items, then gets
+    // committed (adjusting stock.quantityinstock to match what was counted) or cancelled.
+    public class StocktakeSession
+    {
+        public int StocktakeId { get; set; }
+        public string StocktakeType { get; set; } = string.Empty;
+        public bool IsCommitted { get; set; }
+        public bool IsCancelled { get; set; }
+        public DateTime DateCreated { get; set; }
+        public string CreatedStaffName { get; set; } = string.Empty;
+        public DateTime? DateCommitted { get; set; }
+        public string CommittedStaffName { get; set; } = string.Empty;
+        public string Comments { get; set; } = string.Empty;
+
+        public string StatusDisplay => IsCancelled ? "Cancelled" : IsCommitted ? "Committed" : "Open";
+        public string Summary => $"#{StocktakeId} - {DateCreated:dd-MMM-yyyy HH:mm} - {CreatedStaffName} ({StatusDisplay})";
+    }
+
+    // One counted line within a stocktake - qty_on_record is a snapshot of stock.quantityinstock
+    // taken the moment the item is first scanned into this session, not a live value.
+    public class StocktakeItem
+    {
+        public int ItemId { get; set; }
+        public int StocktakeId { get; set; }
+        public int StockId { get; set; }
+        public string Barcode { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int QtyOnRecord { get; set; }
+        public int QtyCounted { get; set; }
+        public int QtyDifference { get; set; }
+    }
+
     // A parked sale, held aside to serve another customer, that can be resumed later.
     public class HeldSale
     {

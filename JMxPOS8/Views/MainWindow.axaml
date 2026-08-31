@@ -44,6 +44,8 @@
                 <MenuItem Header="_Find Stock" Command="{Binding FindStockCommand}" InputGesture="F2"/>
                 <Separator/>
                 <MenuItem Header="_New Stock Item" Command="{Binding NewStockItemCommand}" InputGesture="F5"/>
+                <Separator/>
+                <MenuItem Header="Stock_take" Command="{Binding StocktakeCommand}"/>
             </MenuItem>
             <MenuItem Header="_Customers">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
@@ -62,7 +64,7 @@
                 <MenuItem Header="S_tock Report" Command="{Binding StockReportCommand}"/>
                 <MenuItem Header="C_ustomer Report" Command="{Binding CustomerReportCommand}"/>
                 <Separator/>
-                <MenuItem Header="_Cash Up" IsEnabled="False" ToolTip.Tip="Not yet available"/>
+                <MenuItem Header="_Cash Up" Command="{Binding CashupCommand}"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
@@ -1284,6 +1286,75 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Stocktake Tab -->
+            <TabItem Header="Stocktake">
+                <Grid Margin="10" ColumnDefinitions="1.3*,2*">
+                    <!-- Sessions list -->
+                    <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0" Text="Open Stocktakes" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,10">
+                            <TextBox Text="{Binding StocktakeViewModel.StaffBarcode}" Watermark="Your staff barcode"/>
+                            <Button Content="+ New Stocktake" Command="{Binding StocktakeViewModel.NewStocktakeCommand}" HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding StocktakeViewModel.Sessions}"
+                                     SelectedItem="{Binding StocktakeViewModel.SelectedSession}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Summary}" Margin="5"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Grid>
+
+                    <!-- Selected session detail -->
+                    <Grid Grid.Column="1" IsVisible="{Binding StocktakeViewModel.HasOpenSession}" RowDefinitions="Auto,*,Auto,Auto">
+                        <TextBox Grid.Row="0" Text="{Binding StocktakeViewModel.ScanBarcode}"
+                                 Watermark="Scan barcode - counts one more unit each time" Margin="0,0,0,10">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding StocktakeViewModel.ScanItemCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+
+                        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top" Background="#F0F0F0" Padding="5">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <TextBlock Grid.Column="0" Text="Description" FontWeight="Bold"/>
+                                        <TextBlock Grid.Column="1" Text="On Record" FontWeight="Bold" Width="90" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="2" Text="Counted" FontWeight="Bold" Width="90" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="Diff" FontWeight="Bold" Width="70" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <ListBox ItemsSource="{Binding StocktakeViewModel.Items}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding Description}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding QtyOnRecord}" Width="90" HorizontalAlignment="Right"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding QtyCounted}" Width="90" HorizontalAlignment="Right"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding QtyDifference}" Width="70" HorizontalAlignment="Right"
+                                                           Foreground="Crimson"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0" Spacing="10">
+                            <Button Content="Commit Stocktake" Command="{Binding StocktakeViewModel.CommitStocktakeCommand}" Background="ForestGreen" Foreground="White"/>
+                            <Button Content="Cancel Stocktake" Command="{Binding StocktakeViewModel.CancelStocktakeCommand}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="3" Text="{Binding StocktakeViewModel.StatusMessage}" FontStyle="Italic" Margin="0,10,0,0"/>
+                    </Grid>
+
+                    <TextBlock Grid.Column="1" Text="Start a new stocktake, or select an open one from the list, to begin scanning."
+                               IsVisible="{Binding !StocktakeViewModel.HasOpenSession}" Foreground="Gray" Margin="10"/>
                 </Grid>
             </TabItem>
         </TabControl>

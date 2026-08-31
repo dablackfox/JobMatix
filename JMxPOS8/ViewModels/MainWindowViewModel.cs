@@ -70,6 +70,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StockViewModel StockViewModel { get; }
     public ReportsViewModel ReportsViewModel { get; }
     public StaffViewModel StaffViewModel { get; }
+    public StocktakeViewModel StocktakeViewModel { get; }
 
     public MainWindowViewModel()
     {
@@ -86,6 +87,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService, _staffService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         StaffViewModel = new StaffViewModel(_staffService);
+        StocktakeViewModel = new StocktakeViewModel(new StocktakeService(_dbService, _stockService), _staffService);
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -302,6 +304,23 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task Cashup()
+    {
+        SelectedTabIndex = 4;
+        await ReportsViewModel.LoadCashupCommand.ExecuteAsync(null);
+        StatusText = ReportsViewModel.CashupStatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task Stocktake()
+    {
+        SelectedTabIndex = 6;
+        StatusText = "Loading open stocktakes...";
+        await StocktakeViewModel.LoadSessionsAsync();
+        StatusText = $"Stocktakes loaded: {StocktakeViewModel.Sessions.Count} open";
+    }
+
+    [RelayCommand]
     private void NewStaffItem()
     {
         SelectedTabIndex = 3;
@@ -388,6 +407,11 @@ public partial class MainWindowViewModel : ViewModelBase
                     break;
                 case 4: // Reports tab
                     StatusText = "Select a report to run...";
+                    break;
+                case 6: // Stocktake tab
+                    StatusText = "Loading open stocktakes...";
+                    await StocktakeViewModel.LoadSessionsAsync();
+                    StatusText = $"Stocktakes loaded: {StocktakeViewModel.Sessions.Count} open";
                     break;
             }
         }
