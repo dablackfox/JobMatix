@@ -38,6 +38,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public CustomerViewModel CustomerViewModel { get; }
     public StockViewModel StockViewModel { get; }
     public ReportsViewModel ReportsViewModel { get; }
+    public StaffViewModel StaffViewModel { get; }
 
     public MainWindowViewModel()
     {
@@ -54,6 +55,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
+        StaffViewModel = new StaffViewModel(_staffService);
 
         SaleViewModel.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
 
@@ -107,7 +109,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private void Reports()
     {
         StatusText = "Select a report to run...";
-        SelectedTabIndex = 3;
+        SelectedTabIndex = 4;
     }
 
     [RelayCommand]
@@ -133,7 +135,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        SelectedTabIndex = 4; // Transactions tab
+        SelectedTabIndex = 5; // Transactions tab
         StatusText = $"Looking up invoice #{_lastInvoiceId}...";
         await TransactionLookupViewModel.SelectInvoiceByIdAsync(_lastInvoiceId);
         StatusText = TransactionLookupViewModel.StatusMessage;
@@ -174,7 +176,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task SalesReport()
     {
-        SelectedTabIndex = 3;
+        SelectedTabIndex = 4;
         await ReportsViewModel.RunDailySalesReportCommand.ExecuteAsync(null);
         StatusText = ReportsViewModel.StatusMessage;
     }
@@ -182,7 +184,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task StockReport()
     {
-        SelectedTabIndex = 3;
+        SelectedTabIndex = 4;
         await ReportsViewModel.RunStockValueReportCommand.ExecuteAsync(null);
         StatusText = ReportsViewModel.StatusMessage;
     }
@@ -190,9 +192,25 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task CustomerReport()
     {
-        SelectedTabIndex = 3;
+        SelectedTabIndex = 4;
         await ReportsViewModel.RunCustomerAccountsReportCommand.ExecuteAsync(null);
         StatusText = ReportsViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task StaffList()
+    {
+        StatusText = "Loading staff...";
+        SelectedTabIndex = 3;
+        await StaffViewModel.LoadStaffAsync();
+    }
+
+    [RelayCommand]
+    private void NewStaffItem()
+    {
+        SelectedTabIndex = 3;
+        StaffViewModel.NewStaffCommand.Execute(null);
+        StatusText = StaffViewModel.StatusMessage;
     }
 
     partial void OnCurrentStaffChanged(Staff? value)
@@ -224,7 +242,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     await CustomerViewModel.LoadCustomersAsync();
                     StatusText = $"Customers loaded: {CustomerViewModel.Customers.Count} records";
                     break;
-                case 3: // Reports tab
+                case 3: // Staff tab
+                    StatusText = "Loading staff...";
+                    await StaffViewModel.LoadStaffAsync();
+                    StatusText = $"Staff loaded: {StaffViewModel.StaffMembers.Count} records";
+                    break;
+                case 4: // Reports tab
                     StatusText = "Select a report to run...";
                     break;
             }

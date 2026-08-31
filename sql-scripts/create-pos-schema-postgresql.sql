@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS Staff (
     position VARCHAR(50) NOT NULL DEFAULT '',
     isAdministrator BOOLEAN NOT NULL DEFAULT FALSE,
     inactive BOOLEAN NOT NULL DEFAULT FALSE,
-    dateOfBirth TIMESTAMP NOT NULL,
+    dateOfBirth TIMESTAMP NULL, -- not every staff record needs one; was NOT NULL with no default, blocking new staff creation
     address TEXT NOT NULL DEFAULT '',
     suburb VARCHAR(40) NOT NULL DEFAULT '',
     state VARCHAR(30) NOT NULL DEFAULT '',

@@ -64,6 +64,17 @@ namespace JMxPOS8.Models
         public string Position { get; set; } = string.Empty;
         public bool IsAdministrator { get; set; }
         public bool Inactive { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public string Address { get; set; } = string.Empty;
+        public string Suburb { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public string Postcode { get; set; } = string.Empty;
+        public string HomePhone { get; set; } = string.Empty;
+        public string Mobile { get; set; } = string.Empty;
+        public string EmailAddress { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string PasswordHint { get; set; } = string.Empty;
     }
 
     // Invoice model

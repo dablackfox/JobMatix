@@ -37,6 +37,10 @@
                 <Separator/>
                 <MenuItem Header="_New Customer" Command="{Binding NewCustomerItemCommand}" InputGesture="F5"/>
             </MenuItem>
+            <MenuItem Header="_Staff">
+                <MenuItem Header="Staff _List" Command="{Binding StaffListCommand}"/>
+                <MenuItem Header="_New Staff Member" Command="{Binding NewStaffItemCommand}"/>
+            </MenuItem>
             <MenuItem Header="_Reports">
                 <MenuItem Header="_Sales Report" Command="{Binding SalesReportCommand}"/>
                 <MenuItem Header="S_tock Report" Command="{Binding StockReportCommand}"/>
@@ -824,6 +828,239 @@
                     <!-- Status Message -->
                     <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
                                Text="{Binding CustomerViewModel.StatusMessage}" 
+                               Margin="0,10,0,0" FontStyle="Italic"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Staff Tab -->
+            <TabItem Header="Staff">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="3*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Search and Actions -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Name="txtStaffSearch" Width="300" Watermark="Search by name or staff number..."
+                                 Text="{Binding StaffViewModel.SearchText}"/>
+                        <Button Content="🔍" Width="30" Margin="5,0" Command="{Binding StaffViewModel.SearchStaffCommand}"/>
+                        <Button Content="New" Width="80" Margin="10,0,5,0" Command="{Binding StaffViewModel.NewStaffCommand}"/>
+                        <Button Content="Edit" Width="80" Margin="5,0" Command="{Binding StaffViewModel.EditStaffCommand}"/>
+                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding StaffViewModel.DeleteStaffCommand}"/>
+                        <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding StaffViewModel.RefreshCommand}"/>
+                    </StackPanel>
+
+                    <!-- Staff List -->
+                    <Border Grid.Row="1" Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="0,0,10,0">
+                        <ListBox Name="dgStaff"
+                                 ItemsSource="{Binding StaffViewModel.StaffMembers}"
+                                 SelectedItem="{Binding StaffViewModel.SelectedStaff}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="80"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Barcode}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DocketName}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Position}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="3" Text="Admin" FontWeight="Bold" Foreground="DarkGreen"
+                                                       IsVisible="{Binding IsAdministrator}" Margin="5,0"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- Staff Detail Form -->
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10">
+                        <ScrollViewer>
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Staff Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <!-- Basic Info -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Staff Number:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StaffViewModel.Barcode}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="First Name:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StaffViewModel.FirstName}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Last Name:*" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StaffViewModel.LastName}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Docket Name:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StaffViewModel.DocketName}"
+                                             Watermark="Shown on receipts - defaults to first name"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Position:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StaffViewModel.Position}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Date of Birth:" VerticalAlignment="Center"/>
+                                    <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StaffViewModel.DateOfBirth}"
+                                                IsEnabled="{Binding StaffViewModel.IsEditing}" HorizontalAlignment="Left" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Administrator:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding StaffViewModel.IsAdministrator}"
+                                              IsEnabled="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Inactive:" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding StaffViewModel.Inactive}"
+                                              IsEnabled="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Address -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Address" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Address:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StaffViewModel.Address}"
+                                             AcceptsReturn="True" Height="60"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Suburb:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StaffViewModel.Suburb}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="State:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StaffViewModel.State}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Postcode:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StaffViewModel.Postcode}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Contact -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Contact" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Home Phone:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StaffViewModel.HomePhone}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Mobile:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StaffViewModel.Mobile}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Email:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StaffViewModel.EmailAddress}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Login -->
+                                <Separator Margin="0,10"/>
+                                <TextBlock Text="Login (used by JobMatix Tracking, not the till barcode above)" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Password:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StaffViewModel.Password}"
+                                             PasswordChar="*"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Password Hint:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StaffViewModel.PasswordHint}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Status:" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StaffViewModel.Status}"
+                                             IsReadOnly="{Binding !StaffViewModel.IsEditing}"
+                                             IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
+                                </Grid>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0"
+                                            IsVisible="{Binding StaffViewModel.IsEditing}">
+                                    <Button Content="Save" Width="100" Margin="0,0,10,0"
+                                            Command="{Binding StaffViewModel.SaveStaffCommand}"
+                                            Background="Green" Foreground="White"/>
+                                    <Button Content="Cancel" Width="100"
+                                            Command="{Binding StaffViewModel.CancelEditCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Status Message -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                               Text="{Binding StaffViewModel.StatusMessage}"
                                Margin="0,10,0,0" FontStyle="Italic"/>
                 </Grid>
             </TabItem>
