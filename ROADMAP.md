@@ -97,16 +97,20 @@ These weren't visible until the legacy code was actually read. The cross-databas
 
 ---
 
-## Phase 3: JobMatix Main Application (job/repair tracking) — 0% built, now properly scoped
+## Phase 3: JobMatix Main Application (job/repair tracking) — core built this session
 
 The legacy app (`JMxJT620.NET`) is ~94,000 lines across 79 files. A full read-through this session (not just file listing) found it's more tractable than the LOC count suggests — most of the bulk is Designer-generated UI boilerplate and repetitive per-document print-layout code, not business logic.
 
-### Must ship together (size: L, this is the real core)
+### Must ship together (size: L, this is the real core) — ✅ done
 
-Job intake, job status/maintenance workflow, and parts lookup/allocation are **not independently buildable** — they share the same optimistic-locking model and status transitions are gated by parts/tasks-complete checks. You can't demo "create a job and move it through statuses" without at least a stubbed stock/parts lookup.
+Job intake, job status/maintenance workflow, and parts lookup/allocation were **not independently buildable** — they share the same optimistic-locking model and status transitions are gated by parts/tasks-complete checks. Built and verified against real data this session as a new Jobs tab in JMxPOS8, alongside the Customer Jobs sub-tab and Return Authorisations that were also completed:
 
-- **Job intake** — customer (barcode lookup + snapshot denormalized onto the job, matching legacy behavior), goods-in-care items (see Phase 0.4), problem description + checkbox symptoms list, priority, nominated tech, backup/recovery flags, warranty flag, optional photo. Three intake modes (Booking/Check-In/On-Site) share one save path. Job number is a plain identity column — no separate docket-numbering scheme to port.
-- **Job status workflow** — 11 real statuses, not a simple linear flow:
+- Job intake: customer barcode lookup (snapshot denormalized onto the job, matching legacy behavior), goods-in-care/brand/model as flat fields for v1 (the itemization redesign from Phase 0.4 is still a deferred fast-follow, not blocking), problem description + symptoms, priority, backup/warranty flags, staff attribution. Booking/On-Site intake modes weren't built (only the equivalent of legacy's default Check-In path) - low-risk to add later since they share the same save path.
+- The real 11-state status workflow, including the optimistic-locking "InProcess" mechanism (selecting a job to view/edit flips it to a locked variant, releasing on deselect, re-applying after any transition performed while still viewing it) - verified this actually round-trips correctly across selection changes, not just on paper.
+- Parts lookup/allocation with live price-drift detection against current stock pricing (the legacy `gbShowAllParts` repricing feature).
+- Not yet built from the original "must ship together" scope: the checklist-complete gate before completing a job (v1 allows completing without checking for recorded tasks/parts, just a soft warning), and photo attachments at intake.
+
+**Original status-table reference** (unchanged from the audit, still the vocabulary the build follows):
 
   | Code | Meaning |
   |---|---|
@@ -122,8 +126,7 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation are **n
   | `70-Delivered` | Handed back to customer |
   | `97-Cancelled` | Cancelled |
 
-  The `2x/3x/4x` "InProcess" variants are a real optimistic-locking mechanism (opening a job for edit flips its status to the locked variant so other users see it's in use, releasing on close) — **this concurrency guard needs to be preserved**, it's load-bearing multi-user behavior, not cosmetic. Completing a job is gated by a checklist-complete check with a confirmation warning if no labour time/tasks were recorded; delivery is a separate explicit action from completion, not automatic.
-- **Parts lookup/allocation** — pulls live from POS stock (search/browse, serial-number validation against POS's serialised-stock tracking), plus a re-pricing feature that flags when a part's price has drifted since it was added to the job. Now a same-database, in-process query (`parts.stock_id` has a real FK to `stock` since the merge) — no cross-database plumbing needed.
+  The `2x/3x/4x` "InProcess" variants are the optimistic-locking mechanism described above - preserved in the build, not simplified away.
 
 ### Can ship separately / deferred without blocking the core
 
@@ -134,8 +137,9 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation are **n
 
 ### Important, independently schedulable (not part of the "must ship together" core)
 
-- **Return Authorisations** — moved out of "tightly coupled to Job Tracking" (see "What Changed" #5). Scope: 7-state lifecycle (Created → RMA-Requested → RMA-Granted → GoodsSentToSupplier → GoodsCompleted/Refused/Cancelled), origin can be Job/Counter/Stock, integrates with POS via a stock/serial-audit transaction that already has a matching schema. Printing is 3 internal document types (record slip, courier label, packing slip) — no supplier-facing email/electronic submission exists in the legacy app, it's all printed paperwork. Estimated 2-3 weeks for one developer given Phase 2's stock/supplier/serial-audit plumbing already exists to build on.
-- **SMS notifications** — confirmed low-risk. 4 plain HTTP(S) gateways (SMS Boss, SMS Broadcast, SMSGlobal, DirectSMS), each a small adapter (form-POST vs. query-string request format and XML vs. substring-match response parsing differ per gateway, so budget 4 small adapters, not 1 generic client). Config lives in a generic key/value settings table already ported. Low coupling — 2 call sites in the whole legacy app, user-initiated with confirmation, not automatically triggered by status changes.
+- **Return Authorisations** — ✅ done. Built as a new Return Auths tab: the real 7-state lifecycle (Created → RMA-Requested → RMA-Granted → GoodsSentToSupplier → GoodsCompleted/Refused/Cancelled), origin Job/Counter/Stock, and the POS-side integration (permanently decrements stock and marks the serial audit row RETURNED when goods ship to the supplier, plus a `supplier_returns` header/line) - verified against real stock and a real serialized item. Printing (3 internal document types - record slip, courier label, packing slip) wasn't built; there's no supplier-facing email/electronic submission in the legacy app anyway, it's all printed paperwork, so this is a clean deferral.
+- **Customer "Jobs" sub-tab** — ✅ done, built on the existing Phase 2 Customer screen rather than as a separate view (see "What Changed" #6).
+- **SMS notifications** — confirmed low-risk, not yet built. 4 plain HTTP(S) gateways (SMS Boss, SMS Broadcast, SMSGlobal, DirectSMS), each a small adapter (form-POST vs. query-string request format and XML vs. substring-match response parsing differ per gateway, so budget 4 small adapters, not 1 generic client). Config lives in a generic key/value settings table already ported. Low coupling — 2 call sites in the whole legacy app, user-initiated with confirmation, not automatically triggered by status changes.
 - **Email notifications (SMTP)** — a natural sibling to SMS, same settings store and trigger pattern, independent of the Exchange/EWS calendar integration (which is being dropped, see Phase 0.3) — don't conflate the two, they're unrelated despite both being "email."
 - **Job reporting** — 4 report types (Jobs/Parts/Staff/Timesheet). Reuse Phase 2's already-built `ReportsViewModel` grid/summary pattern rather than porting the legacy GDI+ print-report renderer. Real technical risk here (not cosmetic): the legacy Jobs report uses SQL Server's proprietary `SHAPE` syntax for a parent/child recordset and a dynamically-created T-SQL scalar function for parsing chargeable hours from a session-log string — neither has a Postgres equivalent, needs an actual rewrite (two queries + in-app grouping; move the parsing into C#).
 - **On-site job list + staff SMS reminder** — just a filtered query plus a background poller reusing the SMS client above. Not a scheduling engine (see "What Changed" #7).
