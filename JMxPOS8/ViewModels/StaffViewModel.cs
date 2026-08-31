@@ -95,10 +95,9 @@ public partial class StaffViewModel : ViewModelBase
     private int _editingStaffId;
 
     // SMS gateway settings (ROADMAP.md Phase 3) - lives on the Staff admin screen since it's
-    // operational configuration, not a per-staff field.
-    [ObservableProperty]
-    private string _smsGatewaySelection = "SmsBoss";
-
+    // operational configuration, not a per-staff field. DirectSMS only - the real legacy
+    // SystemInfo config (checked against the restored legacy database) shows it's the only
+    // one of the 4 legacy-supported gateways that was ever actually configured/used.
     [ObservableProperty]
     private string _smsUsername = string.Empty;
 
@@ -121,7 +120,6 @@ public partial class StaffViewModel : ViewModelBase
     public async Task LoadSmsSettingsAsync()
     {
         var settings = await _smsService.GetSettingsAsync();
-        SmsGatewaySelection = settings.Gateway.ToString();
         SmsUsername = settings.Username;
         SmsPassword = settings.Password;
         SmsFromNumber = settings.FromNumber;
@@ -130,15 +128,8 @@ public partial class StaffViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveSmsSettings()
     {
-        if (!Enum.TryParse<SmsGateway>(SmsGatewaySelection, out var gateway))
-        {
-            SmsSettingsStatusMessage = $"Unknown gateway '{SmsGatewaySelection}'";
-            return;
-        }
-
         await _smsService.SaveSettingsAsync(new SmsGatewaySettings
         {
-            Gateway = gateway,
             Username = SmsUsername.Trim(),
             Password = SmsPassword,
             FromNumber = SmsFromNumber.Trim()
