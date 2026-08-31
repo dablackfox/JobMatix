@@ -69,3 +69,6 @@ Desktop.ini
 # Logs
 *.log
 logs/
+
+# Local DB backups (real migrated data, kept as a local safety net only)
+db-backups/

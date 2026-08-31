@@ -3,7 +3,9 @@
 -- to preserve full fidelity of legacy MSSQL data, and creates new tables for
 -- legacy concepts with no Postgres equivalent yet (quote job parts, model
 -- checklist lookup, RA attachments).
--- Run against: jobmatix_jobs
+-- Run against: jobmatix_pos (see create-jobs-schema-postgresql.sql header -
+-- this used to target a separate jobmatix_jobs database, now merged into
+-- jobmatix_pos as JobMatix's single unified database)
 
 BEGIN;
 
@@ -185,4 +187,52 @@ BEGIN
         EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT nextval(''%I_%I_seq'')',
             tbl.table_name, tbl.pk_column, tbl.table_name, tbl.pk_column);
     END LOOP;
+END $$;
+
+-- Added post-merge (2026-08-31): real cross-domain FKs, only possible now that jobs/RA
+-- tables and POS tables (customer/staff/stock/supplier) live in the same database. These
+-- columns previously held legacy numeric IDs with no referential integrity (cross-database
+-- FKs aren't possible in Postgres) - some historical rows have stale/orphaned values (an
+-- ID-scheme drift from the original legacy migration, not something to guess-fix), so
+-- invalid values are nulled out before adding each FK rather than left to violate it.
+-- goods_id/order_id on returnauthorizations are deliberately NOT given FKs here: ~74% of
+-- historical RA rows predate the POS goods-received integration (added late in the legacy
+-- product's life) and have no valid reference at all - not worth forcing.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_jobs_customer') THEN
+        ALTER TABLE jobs ALTER COLUMN rmcustomer_id DROP NOT NULL;
+        ALTER TABLE jobs ALTER COLUMN rcvdrmstaff_id DROP NOT NULL;
+        ALTER TABLE jobs ALTER COLUMN techrmstaff_id DROP NOT NULL;
+        ALTER TABLE jobs ALTER COLUMN deliveredrmstaff_id DROP NOT NULL;
+
+        UPDATE jobs SET rmcustomer_id = NULL WHERE rmcustomer_id = -1 OR NOT EXISTS (SELECT 1 FROM customer c WHERE c.customer_id = jobs.rmcustomer_id);
+        UPDATE jobs SET rcvdrmstaff_id = NULL WHERE rcvdrmstaff_id = -1 OR NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = jobs.rcvdrmstaff_id);
+        UPDATE jobs SET techrmstaff_id = NULL WHERE techrmstaff_id = -1 OR NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = jobs.techrmstaff_id);
+        UPDATE jobs SET deliveredrmstaff_id = NULL WHERE deliveredrmstaff_id = -1 OR NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = jobs.deliveredrmstaff_id);
+        UPDATE parts SET stock_id = NULL WHERE stock_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM stock st WHERE st.stock_id = parts.stock_id);
+        UPDATE parts SET serviced_by_staff_id = NULL WHERE serviced_by_staff_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = parts.serviced_by_staff_id);
+        UPDATE tasks SET performed_by_staff_id = NULL WHERE performed_by_staff_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = tasks.performed_by_staff_id);
+        UPDATE returnauthorizations SET rm_stock_id = NULL WHERE rm_stock_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM stock st WHERE st.stock_id = returnauthorizations.rm_stock_id);
+        UPDATE returnauthorizations SET supplier_id = NULL WHERE supplier_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM supplier su WHERE su.supplier_id = returnauthorizations.supplier_id);
+        UPDATE returnauthorizations SET staff_id_created = NULL WHERE staff_id_created IS NOT NULL AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = returnauthorizations.staff_id_created);
+        UPDATE documents SET staff_id = NULL WHERE staff_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = documents.staff_id);
+        UPDATE jobchecklists SET staff_id = NULL WHERE staff_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.staff_id = jobchecklists.staff_id);
+        UPDATE servicemodelchecklists SET rm_stock_id = NULL WHERE rm_stock_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM stock st WHERE st.stock_id = servicemodelchecklists.rm_stock_id);
+
+        ALTER TABLE jobs ADD CONSTRAINT fk_jobs_customer FOREIGN KEY (rmcustomer_id) REFERENCES customer(customer_id) ON DELETE SET NULL;
+        ALTER TABLE jobs ADD CONSTRAINT fk_jobs_rcvdstaff FOREIGN KEY (rcvdrmstaff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE jobs ADD CONSTRAINT fk_jobs_techstaff FOREIGN KEY (techrmstaff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE jobs ADD CONSTRAINT fk_jobs_deliveredstaff FOREIGN KEY (deliveredrmstaff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE parts ADD CONSTRAINT fk_parts_stock FOREIGN KEY (stock_id) REFERENCES stock(stock_id) ON DELETE SET NULL;
+        ALTER TABLE parts ADD CONSTRAINT fk_parts_servicedbystaff FOREIGN KEY (serviced_by_staff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE tasks ADD CONSTRAINT fk_tasks_performedbystaff FOREIGN KEY (performed_by_staff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE returnauthorizations ADD CONSTRAINT fk_ra_stock FOREIGN KEY (rm_stock_id) REFERENCES stock(stock_id) ON DELETE SET NULL;
+        ALTER TABLE returnauthorizations ADD CONSTRAINT fk_ra_supplier FOREIGN KEY (supplier_id) REFERENCES supplier(supplier_id) ON DELETE SET NULL;
+        ALTER TABLE returnauthorizations ADD CONSTRAINT fk_ra_staffcreated FOREIGN KEY (staff_id_created) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE returnauthorizations ADD CONSTRAINT fk_ra_staffupdated FOREIGN KEY (staff_id_updated) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE documents ADD CONSTRAINT fk_documents_staff FOREIGN KEY (staff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE jobchecklists ADD CONSTRAINT fk_jobchecklists_staff FOREIGN KEY (staff_id) REFERENCES staff(staff_id) ON DELETE SET NULL;
+        ALTER TABLE servicemodelchecklists ADD CONSTRAINT fk_smc_stock FOREIGN KEY (rm_stock_id) REFERENCES stock(stock_id) ON DELETE SET NULL;
+    END IF;
 END $$;

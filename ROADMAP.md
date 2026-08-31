@@ -22,7 +22,8 @@ v2 got Phase 2 right and shipped it. Phase 3 was still a guess — a thin bullet
 9. **Two real schema gaps found that block features, not just cosmetic drift**: `service_model_checklists` was ported with the wrong shape entirely (invented `ModelName`/`ItemOrder` columns instead of the real `RMStockId`/`TaskDescription` link) — blocks porting the service-checklist-template feature as-is; `returnauthorizations` is missing three legacy columns (`RA_Symptoms`, `RA_DateGoodsReceivedBack`, `RA_ReturnResultComment`).
 10. **The legacy job-reporting module uses SQL Server's proprietary `SHAPE` syntax and a T-SQL scalar function** — neither has a Postgres equivalent. This is a real rewrite (two queries + in-app grouping, move the scalar-function logic into C#), not a mechanical port — flagged so it isn't underestimated.
 11. **RA attachment blob content was never actually migrated** — metadata only (title/size/format), `doc_file_content` is `NULL` on all 8 RA attachment rows and all 142 job document rows. Whether the real bytes are recoverable from the old SQL Server backup is an open question worth resolving before promising "view old attachments" as a Phase 3 feature.
-12. **The Job Tracking app never had its own database connection historically — confirmed architecturally significant.** The whole legacy suite ran one process against one shared SQL Server database via one shared connection; `CustomerBarcode` on a job was always just a lookup key into the same database, never a real cross-database reference. Now that POS and Jobs are two separate Postgres databases, **the new Job Tracking app needs an explicit answer for how it reaches POS data** (customer/stock/staff lookups, labour pricing) — this is new design work, not something the legacy code already solved. See Phase 0.4. (A partial, never-finished dual-connection retrofit exists in the legacy VB.NET source from an earlier session — `DatabaseConfig.vb`/`modDatabaseAbstraction.vb` — confirmed inconsistent/inert; treat as noise, not a foundation.)
+12. **The Job Tracking app never had its own database connection historically — confirmed architecturally significant.** The whole legacy suite ran one process against one shared SQL Server database via one shared connection; `CustomerBarcode` on a job was always just a lookup key into the same database, never a real cross-database reference. (A partial, never-finished dual-connection retrofit exists in the legacy VB.NET source from an earlier session — `DatabaseConfig.vb`/`modDatabaseAbstraction.vb` — confirmed inconsistent/inert; treat as noise, not a foundation.)
+13. **Resolved, decisively: JobMatix is going back to being one single app, matching its actual history.** JobMatix was originally built as Job Tracking software; RA was added next; POS was added last (replacing MYOB Retail Manager) — it was never three separate products, that split only happened when this port work began. Per direction from the project owner, this port undoes that split: POS, Job Tracking, and RA become one Avalonia application, and — since a single app talking to two databases just recreates the cross-database problem in a new form — **the databases were merged too**. `jobmatix_jobs`'s 17 tables (26,383 jobs, 30,888 parts, 46,571 tasks, 1,323 RAs, and the rest) were merged into `jobmatix_pos` this session (full `pg_dump` backups of both databases taken first, kept in `db-backups/`; the standalone `jobmatix_jobs` database was left in place, untouched, as an extra safety net rather than dropped). This finally allows the real foreign keys that were never possible across two databases: `jobs.rmcustomer_id → customer`, `jobs.{rcvd,tech,delivered}rmstaff_id → staff`, `parts.stock_id → stock`, `parts.serviced_by_staff_id → staff`, `tasks.performed_by_staff_id → staff`, `returnauthorizations.{rm_stock_id→stock, supplier_id→supplier, staff_id_created/updated→staff}` — 14 new FKs added, all nullable (`ON DELETE SET NULL`), after nulling out a small number of historical rows (≤5% of any given column) whose legacy numeric ID didn't resolve to a real row. `returnauthorizations.goods_id`/`order_id` were deliberately left without FKs — ~74% orphaned, because the POS goods-received integration was added late in the legacy product's life and most historical RAs predate it. **This closes out Phase 0.4's cross-database question entirely** — there is no cross-database problem to solve anymore, Job Tracking/RA screens will just query the same connection JMxPOS8 already has open. It also means the `JobMatix62.Net` launcher's whole reason to exist (pick between two separate apps/processes) goes away — Job Tracking and RA become new tabs in the same window, not a separately launched app.
 
 ---
 
@@ -43,9 +44,8 @@ v2 got Phase 2 right and shipped it. Phase 3 was still a guess — a thin bullet
 
 ### 0.4 New Job Tracking architecture decisions (found during the Phase 3 audit)
 
-These weren't visible until the legacy code was actually read. Answer before starting Phase 3 build work.
+These weren't visible until the legacy code was actually read. The cross-database access question this section originally posed is now moot — see "What Changed" #13: POS, Job Tracking, and RA are becoming one single app over one single database (`jobmatix_pos`), matching JobMatix's original history, so there's no second connection or API boundary to design. What's left to decide:
 
-- **Cross-database access pattern.** The new Job Tracking app needs to reach POS data (customer lookup, stock/parts lookup and re-pricing, staff lookup, labour-rate info) that lives in a separate Postgres database (`jobmatix_pos`). Two real options: (a) a direct second connection string to `jobmatix_pos` from the Job Tracking app (simplest, matches "one Postgres instance per store" — both DBs are on the same server), or (b) call into JMxPOS8's existing service layer via some in-process/API boundary. Given Phase 0.1 already settled on same-instance-per-store, **(a) is the pragmatic default** unless you want the two apps more decoupled for other reasons — flag if you want to discuss further, otherwise this roadmap assumes (a).
 - **`GoodsInCare` schema.** Keep the legacy flat-text encoding (fast to ship, matches 26k historical rows as-is, needs a decode step to display), or redesign as a proper `job_goods_items(job_id, goods_type, brand, model, serial_no)` child table (matches what the data actually represents, requires a one-time backfill parse of history using the same decode logic already identified in the legacy code). **Recommend the child-table redesign** — it's a one-time migration cost against 26k rows, done once, versus re-implementing string encode/decode indefinitely. Defer to a fast-follow after a v1 slice ships with the flat field if you want to see the core workflow running sooner.
 - **`service_model_checklists` schema fix** — needs its columns corrected to match what the legacy code actually reads/writes (`rm_stock_id`, `task_description`, drop the invented `model_name`/`item_order`) before the checklist-template feature can be built. Small, mechanical, do it whenever that feature is scheduled (not core-path, see Phase 3 below).
 - **`returnauthorizations` missing columns** — add `ra_symptoms`, `ra_date_goods_received_back`, `ra_return_result_comment` before building RA (see Phase 3 below for RA's own scope, now independent of the rest of this phase).
@@ -58,9 +58,9 @@ These weren't visible until the legacy code was actually read. Answer before sta
 
 **Done:**
 - ✅ Docker Postgres 15 + pgAdmin running (5433/5050)
-- ✅ Schemas for `jobmatix_pos` and `jobmatix_jobs` deployed, real historical data migrated for both
-- ✅ Foreign keys added to the Jobs database (was flagged as a gap in v1/v2 — confirmed already fixed via `create-jobs-schema-extensions.sql`, verified live: 10 FK constraints across the tables that need them)
-- ✅ Missing SERIAL sequences fixed across all known instances — 17 tables in `jobmatix_pos` (Phase 2 work) + 4 tables in `jobmatix_jobs` (`quote_job_parts`, `model_checklist`, `ra_attachments`, `job_service_checklists`, fixed this session)
+- ✅ **`jobmatix_jobs` merged into `jobmatix_pos`** — JobMatix is now one app over one database, see "What Changed" #13. `jobmatix_pos` is the single source of truth for POS, Job Tracking, and RA data going forward. Pre-merge backups of both databases kept in `db-backups/`.
+- ✅ Foreign keys added to the Jobs tables (was flagged as a gap in v1/v2 — confirmed already fixed via `create-jobs-schema-extensions.sql` before this session; 14 more cross-domain FKs added this session as part of the merge, now that jobs/RA and customer/stock/staff/supplier live in the same database)
+- ✅ Missing SERIAL sequences fixed across all known instances — 17 tables from the original `jobmatix_pos` (Phase 2 work) + 4 tables from the merged-in jobs tables (`quote_job_parts`, `model_checklist`, `ra_attachments`, `job_service_checklists`, fixed this session)
 - ✅ `stock.requiresserial` schema drift reconciled
 
 **Still open:**
@@ -90,7 +90,7 @@ These weren't visible until the legacy code was actually read. Answer before sta
 - **Serial number tracking UI polish** — lower priority, not blocking a store from running.
 
 **New, small, low-risk additions surfaced by the Phase 3 audit — can be picked up any time, don't need to wait for the rest of Phase 3:**
-- **Customer "Jobs" sub-tab** — extend the existing Customer screen's Invoices/Item Sales/Payments/Quotes sub-tabs with a Jobs history tab (see "What Changed" #6). Requires the cross-database read decided in Phase 0.4.
+- **Customer "Jobs" sub-tab** — extend the existing Customer screen's Invoices/Item Sales/Payments/Quotes sub-tabs with a Jobs history tab (see "What Changed" #6). Now a plain same-database query (`jobs.rmcustomer_id` has a real FK to `customer` since the merge) — no cross-database plumbing needed.
 - **Return Authorisations** — can be built as a POS-adjacent feature now that it's confirmed not to depend on the rest of Job Tracking (see "What Changed" #5 and Phase 3 below for its own scope). Needs the `returnauthorizations` schema fix from Phase 0.4 first, and a decision on attachment storage if RA attachments matter to you.
 
 **Hardware** — unchanged from v2, still start procurement now in parallel with software.
@@ -123,7 +123,7 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation are **n
   | `97-Cancelled` | Cancelled |
 
   The `2x/3x/4x` "InProcess" variants are a real optimistic-locking mechanism (opening a job for edit flips its status to the locked variant so other users see it's in use, releasing on close) — **this concurrency guard needs to be preserved**, it's load-bearing multi-user behavior, not cosmetic. Completing a job is gated by a checklist-complete check with a confirmation warning if no labour time/tasks were recorded; delivery is a separate explicit action from completion, not automatic.
-- **Parts lookup/allocation** — pulls live from POS stock (search/browse, serial-number validation against POS's serialised-stock tracking), plus a re-pricing feature that flags when a part's price has drifted since it was added to the job. Unavoidably coupled to the Phase 0.4 cross-database decision.
+- **Parts lookup/allocation** — pulls live from POS stock (search/browse, serial-number validation against POS's serialised-stock tracking), plus a re-pricing feature that flags when a part's price has drifted since it was added to the job. Now a same-database, in-process query (`parts.stock_id` has a real FK to `stock` since the merge) — no cross-database plumbing needed.
 
 ### Can ship separately / deferred without blocking the core
 
@@ -145,9 +145,9 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation are **n
 - MYOB Retail Manager quote import (discontinued product, no modern equivalent needed — JMxPOS8 is the quote/order source going forward).
 - **Exchange/EWS calendar sync** — now a firm recommendation to drop (see Phase 0.3), not just a hedge.
 
-### Needs a small replacement, not a rewrite (size: S)
+### No longer needed at all
 
-- `JobMatix62.Net` launcher — confirmed purely mechanical (picks POS vs. Job Tracking, remembers last-used choice, no licensing/update-check logic). The SQL-Server-instance-discovery complexity in the legacy launcher is moot (Phase 1 already fixes the Postgres connection). New equivalent: a simple "remember last-used module" app setting plus a POS/Job-Tracking picker inside the one Avalonia app — no separate launcher process needed, since both halves are being built into the same new-stack application rather than as separate historical .exes.
+- `JobMatix62.Net` launcher — under v2 this was scoped as "needs a small replacement" (a POS/Job-Tracking picker). That's now moot: per "What Changed" #13, JobMatix is going back to being one single app, not two apps a launcher picks between. Job Tracking and RA are new tabs in the same JMxPOS8 window (matching the existing Sale/Stock/Customers/Staff/Reports/Transactions tabs), not a separately launched module. Nothing to build here.
 
 ---
 
@@ -172,7 +172,7 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation are **n
 | Multi-store model decision (Phase 0.1) | Blocks Phase 4 design, does **not** block Phase 2/3. |
 | Solo maintainer bus factor | One person + AI assistance. Keep things simple and documented. |
 | Hardware procurement lead time | Order test units now, in parallel with software work. |
-| Cross-database access pattern (Phase 0.4) | New risk this version — Job Tracking has no working prior-art for this (the legacy app never needed it; a partial VB.NET retrofit exists but is inconsistent/inert). Decide before starting the core Job workflow build, since parts lookup depends on it directly. |
+| ~~Cross-database access pattern~~ | Resolved by merging `jobmatix_jobs` into `jobmatix_pos` this session — JobMatix is one app over one database now, matching its original history. No cross-database design work left. |
 | `GoodsInCare` schema decision (Phase 0.4) | Affects intake UI design directly — decide before building that screen, not after. |
 | Legacy report SQL (`SHAPE`/T-SQL scalar function) | Real rewrite required, no direct Postgres equivalent — budget accordingly, don't treat job reporting as a mechanical port. |
 | Two newly-found plaintext-credential gaps | `staff.password` (known) and `jobs.username`/`userpassword` (newly found, arguably worse — customer PC credentials). Fix both before real deployment. |

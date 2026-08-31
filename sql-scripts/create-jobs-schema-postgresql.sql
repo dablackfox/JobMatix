@@ -2,7 +2,12 @@
 -- JobMatix Jobs Tracking Database Schema - PostgreSQL Version
 -- Converted from modCreateJobs3.vb
 -- Date: 2026-01-15
--- Target: jobmatix_jobs database
+-- Target: jobmatix_pos database (as of 2026-08-31 - JobMatix is one unified
+-- app, not POS + a separate Job Tracking app, matching its original history
+-- before the two were split apart. This file used to target a separate
+-- jobmatix_jobs database; that database still physically exists as a
+-- pre-merge backup but the app no longer uses it. Run this against
+-- jobmatix_pos, after the POS schema files, for a fresh deployment.)
 -- =========================================================================
 
 -- =========================================================================

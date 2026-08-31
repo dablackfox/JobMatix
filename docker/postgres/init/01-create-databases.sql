@@ -1,6 +1,13 @@
 -- JobMatix PostgreSQL Initialization Script
 -- This script runs automatically when the container is first created
 -- Date: 2026-01-15
+-- Updated 2026-08-31: JobMatix is one unified app (POS + Job Tracking + Return
+-- Authorisations all in one), matching its original pre-split history. All real
+-- schema/data now lives in jobmatix_pos alone - run create-pos-schema-*.sql then
+-- create-jobs-schema-*.sql (both target jobmatix_pos, see their headers) against
+-- it for a fresh store. jobmatix_jobs/jobmatix_backup are still created below for
+-- continuity with existing tooling/docs that reference them, but are unused
+-- shells going forward - don't put new data in them.
 
 -- Create additional databases for different JobMatix modules
 CREATE DATABASE jobmatix_jobs;
