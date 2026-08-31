@@ -301,32 +301,38 @@ namespace JMxPOS8.Services
                     try
                     {
                         // 1. Insert invoice
+                        // Invoice number embeds the real invoice_id (drawn from the same
+                        // sequence via the CTE below) rather than a wall-clock timestamp -
+                        // two sales committed in the same second used to collide on the
+                        // invoicenumber unique constraint.
                         int invoiceId;
-                        string invoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{DateTime.Now:HHmmss}";
+                        string transTypeCode = TransactionType.ToUpperInvariant();
                         using (var cmd = conn.CreateCommand())
                         {
                             cmd.Transaction = transaction;
                             cmd.CommandText = @"
+                                WITH next_id AS (SELECT nextval('invoice_invoice_id_seq') AS id)
                                 INSERT INTO invoice (
-                                    customer_id, staff_id, transactiontype, invoicedate, invoicenumber,
+                                    invoice_id, customer_id, staff_id, transactiontype, invoicedate, invoicenumber,
                                     subtotal, taxamount, total_inc, notes
-                                ) VALUES (
-                                    @customerId, @staffId, @transType, @transDate, @invoiceNumber,
-                                    @subtotalEx, @taxAmount, @totalInc, @notes
-                                ) RETURNING invoice_id";
+                                )
+                                SELECT id, @customerId, @staffId, @transType, @transDate,
+                                       'INV-' || to_char(@transDate, 'YYYYMMDD') || '-' || id::text,
+                                       @subtotalEx, @taxAmount, @totalInc, @notes
+                                FROM next_id
+                                RETURNING invoice_id";
 
                             AddParameter(cmd, "@customerId", CurrentCustomer?.CustomerId ?? 1); // Default walk-in customer
                             AddParameter(cmd, "@staffId", CurrentStaff!.StaffId);
-                            AddParameter(cmd, "@transType", "SALE");
+                            AddParameter(cmd, "@transType", transTypeCode);
                             AddParameter(cmd, "@transDate", DateTime.Now);
-                            AddParameter(cmd, "@invoiceNumber", invoiceNumber);
                             AddParameter(cmd, "@subtotalEx", SubtotalEx);
                             AddParameter(cmd, "@taxAmount", TaxAmount);
                             AddParameter(cmd, "@totalInc", TotalInc);
                             AddParameter(cmd, "@notes", string.Empty);
 
                             Console.WriteLine($"[SQL INVOICE] {cmd.CommandText}");
-                            Console.WriteLine($"[PARAMS] invoiceNumber={invoiceNumber}, customer={CurrentCustomer?.CustomerId ?? 1}, staff={CurrentStaff!.StaffId}, subtotal={SubtotalEx}, tax={TaxAmount}, total={TotalInc}");
+                            Console.WriteLine($"[PARAMS] customer={CurrentCustomer?.CustomerId ?? 1}, staff={CurrentStaff!.StaffId}, subtotal={SubtotalEx}, tax={TaxAmount}, total={TotalInc}");
 
                             invoiceId = Convert.ToInt32(cmd.ExecuteScalar());
                             Console.WriteLine($"[INVOICE CREATED] invoice_id={invoiceId}");
@@ -362,19 +368,23 @@ namespace JMxPOS8.Services
                                 cmd.ExecuteNonQuery();
                             }
 
-                            // Update stock quantity (for sales, reduce stock)
-                            if (TransactionType == "Sale")
+                            // Sales reduce stock on hand; refunds put it back. Quotes and
+                            // laybys don't move stock yet (layby holds/releases stock as
+                            // part of its own deposit/pickup workflow, not on initial commit).
+                            if (TransactionType == "Sale" || TransactionType == "Refund")
                             {
+                                decimal quantityDelta = TransactionType == "Sale" ? -item.Quantity : item.Quantity;
+
                                 using (var cmd = conn.CreateCommand())
                                 {
                                     cmd.Transaction = transaction;
                                     cmd.CommandText = @"
-                                        UPDATE stock 
-                                        SET quantityinstock = quantityinstock - @quantity,
+                                        UPDATE stock
+                                        SET quantityinstock = quantityinstock + @quantityDelta,
                                             date_modified = CURRENT_TIMESTAMP
                                         WHERE stock_id = @stockId";
 
-                                    AddParameter(cmd, "@quantity", item.Quantity);
+                                    AddParameter(cmd, "@quantityDelta", quantityDelta);
                                     AddParameter(cmd, "@stockId", item.StockId);
                                     cmd.ExecuteNonQuery();
                                 }
@@ -403,7 +413,7 @@ namespace JMxPOS8.Services
                                 AddParameter(cmd, "@paymentMethod", payment.PaymentType);
                                 AddParameter(cmd, "@amount", payment.Amount);
                                 AddParameter(cmd, "@reference", payment.Reference);
-                                AddParameter(cmd, "@transactionType", "SALE");
+                                AddParameter(cmd, "@transactionType", transTypeCode);
 
                                 cmd.ExecuteNonQuery();
                             }
