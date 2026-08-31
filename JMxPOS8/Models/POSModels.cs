@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace JMxPOS8.Models
 {
@@ -123,5 +124,20 @@ namespace JMxPOS8.Models
         public decimal Extension { get; set; }
         public string TaxCode { get; set; } = "GST";
         public int StockId { get; set; }
+    }
+
+    // A parked sale, held aside to serve another customer, that can be resumed later.
+    public class HeldSale
+    {
+        public int HoldId { get; set; }
+        public DateTime HeldAt { get; set; } = DateTime.Now;
+        public string HeldByStaffName { get; set; } = string.Empty;
+        public Customer? Customer { get; set; }
+        public string TransactionType { get; set; } = "Sale";
+        public decimal DiscountAmount { get; set; }
+        public List<SaleLineItem> Items { get; set; } = new();
+
+        public string CustomerDisplay => Customer?.CustomerName ?? "Walk-in Customer";
+        public string Summary => $"Hold #{HoldId} - {HeldAt:HH:mm} - {CustomerDisplay} ({Items.Count} item{(Items.Count == 1 ? "" : "s")})";
     }
 }

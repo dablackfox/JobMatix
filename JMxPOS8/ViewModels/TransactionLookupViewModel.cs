@@ -80,6 +80,19 @@ namespace JMxPOS8.ViewModels
             }
         }
 
+        // Used by "Show Last Invoice" - runs an unfiltered, newest-first search and
+        // selects the given invoice if it's found.
+        public async Task SelectInvoiceByIdAsync(int invoiceId)
+        {
+            LookupType = "Invoice";
+            ClearFilters();
+            await Search();
+            SelectedTransaction = Transactions.FirstOrDefault(t => t.TransactionId == invoiceId);
+            StatusMessage = SelectedTransaction != null
+                ? $"Showing invoice #{invoiceId}"
+                : $"Invoice #{invoiceId} not found";
+        }
+
         [RelayCommand]
         private void ClearFilters()
         {

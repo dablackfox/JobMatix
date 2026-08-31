@@ -26,6 +26,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private int _selectedTabIndex;
 
+    private int _lastInvoiceId;
+
     partial void OnSelectedTabIndexChanged(int value)
     {
         _ = LoadTabDataAsync(value);
@@ -50,6 +52,8 @@ public partial class MainWindowViewModel : ViewModelBase
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
+
+        SaleViewModel.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
 
         LoadTestData();
     }
@@ -107,6 +111,85 @@ public partial class MainWindowViewModel : ViewModelBase
     private void About()
     {
         StatusText = "JobMatix POS v8.0 - .NET 8 + Avalonia UI + PostgreSQL";
+    }
+
+    [RelayCommand]
+    private void HoldSale()
+    {
+        SelectedTabIndex = 0;
+        SaleViewModel.HoldSaleCommand.Execute(null);
+        StatusText = SaleViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task ShowLastInvoice()
+    {
+        if (_lastInvoiceId == 0)
+        {
+            StatusText = "No invoice committed yet this session";
+            return;
+        }
+
+        SelectedTabIndex = 4; // Transactions tab
+        StatusText = $"Looking up invoice #{_lastInvoiceId}...";
+        await TransactionLookupViewModel.SelectInvoiceByIdAsync(_lastInvoiceId);
+        StatusText = TransactionLookupViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task FindStock()
+    {
+        StatusText = "Loading stock list...";
+        SelectedTabIndex = 1;
+        await StockViewModel.LoadStockAsync();
+    }
+
+    [RelayCommand]
+    private void NewStockItem()
+    {
+        SelectedTabIndex = 1;
+        StockViewModel.NewStockCommand.Execute(null);
+        StatusText = StockViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task FindCustomer()
+    {
+        StatusText = "Loading customer list...";
+        SelectedTabIndex = 2;
+        await CustomerViewModel.LoadCustomersAsync();
+    }
+
+    [RelayCommand]
+    private void NewCustomerItem()
+    {
+        SelectedTabIndex = 2;
+        CustomerViewModel.NewCustomerCommand.Execute(null);
+        StatusText = CustomerViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task SalesReport()
+    {
+        SelectedTabIndex = 3;
+        await ReportsViewModel.RunDailySalesReportCommand.ExecuteAsync(null);
+        StatusText = ReportsViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task StockReport()
+    {
+        SelectedTabIndex = 3;
+        await ReportsViewModel.RunStockValueReportCommand.ExecuteAsync(null);
+        StatusText = ReportsViewModel.StatusMessage;
+    }
+
+    [RelayCommand]
+    private async Task CustomerReport()
+    {
+        SelectedTabIndex = 3;
+        await ReportsViewModel.RunCustomerAccountsReportCommand.ExecuteAsync(null);
+        StatusText = ReportsViewModel.StatusMessage;
     }
 
     partial void OnCurrentStaffChanged(Staff? value)

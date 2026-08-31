@@ -189,6 +189,55 @@ namespace JMxPOS8.Services
             TransactionType = "Sale";
         }
 
+        // Parks the current sale so another customer can be served, returning a snapshot
+        // that can later be restored with ResumeHeldSale. Refuses if a payment has already
+        // been taken against this sale - too late to park safely, commit or clear instead.
+        public bool TryHoldCurrentSale(int holdId, string heldByStaffName, out HeldSale? held)
+        {
+            held = null;
+            if (SaleItems.Count == 0)
+                return false;
+            if (Payments.Count > 0)
+                return false;
+
+            held = new HeldSale
+            {
+                HoldId = holdId,
+                HeldByStaffName = heldByStaffName,
+                Customer = CurrentCustomer,
+                TransactionType = TransactionType,
+                DiscountAmount = DiscountAmount,
+                Items = SaleItems.Select(i => new SaleLineItem
+                {
+                    LineNumber = i.LineNumber,
+                    Barcode = i.Barcode,
+                    SerialNumber = i.SerialNumber,
+                    Description = i.Description,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    Extension = i.Extension,
+                    TaxCode = i.TaxCode,
+                    StockId = i.StockId
+                }).ToList()
+            };
+
+            ClearSale();
+            return true;
+        }
+
+        // Restores a previously held sale as the active sale. Only sensible when the active
+        // sale is currently empty - the caller is responsible for checking that first.
+        public void ResumeHeldSale(HeldSale held)
+        {
+            ClearSale();
+            CurrentCustomer = held.Customer;
+            TransactionType = held.TransactionType;
+            DiscountAmount = held.DiscountAmount;
+
+            foreach (var item in held.Items)
+                SaleItems.Add(item);
+        }
+
         private decimal CalculateSubtotalEx()
         {
             decimal total = 0m;

@@ -21,28 +21,28 @@
             </MenuItem>
             <MenuItem Header="_Sales">
                 <MenuItem Header="_New Sale" Command="{Binding NewSaleCommand}" InputGesture="F9"/>
-                <MenuItem Header="_Hold Sale" InputGesture="F6"/>
+                <MenuItem Header="_Hold Sale" Command="{Binding HoldSaleCommand}" InputGesture="F6"/>
                 <Separator/>
-                <MenuItem Header="_Show Last Invoice" InputGesture="F8"/>
+                <MenuItem Header="_Show Last Invoice" Command="{Binding ShowLastInvoiceCommand}" InputGesture="F8"/>
             </MenuItem>
             <MenuItem Header="S_tock">
                 <MenuItem Header="_Stock List" Command="{Binding StockListCommand}" InputGesture="Ctrl+O"/>
-                <MenuItem Header="_Find Stock" InputGesture="F2"/>
+                <MenuItem Header="_Find Stock" Command="{Binding FindStockCommand}" InputGesture="F2"/>
                 <Separator/>
-                <MenuItem Header="_New Stock Item" InputGesture="F5"/>
+                <MenuItem Header="_New Stock Item" Command="{Binding NewStockItemCommand}" InputGesture="F5"/>
             </MenuItem>
             <MenuItem Header="_Customers">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
-                <MenuItem Header="_Find Customer" InputGesture="F3"/>
+                <MenuItem Header="_Find Customer" Command="{Binding FindCustomerCommand}" InputGesture="F3"/>
                 <Separator/>
-                <MenuItem Header="_New Customer" InputGesture="F5"/>
+                <MenuItem Header="_New Customer" Command="{Binding NewCustomerItemCommand}" InputGesture="F5"/>
             </MenuItem>
             <MenuItem Header="_Reports">
-                <MenuItem Header="_Sales Report"/>
-                <MenuItem Header="S_tock Report"/>
-                <MenuItem Header="C_ustomer Report"/>
+                <MenuItem Header="_Sales Report" Command="{Binding SalesReportCommand}"/>
+                <MenuItem Header="S_tock Report" Command="{Binding StockReportCommand}"/>
+                <MenuItem Header="C_ustomer Report" Command="{Binding CustomerReportCommand}"/>
                 <Separator/>
-                <MenuItem Header="_Cash Up"/>
+                <MenuItem Header="_Cash Up" IsEnabled="False" ToolTip.Tip="Not yet available"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
@@ -99,20 +99,43 @@
                     </StackPanel>
 
                     <!-- Transaction Type -->
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Transaction:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <Button Content="Sale" Margin="0,0,5,0" Width="80" 
-                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
-                                CommandParameter="Sale"/>
-                        <Button Content="Refund" Margin="0,0,5,0" Width="80" 
-                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
-                                CommandParameter="Refund"/>
-                        <Button Content="Quote" Margin="0,0,5,0" Width="80" 
-                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
-                                CommandParameter="Quote"/>
-                        <Button Content="Layby" Width="80" 
-                                Command="{Binding SaleViewModel.SetTransactionTypeCommand}" 
-                                CommandParameter="Layby"/>
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Transaction:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Content="Sale" Margin="0,0,5,0" Width="80"
+                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
+                                    CommandParameter="Sale"/>
+                            <Button Content="Refund" Margin="0,0,5,0" Width="80"
+                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
+                                    CommandParameter="Refund"/>
+                            <Button Content="Quote" Margin="0,0,5,0" Width="80"
+                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
+                                    CommandParameter="Quote"/>
+                            <Button Content="Layby" Margin="0,0,20,0" Width="80"
+                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
+                                    CommandParameter="Layby"/>
+                            <Button Content="Hold Sale (F6)" Width="120"
+                                    Command="{Binding SaleViewModel.HoldSaleCommand}"/>
+                        </StackPanel>
+
+                        <!-- Held Sales -->
+                        <ItemsControl ItemsSource="{Binding SaleViewModel.HeldSales}"
+                                      IsVisible="{Binding SaleViewModel.HasHeldSales}"
+                                      Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1" CornerRadius="3" Padding="8,4" Margin="0,0,0,4">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0" Text="{Binding Summary}" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Content="Resume"
+                                                    Command="{Binding $parent[Window].DataContext.SaleViewModel.ResumeHeldSaleCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Width="80" Height="25"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <!-- Sale Items Grid -->

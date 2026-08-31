@@ -14,6 +14,14 @@ namespace JMxPOS8.ViewModels
         private readonly StockService _stockService;
         private readonly CustomerService _customerService;
         private readonly StaffService _staffService;
+        private int _nextHoldId = 1;
+
+        // Raised with the invoice id whenever a sale is successfully committed, so other
+        // parts of the app (e.g. "Show Last Invoice") can react without polling.
+        public event Action<int>? SaleCommitted;
+
+        public ObservableCollection<HeldSale> HeldSales { get; } = new();
+        public bool HasHeldSales => HeldSales.Count > 0;
 
         [ObservableProperty]
         private string _staffNumber = "";
@@ -79,9 +87,10 @@ namespace JMxPOS8.ViewModels
             _saleService = new SaleService(dbService, stockService, customerService);
             
             SaleItems = _saleService.SaleItems;
-            
+
             // Subscribe to collection changes to update totals
             SaleItems.CollectionChanged += (s, e) => UpdateTotals();
+            HeldSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasHeldSales));
         }
 
         public string CustomerInfo => CurrentCustomer != null 
@@ -387,7 +396,8 @@ namespace JMxPOS8.ViewModels
                 StatusMessage = $"Sale committed! Invoice #{invoiceId}";
                 Console.WriteLine($"[SALE] ✅ Sale committed successfully! Invoice ID: {invoiceId}");
                 Console.WriteLine($"[SALE] ═══════════════════════════════════════════════════════\n");
-                
+                SaleCommitted?.Invoke(invoiceId);
+
                 // Clear the sale
                 await Task.Delay(1500); // Show message briefly
                 ClearSale();
@@ -399,6 +409,55 @@ namespace JMxPOS8.ViewModels
                 Console.WriteLine($"[SALE] Stack trace: {ex.StackTrace}");
                 Console.WriteLine($"[SALE] ═══════════════════════════════════════════════════════\n");
             }
+        }
+
+        [RelayCommand]
+        public void HoldSale()
+        {
+            if (SaleItems.Count == 0)
+            {
+                StatusMessage = "No sale in progress to hold";
+                return;
+            }
+
+            if (!_saleService.TryHoldCurrentSale(_nextHoldId, CurrentStaff?.DocketName ?? "", out var held) || held == null)
+            {
+                StatusMessage = "Cannot hold a sale that already has a payment applied - commit or clear it instead";
+                Console.WriteLine("[SALE] ❌ Hold rejected - payment already applied");
+                return;
+            }
+
+            _nextHoldId++;
+            HeldSales.Add(held);
+            ClearItemEntry();
+            CustomerBarcode = "";
+            CurrentCustomer = null;
+            DiscountAmount = 0;
+            UpdateTotals();
+            StatusMessage = $"Sale held ({held.Summary}). Ready for next customer.";
+            Console.WriteLine($"[SALE] ✅ {held.Summary} - {SaleItems.Count} items now active");
+        }
+
+        [RelayCommand]
+        private void ResumeHeldSale(HeldSale? held)
+        {
+            if (held == null)
+                return;
+
+            if (SaleItems.Count > 0)
+            {
+                StatusMessage = "Finish or hold the current sale before resuming another";
+                return;
+            }
+
+            _saleService.ResumeHeldSale(held);
+            CurrentCustomer = held.Customer;
+            TransactionType = held.TransactionType;
+            DiscountAmount = held.DiscountAmount;
+            HeldSales.Remove(held);
+            UpdateTotals();
+            StatusMessage = $"Resumed hold #{held.HoldId}";
+            Console.WriteLine($"[SALE] ✅ Resumed hold #{held.HoldId} - {SaleItems.Count} items restored");
         }
 
         [RelayCommand]
