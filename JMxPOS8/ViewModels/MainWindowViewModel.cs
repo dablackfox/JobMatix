@@ -74,6 +74,13 @@ public partial class MainWindowViewModel : ViewModelBase
     public GoodsReceivedViewModel GoodsReceivedViewModel { get; }
     public ReturnAuthorizationViewModel ReturnAuthorizationViewModel { get; }
     public JobViewModel JobViewModel { get; }
+    public ReferenceDataViewModel GoodsTypesViewModel { get; }
+    public ReferenceDataViewModel BrandsViewModel { get; }
+    public ReferenceDataViewModel SymptomsViewModel { get; }
+    public ReferenceDataViewModel TaskTypesViewModel { get; }
+
+    [ObservableProperty]
+    private int _selectedReferenceSubTabIndex;
 
     public MainWindowViewModel()
     {
@@ -99,6 +106,11 @@ public partial class MainWindowViewModel : ViewModelBase
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
         JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService);
+        var referenceDataService = new ReferenceDataService(_dbService);
+        GoodsTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.GoodsTypes, "Goods Accepted Types");
+        BrandsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Brands, "Brands");
+        SymptomsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Symptoms, "Problem Symptoms");
+        TaskTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.TaskTypes, "Task Types");
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -358,6 +370,30 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
     }
 
+    private async Task OpenReferenceData(int subTabIndex)
+    {
+        SelectedTabIndex = 10;
+        SelectedReferenceSubTabIndex = subTabIndex;
+        StatusText = "Loading reference data...";
+        await GoodsTypesViewModel.LoadAsync();
+        await BrandsViewModel.LoadAsync();
+        await SymptomsViewModel.LoadAsync();
+        await TaskTypesViewModel.LoadAsync();
+        StatusText = "Reference data loaded";
+    }
+
+    [RelayCommand]
+    private Task OpenGoodsTypes() => OpenReferenceData(0);
+
+    [RelayCommand]
+    private Task OpenBrands() => OpenReferenceData(1);
+
+    [RelayCommand]
+    private Task OpenSymptoms() => OpenReferenceData(2);
+
+    [RelayCommand]
+    private Task OpenTaskTypes() => OpenReferenceData(3);
+
     [RelayCommand]
     private void NewStaffItem()
     {
@@ -469,6 +505,14 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusText = "Loading open jobs...";
                     await JobViewModel.LoadOpenJobsAsync();
                     StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
+                    break;
+                case 10: // Reference Data tab
+                    StatusText = "Loading reference data...";
+                    await GoodsTypesViewModel.LoadAsync();
+                    await BrandsViewModel.LoadAsync();
+                    await SymptomsViewModel.LoadAsync();
+                    await TaskTypesViewModel.LoadAsync();
+                    StatusText = "Reference data loaded";
                     break;
             }
         }

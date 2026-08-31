@@ -63,6 +63,13 @@
             </MenuItem>
             <MenuItem Header="_Jobs">
                 <MenuItem Header="Job _List" Command="{Binding JobsCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Reference Data">
+                    <MenuItem Header="_Goods Accepted Types" Command="{Binding OpenGoodsTypesCommand}"/>
+                    <MenuItem Header="_Brands" Command="{Binding OpenBrandsCommand}"/>
+                    <MenuItem Header="_Problem Symptoms" Command="{Binding OpenSymptomsCommand}"/>
+                    <MenuItem Header="_Task Types" Command="{Binding OpenTaskTypesCommand}"/>
+                </MenuItem>
             </MenuItem>
             <MenuItem Header="_Reports">
                 <MenuItem Header="_Sales Report" Command="{Binding SalesReportCommand}"/>
@@ -1713,6 +1720,23 @@
                         </Border>
                     </Grid>
                 </Grid>
+            </TabItem>
+
+            <TabItem Header="Reference Data">
+                <TabControl SelectedIndex="{Binding SelectedReferenceSubTabIndex}">
+                    <TabItem Header="Goods Types">
+                        <views:ReferenceListEditorView DataContext="{Binding GoodsTypesViewModel}"/>
+                    </TabItem>
+                    <TabItem Header="Brands">
+                        <views:ReferenceListEditorView DataContext="{Binding BrandsViewModel}"/>
+                    </TabItem>
+                    <TabItem Header="Symptoms">
+                        <views:ReferenceListEditorView DataContext="{Binding SymptomsViewModel}"/>
+                    </TabItem>
+                    <TabItem Header="Task Types">
+                        <views:ReferenceListEditorView DataContext="{Binding TaskTypesViewModel}"/>
+                    </TabItem>
+                </TabControl>
             </TabItem>
         </TabControl>
     </DockPanel>

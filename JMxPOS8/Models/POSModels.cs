@@ -4,6 +4,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace JMxPOS8.Models
 {
+    // Row in one of the flat id/description lookup tables (GoodsTypes, Brands, Symptoms,
+    // TaskTypes) - see Services/ReferenceDataService.cs.
+    public class ReferenceItem
+    {
+        public int Id { get; set; }
+        public string Description { get; set; } = string.Empty;
+    }
+
     // Stock item model
     public class StockItem
     {
