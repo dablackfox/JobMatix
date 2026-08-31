@@ -179,6 +179,51 @@ namespace JMxPOS8.Services
             return items;
         }
 
+        // Only possible as a direct query now that jobs and customers share one database
+        // (see ROADMAP.md "What Changed" #13) - rmcustomer_id has a real FK to customer.
+        public async Task<List<CustomerJobSummary>> GetCustomerJobsAsync(int customerId, int limit = 100)
+        {
+            var items = new List<CustomerJobSummary>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT job_id, dateupdated, techstaffname, jobstatus, goodsincare, problemsymptoms, priority
+                        FROM jobs
+                        WHERE rmcustomer_id = @customerId
+                        ORDER BY job_id DESC
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            items.Add(new CustomerJobSummary
+                            {
+                                JobId = Convert.ToInt32(reader["job_id"]),
+                                DateUpdated = Convert.ToDateTime(reader["dateupdated"]),
+                                TechStaffName = reader["techstaffname"].ToString() ?? "",
+                                JobStatus = reader["jobstatus"].ToString() ?? "",
+                                GoodsInCare = reader["goodsincare"].ToString() ?? "",
+                                ProblemSymptoms = reader["problemsymptoms"].ToString() ?? "",
+                                Priority = reader["priority"].ToString() ?? ""
+                            });
+                        }
+                    }
+                }
+            }
+
+            return items;
+        }
+
         public async Task<List<Customer>> GetAllCustomersAsync(int limit = 100)
         {
             var customers = new List<Customer>();

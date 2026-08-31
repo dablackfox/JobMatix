@@ -166,6 +166,19 @@ namespace JMxPOS8.Models
         public string TransactionType { get; set; } = string.Empty;
     }
 
+    // A customer's job/repair history - only possible as a direct query since jobs and
+    // customers share one database now (see ROADMAP.md "What Changed" #13).
+    public class CustomerJobSummary
+    {
+        public int JobId { get; set; }
+        public DateTime DateUpdated { get; set; }
+        public string TechStaffName { get; set; } = string.Empty;
+        public string JobStatus { get; set; } = string.Empty;
+        public string GoodsInCare { get; set; } = string.Empty;
+        public string ProblemSymptoms { get; set; } = string.Empty;
+        public string Priority { get; set; } = string.Empty;
+    }
+
     // A physical stock count session - stays open while staff scan items, then gets
     // committed (adjusting stock.quantityinstock to match what was counted) or cancelled.
     public class StocktakeSession

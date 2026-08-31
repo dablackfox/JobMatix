@@ -23,6 +23,7 @@ public partial class CustomerViewModel : ViewModelBase
     public ObservableCollection<CustomerItemSaleSummary> ItemSales { get; } = new();
     public ObservableCollection<CustomerPaymentSummary> Payments { get; } = new();
     public ObservableCollection<CustomerInvoiceSummary> Quotes { get; } = new();
+    public ObservableCollection<CustomerJobSummary> Jobs { get; } = new();
 
     partial void OnSelectedCustomerChanged(Customer? value)
     {
@@ -40,6 +41,7 @@ public partial class CustomerViewModel : ViewModelBase
         ItemSales.Clear();
         Payments.Clear();
         Quotes.Clear();
+        Jobs.Clear();
 
         try
         {
@@ -47,6 +49,7 @@ public partial class CustomerViewModel : ViewModelBase
             foreach (var i in await _customerService.GetCustomerItemSalesAsync(customerId)) ItemSales.Add(i);
             foreach (var p in await _customerService.GetCustomerPaymentsAsync(customerId)) Payments.Add(p);
             foreach (var q in await _customerService.GetCustomerQuotesAsync(customerId)) Quotes.Add(q);
+            foreach (var j in await _customerService.GetCustomerJobsAsync(customerId)) Jobs.Add(j);
         }
         catch (Exception ex)
         {
