@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace JMxPOS8.Models
 {
@@ -195,6 +196,49 @@ namespace JMxPOS8.Models
         public int QtyOnRecord { get; set; }
         public int QtyCounted { get; set; }
         public int QtyDifference { get; set; }
+    }
+
+    public class Supplier
+    {
+        public int SupplierId { get; set; }
+        public string Barcode { get; set; } = string.Empty;
+        public string SupplierName { get; set; } = string.Empty;
+        public string ContactName { get; set; } = string.Empty;
+        public string BusinessPhone { get; set; } = string.Empty;
+        public string EmailAddress { get; set; } = string.Empty;
+        public bool Inactive { get; set; }
+    }
+
+    // One line being built up in the Goods Received UI before it's submitted - there is no
+    // draft state in the DB (unlike Stocktake): goods_received/_line rows are only written
+    // once, at the point of receiving, matching the legacy schema (no is_committed flag).
+    public partial class GoodsReceivedLine : ObservableObject
+    {
+        public int StockId { get; set; }
+        public string Barcode { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+
+        // decimal (not int) so it binds directly to NumericUpDown.Value with no conversion -
+        // the DB column is an integer, so callers round when writing it back.
+        [ObservableProperty]
+        private decimal _quantity = 1;
+
+        [ObservableProperty]
+        private decimal _costEx;
+
+        public decimal LineTotalEx => Quantity * CostEx;
+
+        partial void OnQuantityChanged(decimal value) => OnPropertyChanged(nameof(LineTotalEx));
+        partial void OnCostExChanged(decimal value) => OnPropertyChanged(nameof(LineTotalEx));
+    }
+
+    public class GoodsReceivedSummary
+    {
+        public int GoodsId { get; set; }
+        public DateTime GoodsDate { get; set; }
+        public string SupplierName { get; set; } = string.Empty;
+        public string InvoiceNo { get; set; } = string.Empty;
+        public decimal TotalInc { get; set; }
     }
 
     // A parked sale, held aside to serve another customer, that can be resumed later.

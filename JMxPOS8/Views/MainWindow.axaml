@@ -46,6 +46,7 @@
                 <MenuItem Header="_New Stock Item" Command="{Binding NewStockItemCommand}" InputGesture="F5"/>
                 <Separator/>
                 <MenuItem Header="Stock_take" Command="{Binding StocktakeCommand}"/>
+                <MenuItem Header="_Goods Received" Command="{Binding GoodsReceivedCommand}"/>
             </MenuItem>
             <MenuItem Header="_Customers">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
@@ -1355,6 +1356,101 @@
 
                     <TextBlock Grid.Column="1" Text="Start a new stocktake, or select an open one from the list, to begin scanning."
                                IsVisible="{Binding !StocktakeViewModel.HasOpenSession}" Foreground="Gray" Margin="10"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Goods Received Tab -->
+            <TabItem Header="Goods Received">
+                <Grid Margin="10" ColumnDefinitions="1.4*,2*">
+                    <!-- New receipt -->
+                    <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Text="Receive Goods" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+
+                        <StackPanel Grid.Row="1" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Text="{Binding GoodsReceivedViewModel.SupplierBarcode}" Watermark="Supplier barcode" Width="150">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding GoodsReceivedViewModel.LookupSupplierCommand}"/>
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                                <Button Content="Find" Command="{Binding GoodsReceivedViewModel.LookupSupplierCommand}"/>
+                                <TextBlock Text="{Binding GoodsReceivedViewModel.SelectedSupplier.SupplierName}" VerticalAlignment="Center" FontWeight="Bold"/>
+                            </StackPanel>
+
+                            <TextBox Text="{Binding GoodsReceivedViewModel.InvoiceNo}" Watermark="Supplier invoice number"/>
+                            <DatePicker SelectedDate="{Binding GoodsReceivedViewModel.InvoiceDate}"/>
+                            <TextBox Text="{Binding GoodsReceivedViewModel.Comments}" Watermark="Comments (optional)" AcceptsReturn="True" Height="60"/>
+
+                            <TextBox Text="{Binding GoodsReceivedViewModel.ScanBarcode}" Watermark="Scan item barcode to add a line" IsEnabled="{Binding GoodsReceivedViewModel.SelectedSupplier, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding GoodsReceivedViewModel.ScanLineCommand}"/>
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Spacing="8" Margin="0,10,0,0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Subtotal (ex GST):"/>
+                                <TextBlock Grid.Column="1" Text="{Binding GoodsReceivedViewModel.SubtotalEx, StringFormat=C}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Estimated total (inc GST):" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="1" Text="{Binding GoodsReceivedViewModel.EstimatedTotalInc, StringFormat=C}" FontWeight="Bold"/>
+                            </Grid>
+                            <TextBox Text="{Binding GoodsReceivedViewModel.StaffBarcode}" Watermark="Your staff barcode"/>
+                            <Button Content="Receive Goods" Command="{Binding GoodsReceivedViewModel.SubmitGoodsReceivedCommand}"
+                                    Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
+                            <TextBlock Text="{Binding GoodsReceivedViewModel.StatusMessage}" FontStyle="Italic"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Lines + recent receipts -->
+                    <Grid Grid.Column="1" RowDefinitions="*,Auto,150">
+                        <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top" Background="#F0F0F0" Padding="5">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Column="0" Text="Description" FontWeight="Bold"/>
+                                        <TextBlock Grid.Column="1" Text="Qty" FontWeight="Bold" Width="60" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="2" Text="Cost (ex)" FontWeight="Bold" Width="90" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="Line Total" FontWeight="Bold" Width="90" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="" Width="30"/>
+                                    </Grid>
+                                </Border>
+                                <ListBox ItemsSource="{Binding GoodsReceivedViewModel.Lines}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center"/>
+                                                <NumericUpDown Grid.Column="1" Value="{Binding Quantity}" Width="90" Minimum="1" FormatString="0"/>
+                                                <NumericUpDown Grid.Column="2" Value="{Binding CostEx}" Width="110" Minimum="0" FormatString="C"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding LineTotalEx, StringFormat=C}" Width="90" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="4" Content="x" Width="30"
+                                                        Command="{Binding $parent[Window].DataContext.GoodsReceivedViewModel.RemoveLineCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <TextBlock Grid.Row="1" Text="Recent Goods Received" FontWeight="Bold" Margin="0,10,0,5"/>
+                        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding GoodsReceivedViewModel.RecentReceipts}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="Auto,140,*,Auto" Margin="5,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding GoodsId, StringFormat='#{0}'}" FontWeight="Bold" Width="50"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding GoodsDate, StringFormat='dd-MMM-yyyy HH:mm'}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding SupplierName}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" FontWeight="Bold"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
         </TabControl>

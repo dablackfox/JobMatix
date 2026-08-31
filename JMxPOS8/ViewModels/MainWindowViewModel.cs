@@ -71,6 +71,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ReportsViewModel ReportsViewModel { get; }
     public StaffViewModel StaffViewModel { get; }
     public StocktakeViewModel StocktakeViewModel { get; }
+    public GoodsReceivedViewModel GoodsReceivedViewModel { get; }
 
     public MainWindowViewModel()
     {
@@ -88,6 +89,8 @@ public partial class MainWindowViewModel : ViewModelBase
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         StaffViewModel = new StaffViewModel(_staffService);
         StocktakeViewModel = new StocktakeViewModel(new StocktakeService(_dbService, _stockService), _staffService);
+        GoodsReceivedViewModel = new GoodsReceivedViewModel(
+            new GoodsReceivedService(_dbService), new SupplierService(_dbService), _stockService, _staffService);
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -321,6 +324,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task GoodsReceived()
+    {
+        SelectedTabIndex = 7;
+        StatusText = "Loading recent goods received...";
+        await GoodsReceivedViewModel.LoadRecentAsync();
+        StatusText = $"Goods received loaded: {GoodsReceivedViewModel.RecentReceipts.Count} recent";
+    }
+
+    [RelayCommand]
     private void NewStaffItem()
     {
         SelectedTabIndex = 3;
@@ -412,6 +424,11 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusText = "Loading open stocktakes...";
                     await StocktakeViewModel.LoadSessionsAsync();
                     StatusText = $"Stocktakes loaded: {StocktakeViewModel.Sessions.Count} open";
+                    break;
+                case 7: // Goods Received tab
+                    StatusText = "Loading recent goods received...";
+                    await GoodsReceivedViewModel.LoadRecentAsync();
+                    StatusText = $"Goods received loaded: {GoodsReceivedViewModel.RecentReceipts.Count} recent";
                     break;
             }
         }
