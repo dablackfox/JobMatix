@@ -205,8 +205,8 @@ namespace JMxPOS8.ViewModels
                                 CustomerName = reader.IsDBNull(4) ? "Walk-in" : reader.GetString(4),
                                 CustomerBarcode = reader.IsDBNull(5) ? "" : reader.GetString(5),
                                 StaffName = reader.IsDBNull(6) ? "" : reader.GetString(6),
-                                IsOnAccount = LookupType == "Invoice" && !reader.IsDBNull(7) && reader.GetBoolean(7),
-                                InvoiceNumber = LookupType == "Invoice" && !reader.IsDBNull(8) ? reader.GetString(8) : ""
+                                IsOnAccount = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                                InvoiceNumber = !reader.IsDBNull(8) ? reader.GetString(8) : ""
                             });
                         }
                     }
@@ -319,7 +319,27 @@ namespace JMxPOS8.ViewModels
             }
             else // Quote
             {
-                sql = "SELECT 0, CURRENT_TIMESTAMP, 'Quote', 0, '', '', '', false, '' WHERE 1=0"; // Placeholder - quotes not implemented yet
+                sql = @"
+                    SELECT inv.invoice_id, inv.invoicedate, inv.transactiontype,
+                           inv.total_inc,
+                           COALESCE(c.companyname, c.customername) as customer_name,
+                           c.barcode as customer_barcode,
+                           s.docket_name as staff_name,
+                           false as isonaccount,
+                           inv.invoicenumber
+                    FROM invoice inv
+                    LEFT JOIN customer c ON inv.customer_id = c.customer_id
+                    LEFT JOIN staff s ON inv.staff_id = s.staff_id
+                    WHERE inv.transactiontype = 'QUOTE'";
+
+                if (!string.IsNullOrWhiteSpace(StaffBarcode))
+                    sql += " AND s.barcode = @staffBarcode";
+                if (!string.IsNullOrWhiteSpace(CustomerBarcode))
+                    sql += " AND c.barcode = @customerBarcode";
+                if (DatePeriod != "Any")
+                    sql += " AND inv.invoicedate >= @dateFrom AND inv.invoicedate < @dateTo";
+
+                sql += " ORDER BY inv.invoicedate DESC, inv.invoice_id DESC";
             }
 
             return sql;
