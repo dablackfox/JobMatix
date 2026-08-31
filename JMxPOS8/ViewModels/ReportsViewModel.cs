@@ -13,6 +13,7 @@ public partial class ReportsViewModel : ViewModelBase
     private readonly DatabaseService _dbService;
     private readonly StockService _stockService;
     private readonly CustomerService _customerService;
+    private readonly StaffService _staffService;
 
     public ObservableCollection<ReportItem> ReportData { get; }
 
@@ -21,6 +22,15 @@ public partial class ReportsViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _reportTitle = "Select a report to run";
+
+    // Cash-up is interactive (operator enters counted amounts) rather than a read-only
+    // report grid, so it gets its own panel instead of populating ReportData.
+    public bool IsCashupView => ReportTitle == "Cash Up";
+
+    partial void OnReportTitleChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCashupView));
+    }
 
     [ObservableProperty]
     private DateTimeOffset? _startDate = DateTimeOffset.Now.AddDays(-30);
@@ -56,11 +66,34 @@ public partial class ReportsViewModel : ViewModelBase
     [ObservableProperty]
     private string _summary4Value = string.Empty;
 
-    public ReportsViewModel(DatabaseService dbService, StockService stockService, CustomerService customerService)
+    // Cash-up / EOD reconciliation
+    public ObservableCollection<CashupLine> CashupLines { get; } = new();
+
+    [ObservableProperty]
+    private string _cashupTill = "A";
+
+    [ObservableProperty]
+    private string _cashupStaffBarcode = "";
+
+    [ObservableProperty]
+    private DateTime? _cashupPeriodStart;
+
+    [ObservableProperty]
+    private string _cashupComments = "";
+
+    [ObservableProperty]
+    private string _cashupStatusMessage = "";
+
+    public decimal CashupTotalReported => CashupLines.Sum(l => l.Reported);
+    public decimal CashupTotalCounted => CashupLines.Sum(l => l.Counted);
+    public decimal CashupTotalVariance => CashupTotalCounted - CashupTotalReported;
+
+    public ReportsViewModel(DatabaseService dbService, StockService stockService, CustomerService customerService, StaffService staffService)
     {
         _dbService = dbService;
         _stockService = stockService;
         _customerService = customerService;
+        _staffService = staffService;
         ReportData = new ObservableCollection<ReportItem>();
     }
 
@@ -479,6 +512,205 @@ public partial class ReportsViewModel : ViewModelBase
         Summary3Value = string.Empty;
         Summary4Label = string.Empty;
         Summary4Value = string.Empty;
+    }
+
+    // Cash-up / EOD reconciliation: "reported" is what the system says was taken per
+    // payment method since the last cashup for this till; the operator enters "counted"
+    // (what's physically in the drawer/settled) and the difference is the variance.
+    [RelayCommand]
+    private async Task LoadCashup()
+    {
+        try
+        {
+            ReportTitle = "Cash Up";
+            CashupStatusMessage = "Loading...";
+            CashupLines.Clear();
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+
+                // Start of period = the last completed cashup for this till, or start of
+                // today if this till has never been cashed up before.
+                DateTime periodStart;
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT MAX(session_date) FROM cashup_sessions WHERE cash_drawer = @till";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@till";
+                    p.Value = CashupTill;
+                    cmd.Parameters.Add(p);
+                    var result = await Task.Run(() => cmd.ExecuteScalar());
+                    periodStart = (result == null || result is DBNull)
+                        ? DateTime.Today
+                        : Convert.ToDateTime(result);
+                }
+                CashupPeriodStart = periodStart;
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT paymentmethod, SUM(amount) as total
+                        FROM payments
+                        WHERE cash_drawer = @till AND paymentdate > @periodStart
+                        GROUP BY paymentmethod
+                        ORDER BY paymentmethod";
+                    var p1 = cmd.CreateParameter();
+                    p1.ParameterName = "@till";
+                    p1.Value = CashupTill;
+                    cmd.Parameters.Add(p1);
+                    var p2 = cmd.CreateParameter();
+                    p2.ParameterName = "@periodStart";
+                    p2.Value = periodStart;
+                    cmd.Parameters.Add(p2);
+
+                    using var reader = await Task.Run(() => cmd.ExecuteReader());
+                    while (await Task.Run(() => reader.Read()))
+                    {
+                        var line = new CashupLine
+                        {
+                            PaymentMethod = reader.IsDBNull(0) ? "(unspecified)" : reader.GetString(0),
+                            Reported = reader.GetDecimal(1)
+                        };
+                        line.PropertyChanged += (_, _) =>
+                        {
+                            OnPropertyChanged(nameof(CashupTotalCounted));
+                            OnPropertyChanged(nameof(CashupTotalVariance));
+                        };
+                        CashupLines.Add(line);
+                    }
+                }
+            }
+
+            OnPropertyChanged(nameof(CashupTotalReported));
+            OnPropertyChanged(nameof(CashupTotalCounted));
+            OnPropertyChanged(nameof(CashupTotalVariance));
+
+            CashupStatusMessage = CashupLines.Count > 0
+                ? $"{CashupLines.Count} payment method(s) since {periodStartDisplay(CashupPeriodStart)} - enter counted amounts"
+                : $"No payments recorded for till {CashupTill} since {periodStartDisplay(CashupPeriodStart)}";
+        }
+        catch (Exception ex)
+        {
+            CashupStatusMessage = $"Error: {ex.Message}";
+        }
+
+        static string periodStartDisplay(DateTime? d) => d?.ToString("dd-MMM-yyyy HH:mm") ?? "";
+    }
+
+    [RelayCommand]
+    private async Task CompleteCashup()
+    {
+        if (CashupLines.Count == 0)
+        {
+            CashupStatusMessage = "Run Load Cash Up first";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(CashupStaffBarcode))
+        {
+            CashupStatusMessage = "Enter the staff barcode doing the cash-up";
+            return;
+        }
+
+        var staff = await _staffService.FindStaffByBarcodeAsync(CashupStaffBarcode.Trim());
+        if (staff == null)
+        {
+            CashupStatusMessage = $"Staff not found for '{CashupStaffBarcode}'";
+            return;
+        }
+
+        try
+        {
+            using var conn = _dbService.GetConnection();
+            await Task.Run(() => conn.Open());
+            using var transaction = conn.BeginTransaction();
+
+            int sessionId;
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = transaction;
+                cmd.CommandText = @"
+                    INSERT INTO cashup_sessions (
+                        staff_id, staff_name, session_date, cash_drawer, status,
+                        stock_value, stock_variance, comments
+                    ) VALUES (
+                        @staffId, @staffName, @sessionDate, @till, 'CLOSED',
+                        0, @variance, @comments
+                    )
+                    RETURNING session_id";
+                AddCmdParam(cmd, "@staffId", staff.StaffId);
+                AddCmdParam(cmd, "@staffName", staff.DocketName);
+                // Sale-side timestamps (payments.paymentdate, invoice.invoicedate) are all
+                // stamped with app-side DateTime.Now, not the DB server's clock - the two can
+                // differ by hours (e.g. a UTC Postgres container vs. a local-timezone client).
+                // session_date must use the same clock so the next Load Cash Up's
+                // "paymentdate > periodStart" comparison doesn't re-include already-reconciled
+                // payments or miss ones taken in the gap.
+                AddCmdParam(cmd, "@sessionDate", DateTime.Now);
+                AddCmdParam(cmd, "@till", CashupTill);
+                AddCmdParam(cmd, "@variance", CashupTotalVariance);
+                AddCmdParam(cmd, "@comments", CashupComments);
+                sessionId = Convert.ToInt32(await Task.Run(() => cmd.ExecuteScalar()));
+            }
+
+            foreach (var line in CashupLines)
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = transaction;
+                cmd.CommandText = @"
+                    INSERT INTO cashup_shortages (
+                        session_id, paymenttype_key, paymenttype_descr, amount_reported, amount_counted
+                    ) VALUES (
+                        @sessionId, @key, @descr, @reported, @counted
+                    )";
+                AddCmdParam(cmd, "@sessionId", sessionId);
+                AddCmdParam(cmd, "@key", line.PaymentMethod);
+                AddCmdParam(cmd, "@descr", line.PaymentMethod);
+                AddCmdParam(cmd, "@reported", line.Reported);
+                AddCmdParam(cmd, "@counted", line.Counted);
+                await Task.Run(() => cmd.ExecuteNonQuery());
+            }
+
+            transaction.Commit();
+            CashupStatusMessage = $"Cash-up #{sessionId} completed by {staff.DocketName} - variance {CashupTotalVariance:C}";
+            CashupLines.Clear();
+            CashupStaffBarcode = "";
+            CashupComments = "";
+            OnPropertyChanged(nameof(CashupTotalReported));
+            OnPropertyChanged(nameof(CashupTotalCounted));
+            OnPropertyChanged(nameof(CashupTotalVariance));
+        }
+        catch (Exception ex)
+        {
+            CashupStatusMessage = $"Error completing cash-up: {ex.Message}";
+        }
+    }
+
+    private static void AddCmdParam(System.Data.IDbCommand cmd, string name, object value)
+    {
+        var param = cmd.CreateParameter();
+        param.ParameterName = name;
+        param.Value = value ?? DBNull.Value;
+        cmd.Parameters.Add(param);
+    }
+}
+
+// One payment-method line in a cash-up session - Counted is operator-entered, Variance is
+// computed live as they type.
+public partial class CashupLine : ObservableObject
+{
+    public string PaymentMethod { get; set; } = "";
+    public decimal Reported { get; set; }
+
+    [ObservableProperty]
+    private decimal _counted;
+
+    public decimal Variance => Counted - Reported;
+
+    partial void OnCountedChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(Variance));
     }
 }
 

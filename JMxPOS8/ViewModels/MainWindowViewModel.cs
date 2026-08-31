@@ -83,7 +83,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Create ViewModels
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
-        ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
+        ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService, _staffService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         StaffViewModel = new StaffViewModel(_staffService);
 

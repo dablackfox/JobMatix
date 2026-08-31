@@ -502,3 +502,50 @@ COMMIT;
 -- Widened post-hoc: legacy computed discount amounts (sell_ex - sellActual_ex) can exceed
 -- NUMERIC(5,2) for bulk-quantity lines; this column holds a currency amount, not a percentage.
 ALTER TABLE invoice_lines ALTER COLUMN discount TYPE NUMERIC(19,4);
+
+-- Post-hoc: none of the 17 new tables above got a SERIAL/sequence-backed primary key -
+-- the legacy import correctly preserved original historical IDs, but left every one of
+-- these PKs as a plain integer with no default, so a fresh app-side INSERT (no explicit
+-- id supplied) would fail. Found while building the Cash-up feature; audited and fixed
+-- every affected table at once rather than one at a time as each feature needed it.
+DO $$
+DECLARE
+  t RECORD;
+BEGIN
+  FOR t IN
+    SELECT * FROM (VALUES
+      ('purchase_order','order_id'),
+      ('purchase_order_line','line_id'),
+      ('goods_received','goods_id'),
+      ('goods_received_line','line_id'),
+      ('sales_order','salesorder_id'),
+      ('sales_order_line','line_id'),
+      ('layby','layby_id'),
+      ('layby_line','line_id'),
+      ('subscription','subscription_id'),
+      ('subscription_line','line_id'),
+      ('subscription_invoice','subs_invoice_line_id'),
+      ('stocktake','stocktake_id'),
+      ('stocktake_items','item_id'),
+      ('supplier_returns','return_id'),
+      ('supplier_return_line','line_id'),
+      ('serial_audit','serial_id'),
+      ('serial_audit_trail','trail_id'),
+      ('cashup_sessions','session_id'),
+      ('cashup_shortages','shortage_id')
+    ) AS x(table_name, pk_column)
+  LOOP
+    EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %I', t.table_name || '_' || t.pk_column || '_seq');
+    EXECUTE format('SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM %I), 0) + 1, false)',
+                    t.table_name || '_' || t.pk_column || '_seq', t.pk_column, t.table_name);
+    EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT nextval(%L)',
+                    t.table_name, t.pk_column, t.table_name || '_' || t.pk_column || '_seq');
+    EXECUTE format('ALTER SEQUENCE %I OWNED BY %I.%I',
+                    t.table_name || '_' || t.pk_column || '_seq', t.table_name, t.pk_column);
+  END LOOP;
+END $$;
+
+-- payments.cash_drawer was never populated by JMxPOS8's own commit path despite the
+-- column existing - found while scoping Cash-up (which needs it to know which till a
+-- payment belongs to). Fixed in SaleService.CommitSaleAsync; no schema change needed
+-- here, this note is just so the gap's cause is documented alongside the other fixes.

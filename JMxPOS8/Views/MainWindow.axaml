@@ -977,6 +977,7 @@
                             <Button Content="Customer Accounts" Command="{Binding ReportsViewModel.RunCustomerAccountsReportCommand}" Width="140"/>
                             <Button Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
                             <Button Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
+                            <Button Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120" Background="#2E7D32" Foreground="White"/>
                         </StackPanel>
 
                         <!-- Date Range Selection -->
@@ -995,8 +996,65 @@
                                FontWeight="Bold" 
                                Margin="0,0,0,10"/>
 
+                    <!-- Cash Up panel -->
+                    <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1" Padding="15"
+                            IsVisible="{Binding ReportsViewModel.IsCashupView}">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="Auto,120,20,Auto,*">
+                                <TextBlock Grid.Column="0" Text="Till:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding ReportsViewModel.CashupTill}"/>
+                                <TextBlock Grid.Column="3" Text="Since:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Column="4" Text="{Binding ReportsViewModel.CashupPeriodStart, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Border BorderBrush="Gray" BorderThickness="1">
+                                <Grid RowDefinitions="Auto,*">
+                                    <Grid Grid.Row="0" Background="LightGray" ColumnDefinitions="*,150,150,150">
+                                        <TextBlock Grid.Column="0" Text="Payment Method" Margin="5" FontWeight="Bold"/>
+                                        <TextBlock Grid.Column="1" Text="Reported" Margin="5" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="2" Text="Counted" Margin="5" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="Variance" Margin="5" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <ListBox Grid.Row="1" ItemsSource="{Binding ReportsViewModel.CashupLines}" Height="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="*,150,150,150" Margin="5,3">
+                                                    <TextBlock Grid.Column="0" Text="{Binding PaymentMethod}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Reported, StringFormat=C}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Column="2" Text="{Binding Counted}" HorizontalContentAlignment="Right"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Variance, StringFormat=C}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                               Foreground="Crimson"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <Grid ColumnDefinitions="*,150,150,150">
+                                <TextBlock Grid.Column="0" Text="Total" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding ReportsViewModel.CashupTotalReported, StringFormat=C}" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                <TextBlock Grid.Column="2" Text="{Binding ReportsViewModel.CashupTotalCounted, StringFormat=C}" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="{Binding ReportsViewModel.CashupTotalVariance, StringFormat=C}" FontWeight="Bold" HorizontalAlignment="Right" Foreground="Crimson"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto,200,20,Auto,*" Margin="0,10,0,0">
+                                <TextBlock Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Column="1" Name="txtCashupStaffBarcode" Text="{Binding ReportsViewModel.CashupStaffBarcode}" Watermark="Barcode/number"/>
+                                <TextBlock Grid.Column="3" Text="Comments:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Column="4" Text="{Binding ReportsViewModel.CashupComments}"/>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Content="Complete Cash Up" Command="{Binding ReportsViewModel.CompleteCashupCommand}" Background="#2E7D32" Foreground="White" Width="150"/>
+                                <TextBlock Text="{Binding ReportsViewModel.CashupStatusMessage}" VerticalAlignment="Center" FontStyle="Italic"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Report Data Grid -->
-                    <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1">
+                    <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1"
+                            IsVisible="{Binding !ReportsViewModel.IsCashupView}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -1044,12 +1102,13 @@
                     </Border>
 
                     <!-- Summary Panel -->
-                    <Border Grid.Row="3" 
-                            Background="#F0F0F0" 
-                            BorderBrush="#CCCCCC" 
-                            BorderThickness="1" 
-                            Padding="10" 
-                            Margin="0,10,0,0">
+                    <Border Grid.Row="3"
+                            Background="#F0F0F0"
+                            BorderBrush="#CCCCCC"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,10,0,0"
+                            IsVisible="{Binding !ReportsViewModel.IsCashupView}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -1081,7 +1140,8 @@
                     </Border>
 
                     <!-- Action Buttons and Status -->
-                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0"
+                                IsVisible="{Binding !ReportsViewModel.IsCashupView}">
                         <Button Content="Export to CSV" Command="{Binding ReportsViewModel.ExportReportCommand}" Width="120"/>
                         <Button Content="Print" Command="{Binding ReportsViewModel.PrintReportCommand}" Width="100"/>
                         <TextBlock Text="{Binding ReportsViewModel.StatusMessage}" 

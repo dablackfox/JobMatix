@@ -400,10 +400,10 @@ namespace JMxPOS8.Services
                                 cmd.CommandText = @"
                                     INSERT INTO payments (
                                         invoice_id, customer_id, staff_id, paymentdate,
-                                        paymentmethod, amount, paymentreference, transactiontype
+                                        paymentmethod, amount, paymentreference, transactiontype, cash_drawer
                                     ) VALUES (
                                         @invoiceId, @customerId, @staffId, @paymentDate,
-                                        @paymentMethod, @amount, @reference, @transactionType
+                                        @paymentMethod, @amount, @reference, @transactionType, @cashDrawer
                                     )";
 
                                 AddParameter(cmd, "@invoiceId", invoiceId);
@@ -414,6 +414,7 @@ namespace JMxPOS8.Services
                                 AddParameter(cmd, "@amount", payment.Amount);
                                 AddParameter(cmd, "@reference", payment.Reference);
                                 AddParameter(cmd, "@transactionType", transTypeCode);
+                                AddParameter(cmd, "@cashDrawer", payment.CashDrawerId);
 
                                 cmd.ExecuteNonQuery();
                             }
