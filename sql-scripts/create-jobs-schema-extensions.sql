@@ -160,3 +160,29 @@ CREATE INDEX IF NOT EXISTS idx_jsc_job ON job_service_checklists(job_id);
 -- Widened post-hoc: legacy RA data exceeded these column widths
 ALTER TABLE returnauthorizations ALTER COLUMN rastatus TYPE VARCHAR(30);
 ALTER TABLE returnauthorizations ALTER COLUMN ranumber TYPE VARCHAR(60);
+
+-- Fixed post-hoc: same systemic gap Phase 2 hit in jobmatix_pos (see
+-- create-pos-schema-extensions.sql) - these 4 tables were declared with
+-- INTEGER PRIMARY KEY and no SERIAL default, so they were only insertable
+-- with an explicit id (fine for the legacy-data import, broken for the new
+-- app inserting fresh rows). Added sequences synced past the current max id.
+DO $$
+DECLARE
+    tbl RECORD;
+BEGIN
+    FOR tbl IN
+        SELECT * FROM (VALUES
+            ('quote_job_parts', 'quotepart_id'),
+            ('model_checklist', 'checklist_id'),
+            ('ra_attachments', 'doc_id'),
+            ('job_service_checklists', 'jobchecklist_id')
+        ) AS t(table_name, pk_column)
+    LOOP
+        EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %I_%I_seq OWNED BY %I.%I',
+            tbl.table_name, tbl.pk_column, tbl.table_name, tbl.pk_column);
+        EXECUTE format('SELECT setval(''%I_%I_seq'', COALESCE((SELECT MAX(%I) FROM %I), 0) + 1, false)',
+            tbl.table_name, tbl.pk_column, tbl.pk_column, tbl.table_name);
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT nextval(''%I_%I_seq'')',
+            tbl.table_name, tbl.pk_column, tbl.table_name, tbl.pk_column);
+    END LOOP;
+END $$;

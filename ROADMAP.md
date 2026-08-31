@@ -1,142 +1,167 @@
-# JobMatix Revival Roadmap v2
+# JobMatix Revival Roadmap v3
 
 **Last Updated**: August 31, 2026
-**Supersedes**: `ROADMAP-ARCHIVE-2026-01.md` (see "What Changed" below — that version had factual errors and fictional resourcing; don't use it for planning, keep it only for history)
+**Supersedes**: `ROADMAP-ARCHIVE-2026-08.md` (v2 — Phase 2 was accurate and is now complete; Phase 3 was a thin, partly-wrong placeholder, corrected below after a real code audit)
 **Project**: Martin Fenwick, solo maintainer, AI-assisted (Claude Code)
-**Status of the software**: JobMatix/JMxPOS was last live in production ~2020–2021 at Precise PCs. It is **not currently running anywhere**. This is a revival for a fresh multi-store IBG rollout, not a live cutover — there is no production system to protect or migrate off today.
+**Status of the software**: JobMatix/JMxPOS was last live in production ~2020–2021 at Precise PCs. It is **not currently running anywhere**. This is a revival for a fresh multi-store IBG rollout, not a live cutover.
 
 ---
 
-## What Changed From v1 (and why)
+## What Changed From v2 (and why)
 
-The old roadmap (Jan 2026) was written after a burst of work on JMxPOS8 and contained several errors that would have caused real damage if left unfixed:
+v2 got Phase 2 right and shipped it. Phase 3 was still a guess — a thin bullet list written before anyone had actually read `JMxJT620.NET`. This version replaces that guess with findings from a real line-by-line audit of the legacy Job Tracking, Return Authorisations, and launcher source, cross-checked against the live `jobmatix_jobs` Postgres database (which already holds real migrated data: 26,383 jobs, 30,888 parts, 46,571 tasks, 1,323 return authorisations).
 
-1. **"Phase 4: Remote Agent" was based on a wrong guess.** `JMxRAs62.Net` was assumed to be a data-sync/replication engine. It is actually **Return Authorisations** (supplier warranty-return tracking) — there is no sync/replication code anywhere in the old or new codebase. Cross-store sync was never designed by anyone; it's a real gap now handled explicitly in Phase 4 below, and RA has moved to Phase 3 where it actually belongs.
-2. **The database abstraction layer (`JMxRetailHost620.Net`) was assumed to need "40-60 hours of wiring up."** In reality only 13 of 638 raw database call sites across the legacy apps route through it — finishing it is effectively a full rewrite anyway. **This roadmap abandons that approach** in favor of what `JMxPOS8` already proved works: a clean C#/Avalonia rewrite per app, service by service.
-3. **Fictional resourcing.** v1 was denominated in "1-2 developers full-time for 6 months" with a placeholder "System Migration Team" owner. Reality: one person plus AI-assisted development, part-time. Every calendar date in v1 was wrong twice over — once because 7.5 months passed with zero activity, and again because the underlying pace assumption never matched who's doing the work. **This version does not invent calendar dates.** Phases are ordered by dependency and sized relatively (S/M/L/XL); add real dates yourself once you know your hours/week, and update `date-modified` at the top of this file whenever you revisit it — that's the whole "review cadence," no forced schedule.
-4. **No live-cutover risk after all** — confirmed this is a revival of dormant software, not a migration off a system stores depend on today. This removes v1's implicit (and unstated) parallel-run/rollback pressure. It does **not** remove the question of whether old Precise PCs data (job history, customer records) is worth importing — that's a Phase 0 decision below, not a Phase 7 afterthought like v1 had it.
-5. **Multi-store data model was never designed in** — it appeared 3 times across all v1 docs, always as an unelaborated bullet buried in the wrong phase (Phase 4). It's the entire reason this project was revived and needs to be decided *before* Phase 3 (12 weeks of planned work in the old plan) is built on top of a single-tenant assumption. See Phase 0.
-6. **Dead modules identified and dropped**: `JMxKeyGen420_OS` (licensing — already disabled by Geoff when he open-sourced JobMatix under Apache 2.0), `backup-agent` (superseded by IBG's existing rsnapshot+DO-Spaces backup infra), MYOB Retail Manager quote-import (MYOB Retail Manager was discontinued years ago, no modern equivalent).
-7. **New gaps found that weren't on v1 at all**: stocktake, customer statements, schema drift (checked-in SQL scripts no longer match the live database), zero foreign keys in the Jobs database, plaintext staff passwords, an undefined role/permissions model beyond one `isadministrator` boolean, and zero offline-resilience planning for a retail POS.
-8. **Good news v1 didn't know**: the old POS's "EFTPOS integration" and the barcode scanner were both lower-risk than feared — EFTPOS was only ever manual bookkeeping (no live terminal API to port), and scanners are standard HID keyboard-wedge devices that should just work with the existing UI.
+1. **Phase 2 is done.** Cash-up, Stocktake, Customer Statements, Goods Received, and Transaction Lookup/Void all shipped and were verified against live data this session. What's left in Phase 2 is only the items that were always blocked on a decision (receipt printing/cash drawer hardware, subscriptions, email/SMTP) — see Phase 2 below.
+2. **"Zero foreign keys in the Jobs database" (v1/v2's Phase 1 gap) is stale — already fixed.** `create-jobs-schema-extensions.sql` added 10 FK constraints (jobs→documents/jobchecklists/jobother/parts/returnauthorizations/tasks/job_service_checklists, plus quote_job_parts, ra_attachments, tasktypes) before this session started. Verified live. Don't keep re-flagging this.
+3. **A new, previously-unknown security gap found**: `jobs.username`/`jobs.userpassword` store **customers' own PC login credentials** in plaintext (collected at intake so a tech can log into the machine being repaired) — 6,681 of 26,383 real jobs have a populated username, 7,591 have a password. This is distinct from the already-known `staff.password` plaintext issue (that one's an internal login; this one is customers' personal credentials, arguably worse exposure). Both need fixing, treat as two separate line items.
+4. **A second instance of Phase 2's missing-SERIAL-sequence bug found and fixed in the Jobs database.** Same root cause as the 17-table bug already fixed in `jobmatix_pos`: `quote_job_parts`, `model_checklist`, `ra_attachments`, `job_service_checklists` were declared `INTEGER PRIMARY KEY` with no sequence. Fixed live and in `create-jobs-schema-extensions.sql` this session.
+5. **Return Authorisations does not belong "with the rest of job-management" after all — it's barely coupled to jobs.** Real data: only 126 of 1,323 RAs (9.5%) reference a job at all; 60.7% originate from stock, 28.4% from a counter return. The Job-linked RA case is just a customer-lookup convenience, not a workflow dependency. RA's actual integration point is a POS-side stock/serial-audit transaction (`POS_GoodsReturned`) that already has a matching Postgres schema (`supplier_returns`, `supplier_return_line`, `serial_audit`, `serial_audit_trail` — all already modeled, no gap). **RA can be built as a standalone feature attached to Phase 2's POS/Void/Refund area, independent of and not blocked on the rest of Phase 3.** It is functionally a POS satellite module that happens to store its rows in the jobs database for historical-schema reasons.
+6. **"Customer job history" should not be a separate Job Tracking screen.** The legacy app already combines POS purchase history and job history into one hybrid screen (`frmCustHistory3.vb`). The right port target is a **new "Jobs" sub-tab on Phase 2's existing Customer screen** (`JMxPOS8/ViewModels/CustomerViewModel.cs`, which already has Invoices/Item Sales/Payments/Quotes sub-tabs) — not a standalone Job Tracking feature. Small, low-risk, and can be built any time (doesn't need to wait for the rest of Phase 3).
+7. **"On-site/mobile job scheduling" isn't a scheduling feature.** It's a magic-string flag (`GoodsInCare='ON-SITE JOB;'`) plus a filtered list view using the job's ordinary `DatePromised` field — there is no calendar engine, no mobile app, nothing to build beyond a filtered query. Two *separate* integrations hang off that flag: Exchange/EWS calendar sync (real but optional, dying API — **recommend dropping outright**, see Phase 0.3) and a staff SMS reminder poller (small, reuses the SMS client already being built, worth keeping).
+8. **`GoodsInCare` isn't free text — it's a delimited multi-item collection** (type/brand/model/serial per item, up to several items per job, packed into one 250-char column via legacy encode/decode logic). The current ported schema copied the flat-column shape faithfully but not the actual semantics. This needs an explicit decision before building the intake/goods-in-care UI — see Phase 0.4.
+9. **Two real schema gaps found that block features, not just cosmetic drift**: `service_model_checklists` was ported with the wrong shape entirely (invented `ModelName`/`ItemOrder` columns instead of the real `RMStockId`/`TaskDescription` link) — blocks porting the service-checklist-template feature as-is; `returnauthorizations` is missing three legacy columns (`RA_Symptoms`, `RA_DateGoodsReceivedBack`, `RA_ReturnResultComment`).
+10. **The legacy job-reporting module uses SQL Server's proprietary `SHAPE` syntax and a T-SQL scalar function** — neither has a Postgres equivalent. This is a real rewrite (two queries + in-app grouping, move the scalar-function logic into C#), not a mechanical port — flagged so it isn't underestimated.
+11. **RA attachment blob content was never actually migrated** — metadata only (title/size/format), `doc_file_content` is `NULL` on all 8 RA attachment rows and all 142 job document rows. Whether the real bytes are recoverable from the old SQL Server backup is an open question worth resolving before promising "view old attachments" as a Phase 3 feature.
+12. **The Job Tracking app never had its own database connection historically — confirmed architecturally significant.** The whole legacy suite ran one process against one shared SQL Server database via one shared connection; `CustomerBarcode` on a job was always just a lookup key into the same database, never a real cross-database reference. Now that POS and Jobs are two separate Postgres databases, **the new Job Tracking app needs an explicit answer for how it reaches POS data** (customer/stock/staff lookups, labour pricing) — this is new design work, not something the legacy code already solved. See Phase 0.4. (A partial, never-finished dual-connection retrofit exists in the legacy VB.NET source from an earlier session — `DatabaseConfig.vb`/`modDatabaseAbstraction.vb` — confirmed inconsistent/inert; treat as noise, not a foundation.)
 
 ---
 
 ## Phase 0: Architecture Decisions — do this before more Phase 2/3 work
 
-These are the decisions that would be expensive to reverse later. Everything downstream assumes an answer here.
+### 0.1 Store/location data model
 
-### 0.1 Store/location data model — **you're weighing two real options**
-
-| Option | What it costs now | What you get |
-|---|---|---|
-| **A. Separate Postgres per store + a new lightweight central reporting API** (recommended) | Small — no schema changes needed today, just a per-store provisioning script. The reporting API is a new, small Node/Express service on DO (matches IBG's existing infra pattern — you already run comparable services for rmm-psa), built independently, later. | Ships fastest, keeps the 40%-built JMxPOS8 investment intact, each store's POS keeps working even if the internet or the central link drops (real requirement for a till — you can't stop selling because head office is unreachable). |
-| **B. Full rewrite as a webapp/Electron app, everything via API** | Large — this is a genuine full rewrite, not a port. Throws away the working Avalonia app. Offline resilience (register still needs to work if the network drops) has to be re-solved explicitly — a native app talking to a local DB gets this close to free; a browser/Electron-over-API app doesn't. | Centralized deployment/updates, one codebase instead of native+API. Only worth it if you decide native desktop is the wrong long-term bet. |
-
-**Recommendation: A.** Keep building JMxPOS8 native, add a small central reporting service later (Phase 4) that each store's Postgres pushes summaries to/from. Revisit B only if A proves genuinely unworkable in practice — don't pre-pay for a full rewrite against a hypothetical.
-
-If you go with A, the schema stays single-tenant per database (no `store_id` column needed) — a store's DB simply *is* that store. If you ever go with B or otherwise consolidate to one shared database, that's when `location_id` + row-level security is needed — `rmm-psa-backend`'s `feature/multi-tenant-rls` branch already has this exact tenant-middleware + RLS pattern built and is a directly reusable reference.
+*(unchanged from v2 — see `ROADMAP-ARCHIVE-2026-08.md` if you need the full option comparison)*. **Recommendation stands: Option A**, separate Postgres per store + a small central reporting API later (Phase 4). Schema stays single-tenant per database.
 
 ### 0.2 Historical data from Precise PCs
 
-Is there an old SQL Server backup/database from the Precise PCs deployment worth importing (job history, customer records, warranty history)? If yes, add a one-time import task to Phase 1. If no surviving data or it doesn't matter, this whole project stays greenfield — no import task needed. **Open question, needs your answer before Phase 1 closes out.**
+**Resolved.** Real historical data was migrated for both POS and Jobs databases this session via the `LegacyDataImport` tool (14,899 stock items, 11,129 customers, 39,884 invoices, 26,383 jobs, 30,888 parts, 46,571 tasks, 1,323 return authorisations, and more). This is no longer an open question.
 
 ### 0.3 Feature calls needed before building
 
-- **Recurring "Subscriptions" billing** (`ucChildSubscription.vb` in the old POS — auto-generates periodic invoices/emails) — does any current IBG store actually need recurring billing? If not, drop it and save the effort.
-- **Exchange/calendar sync** (`clsExchange20.vb`, used for tech appointment scheduling) — uses the EWS API, which Microsoft is retiring in favor of Graph API. If this is still wanted, it needs a full rebuild against Graph, not a port. Recommend dropping unless you confirm it's actually used for appointment scheduling today.
+- **Recurring "Subscriptions" billing** — still open. Does any current IBG store actually need recurring billing? If not, drop it.
+- **Exchange/calendar sync** (`clsExchange20.vb`) — **now recommend dropping outright**, stronger than v2's hedge. Confirmed: it was optional even in the legacy app (silently skipped if unconfigured), fails gracefully, uses a dying API (EWS retirement), and provides no value the new stack couldn't get more cheaply from a modern calendar integration later if ever actually requested. The SMS-based staff reminder that shares the same "on-site" flag is unrelated and worth keeping — don't drop that too.
+
+### 0.4 New Job Tracking architecture decisions (found during the Phase 3 audit)
+
+These weren't visible until the legacy code was actually read. Answer before starting Phase 3 build work.
+
+- **Cross-database access pattern.** The new Job Tracking app needs to reach POS data (customer lookup, stock/parts lookup and re-pricing, staff lookup, labour-rate info) that lives in a separate Postgres database (`jobmatix_pos`). Two real options: (a) a direct second connection string to `jobmatix_pos` from the Job Tracking app (simplest, matches "one Postgres instance per store" — both DBs are on the same server), or (b) call into JMxPOS8's existing service layer via some in-process/API boundary. Given Phase 0.1 already settled on same-instance-per-store, **(a) is the pragmatic default** unless you want the two apps more decoupled for other reasons — flag if you want to discuss further, otherwise this roadmap assumes (a).
+- **`GoodsInCare` schema.** Keep the legacy flat-text encoding (fast to ship, matches 26k historical rows as-is, needs a decode step to display), or redesign as a proper `job_goods_items(job_id, goods_type, brand, model, serial_no)` child table (matches what the data actually represents, requires a one-time backfill parse of history using the same decode logic already identified in the legacy code). **Recommend the child-table redesign** — it's a one-time migration cost against 26k rows, done once, versus re-implementing string encode/decode indefinitely. Defer to a fast-follow after a v1 slice ships with the flat field if you want to see the core workflow running sooner.
+- **`service_model_checklists` schema fix** — needs its columns corrected to match what the legacy code actually reads/writes (`rm_stock_id`, `task_description`, drop the invented `model_name`/`item_order`) before the checklist-template feature can be built. Small, mechanical, do it whenever that feature is scheduled (not core-path, see Phase 3 below).
+- **`returnauthorizations` missing columns** — add `ra_symptoms`, `ra_date_goods_received_back`, `ra_return_result_comment` before building RA (see Phase 3 below for RA's own scope, now independent of the rest of this phase).
+- **Attachment/blob storage pattern.** Both RA attachments and job documents need a file-storage answer at some point (photos of damaged goods, supplier paperwork, job photos). Real usage is low-volume (8 RA rows, 142 job rows historically) — **recommend a simple `BYTEA` column in Postgres**, matching the legacy approach directly, rather than standing up S3/object storage for this alone. Decide once, reuse for both RA and Job documents rather than solving it twice.
+- **Old attachment content recovery** — separately, check whether the actual file bytes for the 150 existing attachment rows (currently metadata-only, `NULL` content) are recoverable from the old SQL Server backup, if "view historical attachments" matters to you. Not a blocker for new attachments going forward either way.
 
 ---
 
-## Phase 1: Infrastructure & Database — mostly done, needs rework
+## Phase 1: Infrastructure & Database — done
 
-**Done (from v1):**
-- ✅ Docker Postgres 15 + pgAdmin running (ports remapped this session to 5433/5050 to avoid a local conflict)
-- ✅ Initial schemas for `jobmatix_pos` (8 tables) and `jobmatix_jobs` (13 tables) deployed
+**Done:**
+- ✅ Docker Postgres 15 + pgAdmin running (5433/5050)
+- ✅ Schemas for `jobmatix_pos` and `jobmatix_jobs` deployed, real historical data migrated for both
+- ✅ Foreign keys added to the Jobs database (was flagged as a gap in v1/v2 — confirmed already fixed via `create-jobs-schema-extensions.sql`, verified live: 10 FK constraints across the tables that need them)
+- ✅ Missing SERIAL sequences fixed across all known instances — 17 tables in `jobmatix_pos` (Phase 2 work) + 4 tables in `jobmatix_jobs` (`quote_job_parts`, `model_checklist`, `ra_attachments`, `job_service_checklists`, fixed this session)
+- ✅ `stock.requiresserial` schema drift reconciled
 
-**New work identified this session:**
-- 🔧 **Fix schema drift**: `stock.requiresserial` exists on the live database but is missing from the checked-in `sql-scripts/create-pos-schema-postgresql.sql` — someone hand-patched the live DB without updating the script. Anyone rebuilding from scratch (new store, disaster recovery) gets a broken schema today. Audit the live DB against the scripts and reconcile; treat the scripts as source of truth going forward, not the other way around.
-- 🔧 **Add foreign keys to the Jobs database** — currently zero FK constraints across all 13 tables (Jobs/Tasks/Parts/Documents/ReturnAuthorizations included), unlike the POS database which does this correctly. Orphaned rows are possible today.
-- 🔧 **Hash staff passwords** — currently plaintext (`Staff.password VARCHAR(80)`, confirmed live). Fix before any real deployment, this is a genuine security bug, not a style nit.
-- 🔧 **Define or drop `jobmatix_main` and `jobmatix_backup`** — both are empty shells today (no tables beyond a placeholder). Decide what "main" (cross-app config? store registry?) actually needs to hold, or drop the database entirely if Phase 0.1 makes it unnecessary.
-- 🔧 Fix a leftover hardcoded default (`Jobs.DatePromised` defaults to the literal `2020-12-25`, a copy-paste artifact from the original VB.NET code) — should be null or computed.
-- 🗑️ **Drop `JMxRetailHost620.Net`** (the SQL-Server/Postgres abstraction layer) — confirmed to be a facade covering 13 of 638 call sites; finishing it is a full rewrite in disguise. Rewrite each remaining legacy app fresh instead, the way JMxPOS8 already did.
-- 🗑️ **Drop `JMxKeyGen420_OS`** — licensing/activation, already disabled in code by Geoff, irrelevant to an internal deployment.
-
----
-
-## Phase 2: POS Application (JMxPOS8) — ~40% complete, continue
-
-**Done (from v1, verified this session — it still builds clean):**
-- ✅ Core services (Database/Stock/Customer/Staff/Sale), full MVVM, 4-tab UI (Sale/Stock/Customers/Reports), complete sale workflow, stock/customer CRUD, basic reporting.
-
-**Critical — blocks any real store from using this (size: L):**
-- **Receipt printing** — this is a rewrite, not a port. The old POS used `System.Drawing.Printing.PrintDocument` and raw Win32 `WritePrinter` calls, both Windows-only. Linux path: CUPS raw queue + generated ESC/POS commands.
-- **Cash drawer kick** — same underlying mechanism as receipt printing (drawer is wired through the printer's kick connector); same CUPS/ESC-POS approach, needs hardware validation per printer model.
-- **Serial number tracking** — UI placeholders exist, validation/lookup logic doesn't.
-- **Cash-up / EOD reconciliation** — till reconciliation across Cash/EFTPOS/CreditNote with refund handling. Nothing built yet.
-
-**Important — real features, not yet on v1's radar (size: M each):**
-- **Stocktake** (physical inventory count/reconciliation) — gap, not previously scoped at all.
-- **Customer statements** — gap, not previously scoped at all.
-- **Transaction lookup/void** (carried over from v1).
-- **Goods received** (supplier stock receiving workflow).
-- **Email integration** (send invoices/statements directly).
-
-**Confirm before building (Phase 0.3):**
-- Subscriptions/recurring billing — only build if a store actually needs it.
-
-**Explicitly dropped:**
-- Nothing else from the old POS — no other dead modules were found in it.
-
-**Hardware — start procurement now, in parallel with software (real lead time, don't let it gate on code readiness):**
-- Thermal receipt printer (80mm) — order a test unit now.
-- Cash drawer — same.
-- Barcode scanner — low risk (standard HID keyboard-wedge device, should already work with the existing UI), but still buy one and verify, don't assume.
-- Label printer (Brother QL/Dymo) — separate driver concern from the receipt printer, currently unscoped anywhere — add an explicit test task once Phase 2's critical items are done.
+**Still open:**
+- 🔧 **Hash staff passwords** (`jobmatix_pos.staff.password`, plaintext, internal login) — real security bug, fix before any deployment.
+- 🔧 **Encrypt or redesign `jobs.username`/`jobs.userpassword`** (customers' own PC login credentials, plaintext, actively used by ~7,500 real jobs) — this needs *reversible* protection (a tech has to retrieve and use the value to log into the customer's machine), not a one-way hash. Consider whether this needs to persist at all versus being handled transiently.
+- 🔧 **`service_model_checklists` and `returnauthorizations` schema fixes** — see Phase 0.4.
+- 🔧 **Define or drop `jobmatix_main` and `jobmatix_backup`** — still empty shells, still an open call.
+- 🔧 Fix `Jobs.DatePromised` hardcoded default (`2020-12-25` literal) — should be null or computed.
+- 🗑️ **Drop `JMxRetailHost620.Net`** and **`JMxKeyGen420_OS`** — unchanged from v2, still the right call.
 
 ---
 
-## Phase 3: JobMatix Main Application (job/repair tracking) — 0%, largest phase
+## Phase 2: POS Application (JMxPOS8) — feature-complete for what's unblocked
 
-This is the biggest remaining phase. The legacy app (`JMxJT620.NET`) is ~94,000 lines across 79 files, with one 14,400-line main form.
+**Done (this session, all verified against live migrated data):**
+- ✅ Core services, full MVVM, multi-document Sale tabs, staff admin (manager-override pattern), complete sale workflow, stock/customer CRUD, reporting.
+- ✅ Cash-up/EOD reconciliation.
+- ✅ Stocktake (physical inventory count/reconciliation).
+- ✅ Goods Received (supplier stock receiving workflow).
+- ✅ Customer Statement report.
+- ✅ Transaction lookup/void.
 
-**Core must-have (size: XL, this is most of the phase):**
-- Job intake/creation, job maintenance/status workflow (largest single legacy component at ~7,200 lines), parts lookup/allocation, model/brand management, goods-in-care tracking, job docket/quote printing.
+**Everything else in Phase 2 is blocked on a decision, not on effort:**
+- **Receipt printing / cash drawer kick** — needs the CUPS/ESC-POS hardware architecture decided and test hardware in hand.
+- **Subscriptions/recurring billing** — needs Phase 0.3's business confirmation (does any store actually need it).
+- **Email integration** (send invoices/statements) — needs an SMTP decision.
+- **Serial number tracking UI polish** — lower priority, not blocking a store from running.
 
-**Important (size: M each):**
-- SMS notifications — **low risk**, the old code uses 4 plain-HTTP Australian SMS gateways (SMS Boss, SMS Broadcast, SMSGlobal, DirectSMS), no modem/GSM hardware dependency, trivial to port.
-- General customer notifications, job reporting, customer job history, on-site/mobile job scheduling.
-- **Return Authorisations** (`JMxRAs62.Net`, moved here from v1's mis-scoped "Phase 4") — supplier warranty-return tracking, ties directly into POS goods-returned logic. Belongs with the rest of the job-management workflow, not as standalone infrastructure.
+**New, small, low-risk additions surfaced by the Phase 3 audit — can be picked up any time, don't need to wait for the rest of Phase 3:**
+- **Customer "Jobs" sub-tab** — extend the existing Customer screen's Invoices/Item Sales/Payments/Quotes sub-tabs with a Jobs history tab (see "What Changed" #6). Requires the cross-database read decided in Phase 0.4.
+- **Return Authorisations** — can be built as a POS-adjacent feature now that it's confirmed not to depend on the rest of Job Tracking (see "What Changed" #5 and Phase 3 below for its own scope). Needs the `returnauthorizations` schema fix from Phase 0.4 first, and a decision on attachment storage if RA attachments matter to you.
 
-**Explicitly dropped:**
-- MYOB Retail Manager quote import — MYOB Retail Manager was discontinued years ago; JMxPOS8 should be the quote/order source going forward instead.
-
-**Needs a small replacement, not a rewrite (size: S):**
-- `JobMatix62.Net` is the app launcher/bootstrapper (picks between POS and Job Tracking, remembers last-used app) — not dead code, but small and mechanical. Needs an equivalent menu/picker in the new stack.
-
-**Decision carried from Phase 0.3:**
-- Exchange/calendar sync — build against Graph API if genuinely needed, otherwise drop.
+**Hardware** — unchanged from v2, still start procurement now in parallel with software.
 
 ---
 
-## Phase 4: Cross-Store Reporting (replaces v1's mis-scoped "Remote Agent" phase)
+## Phase 3: JobMatix Main Application (job/repair tracking) — 0% built, now properly scoped
 
-v1 assumed `JMxRAs62.Net` was a data-sync/replication engine and planned a whole phase around wiring it up. It doesn't do that (see "What Changed" above) — this is genuinely new work, not a port of anything.
+The legacy app (`JMxJT620.NET`) is ~94,000 lines across 79 files. A full read-through this session (not just file listing) found it's more tractable than the LOC count suggests — most of the bulk is Designer-generated UI boilerplate and repetitive per-document print-layout code, not business logic.
 
-- Build the small central reporting API decided in Phase 0.1 (Node/Express on DO) — each store's local Postgres pushes/pulls summary data to/from it for head-office visibility.
-- Each store's POS/JobMatix installation must keep working standalone without this — it's additive, not a dependency.
-- Sequence this **after** Phase 2/3 are solid at a single store — don't let it block getting one store fully running.
+### Must ship together (size: L, this is the real core)
 
-**Backups**: don't port `backup-agent`. Replace with IBG's existing rsnapshot + DigitalOcean Spaces infrastructure plus a simple `pg_dump` cron per store — far less effort for the same outcome.
+Job intake, job status/maintenance workflow, and parts lookup/allocation are **not independently buildable** — they share the same optimistic-locking model and status transitions are gated by parts/tasks-complete checks. You can't demo "create a job and move it through statuses" without at least a stubbed stock/parts lookup.
+
+- **Job intake** — customer (barcode lookup + snapshot denormalized onto the job, matching legacy behavior), goods-in-care items (see Phase 0.4), problem description + checkbox symptoms list, priority, nominated tech, backup/recovery flags, warranty flag, optional photo. Three intake modes (Booking/Check-In/On-Site) share one save path. Job number is a plain identity column — no separate docket-numbering scheme to port.
+- **Job status workflow** — 11 real statuses, not a simple linear flow:
+
+  | Code | Meaning |
+  |---|---|
+  | `05-WaitListed` | Booked, not yet checked in |
+  | `10-Created` | Intake complete, awaiting work |
+  | `20-Suspended` | Paused (parts/customer wait) |
+  | `23-InProcessSusp` | Suspended job, **locked** for edit |
+  | `30-Started` | Actively being worked |
+  | `33-InProcess` | Started job, **locked** for edit |
+  | `40-QA` | Quality-assurance review |
+  | `43-InProcessQA` | QA job, **locked** for edit |
+  | `50-Completed` | Servicing finished |
+  | `70-Delivered` | Handed back to customer |
+  | `97-Cancelled` | Cancelled |
+
+  The `2x/3x/4x` "InProcess" variants are a real optimistic-locking mechanism (opening a job for edit flips its status to the locked variant so other users see it's in use, releasing on close) — **this concurrency guard needs to be preserved**, it's load-bearing multi-user behavior, not cosmetic. Completing a job is gated by a checklist-complete check with a confirmation warning if no labour time/tasks were recorded; delivery is a separate explicit action from completion, not automatic.
+- **Parts lookup/allocation** — pulls live from POS stock (search/browse, serial-number validation against POS's serialised-stock tracking), plus a re-pricing feature that flags when a part's price has drifted since it was added to the job. Unavoidably coupled to the Phase 0.4 cross-database decision.
+
+### Can ship separately / deferred without blocking the core
+
+- **Job docket/quote printing** — confirmed to use plain `PrintDocument`/GDI+ drawing, no Crystal Reports/RDLC dependency. Cleanly deferrable: doesn't gate any status transition, doesn't reach back into the database mid-render. Six distinct document types, mechanically similar. (One caveat: the quote-form file also contains real cancel-on-requote workflow logic bundled with its print code — extract that logic before deferring the print half.)
+- **Brand/model reference data** — `Brands`/`GoodsTypes`/`Symptoms` are trivial flat lookup tables editable through one generic reusable list-editor pattern (the legacy app already does this with one parameterized form for all of them). Can be stubbed with seed data initially.
+- **Service-checklist templates** (`service_model_checklists`) — a real but secondary feature layered on top of core job tracking; needs the Phase 0.4 schema fix first regardless, so naturally deferred.
+- **Goods-in-care itemization** — v1 can ship with the flat legacy-compatible field; the child-table redesign (Phase 0.4) is a fast-follow, not a blocker.
+
+### Important, independently schedulable (not part of the "must ship together" core)
+
+- **Return Authorisations** — moved out of "tightly coupled to Job Tracking" (see "What Changed" #5). Scope: 7-state lifecycle (Created → RMA-Requested → RMA-Granted → GoodsSentToSupplier → GoodsCompleted/Refused/Cancelled), origin can be Job/Counter/Stock, integrates with POS via a stock/serial-audit transaction that already has a matching schema. Printing is 3 internal document types (record slip, courier label, packing slip) — no supplier-facing email/electronic submission exists in the legacy app, it's all printed paperwork. Estimated 2-3 weeks for one developer given Phase 2's stock/supplier/serial-audit plumbing already exists to build on.
+- **SMS notifications** — confirmed low-risk. 4 plain HTTP(S) gateways (SMS Boss, SMS Broadcast, SMSGlobal, DirectSMS), each a small adapter (form-POST vs. query-string request format and XML vs. substring-match response parsing differ per gateway, so budget 4 small adapters, not 1 generic client). Config lives in a generic key/value settings table already ported. Low coupling — 2 call sites in the whole legacy app, user-initiated with confirmation, not automatically triggered by status changes.
+- **Email notifications (SMTP)** — a natural sibling to SMS, same settings store and trigger pattern, independent of the Exchange/EWS calendar integration (which is being dropped, see Phase 0.3) — don't conflate the two, they're unrelated despite both being "email."
+- **Job reporting** — 4 report types (Jobs/Parts/Staff/Timesheet). Reuse Phase 2's already-built `ReportsViewModel` grid/summary pattern rather than porting the legacy GDI+ print-report renderer. Real technical risk here (not cosmetic): the legacy Jobs report uses SQL Server's proprietary `SHAPE` syntax for a parent/child recordset and a dynamically-created T-SQL scalar function for parsing chargeable hours from a session-log string — neither has a Postgres equivalent, needs an actual rewrite (two queries + in-app grouping; move the parsing into C#).
+- **On-site job list + staff SMS reminder** — just a filtered query plus a background poller reusing the SMS client above. Not a scheduling engine (see "What Changed" #7).
+
+### Explicitly dropped
+
+- MYOB Retail Manager quote import (discontinued product, no modern equivalent needed — JMxPOS8 is the quote/order source going forward).
+- **Exchange/EWS calendar sync** — now a firm recommendation to drop (see Phase 0.3), not just a hedge.
+
+### Needs a small replacement, not a rewrite (size: S)
+
+- `JobMatix62.Net` launcher — confirmed purely mechanical (picks POS vs. Job Tracking, remembers last-used choice, no licensing/update-check logic). The SQL-Server-instance-discovery complexity in the legacy launcher is moot (Phase 1 already fixes the Postgres connection). New equivalent: a simple "remember last-used module" app setting plus a POS/Job-Tracking picker inside the one Avalonia app — no separate launcher process needed, since both halves are being built into the same new-stack application rather than as separate historical .exes.
+
+---
+
+## Phase 4: Cross-Store Reporting
+
+*(unchanged from v2)* — genuinely new work, not a port of anything. Build the small central reporting API (Phase 0.1 decision) after Phase 2/3 are solid at a single store; each store's install must keep working standalone without it.
+
+**Backups**: unchanged — rsnapshot + DO Spaces + `pg_dump` cron, not `backup-agent`.
 
 ---
 
 ## Phase 5: Testing, Pilot, Rollout
 
-- Pilot at one store first before wider IBG rollout — natural candidate is wherever you want to prove the workflow with real staff.
-- No live-cutover/parallel-run risk since this is greenfield (confirmed: JobMatix isn't running anywhere today) — lower pressure than v1 assumed, but still worth validating the workflow against real repair-shop habits if any ex-Precise-PCs staff/knowledge is available.
-- Hardware (Phase 2) should already be procured and tested by this point, not starting fresh here.
+*(unchanged from v2)* — pilot at one store first, no live-cutover risk (greenfield), hardware should already be procured by this point.
 
 ---
 
@@ -144,20 +169,27 @@ v1 assumed `JMxRAs62.Net` was a data-sync/replication engine and planned a whole
 
 | Risk | Notes |
 |---|---|
-| Multi-store model decision (Phase 0.1) | Blocks Phase 4 design, does **not** block Phase 2/3 — a single store's POS is architecture-agnostic in the near term. Don't let indecision here stall the work that doesn't depend on it. |
-| Solo maintainer bus factor | One person + AI assistance. Keep things simple and documented; avoid cleverness that only you can maintain. |
-| Hardware procurement lead time | Real, currently the easiest risk to eliminate — order test units now, in parallel with Phase 2 software work. |
-| Schema-as-documentation drift | The checked-in SQL scripts already drifted from the live DB once. Make reconciling them part of Phase 1, and treat scripts as authoritative from then on. |
-| EWS/calendar retirement | Only a risk if Phase 0.3 confirms calendar sync is still wanted — otherwise moot. |
-| ~~Live cutover / parallel-run~~ | Not applicable — confirmed greenfield, nothing is live today. |
-| ~~Printer/EFTPOS integration complexity~~ | Lower than v1 feared — EFTPOS was never a live terminal integration even in the old app (manual bookkeeping only), and the scanner is a standard HID device. Receipt printing/cash drawer are real work but well-understood (CUPS/ESC-POS), not unknowns. |
+| Multi-store model decision (Phase 0.1) | Blocks Phase 4 design, does **not** block Phase 2/3. |
+| Solo maintainer bus factor | One person + AI assistance. Keep things simple and documented. |
+| Hardware procurement lead time | Order test units now, in parallel with software work. |
+| Cross-database access pattern (Phase 0.4) | New risk this version — Job Tracking has no working prior-art for this (the legacy app never needed it; a partial VB.NET retrofit exists but is inconsistent/inert). Decide before starting the core Job workflow build, since parts lookup depends on it directly. |
+| `GoodsInCare` schema decision (Phase 0.4) | Affects intake UI design directly — decide before building that screen, not after. |
+| Legacy report SQL (`SHAPE`/T-SQL scalar function) | Real rewrite required, no direct Postgres equivalent — budget accordingly, don't treat job reporting as a mechanical port. |
+| Two newly-found plaintext-credential gaps | `staff.password` (known) and `jobs.username`/`userpassword` (newly found, arguably worse — customer PC credentials). Fix both before real deployment. |
+| RA attachment content not migrated | Metadata-only for all 150 historical attachment rows; check SQL Server backup recoverability before promising "view old attachments." |
+| EWS/calendar retirement | Now moot — recommend dropping the integration outright rather than rebuilding against Graph. |
+| ~~Live cutover / parallel-run~~ | Not applicable — greenfield. |
+| ~~Printer/EFTPOS integration complexity~~ | Unchanged from v2 — lower risk than originally feared, well-understood CUPS/ESC-POS work. |
+| ~~Zero FKs in Jobs database~~ | Resolved — was already fixed before this session, confirmed live. |
+| ~~RA tightly coupled to Job Tracking~~ | Resolved by audit — RA is mostly independent (90.5% of real RAs have no job link), can ship on its own schedule. |
 
 ---
 
 ## Documentation Index
 
 - `ROADMAP.md` — this file, the master plan
-- `ROADMAP-ARCHIVE-2026-01.md` — superseded v1, kept for history only
-- `MIGRATION-STATUS.md`, `CURRENT-STATUS.txt` — **stale**, written against v1's assumptions and fictional dates; don't use for planning until rewritten against this roadmap
-- `JMxPOS8/CONVERSION_STATUS.md` — POS-specific progress detail, still broadly accurate for what's built
-- `POSTGRESQL_MIGRATION_GUIDE.md` — still useful as SQL conversion reference, not as a schedule
+- `ROADMAP-ARCHIVE-2026-08.md` — superseded v2, kept for history
+- `ROADMAP-ARCHIVE-2026-01.md` — superseded v1, kept for history
+- `MIGRATION-STATUS.md`, `CURRENT-STATUS.txt` — **stale**, written against v1's assumptions, don't use for planning
+- `JMxPOS8/CONVERSION_STATUS.md` — POS-specific progress detail
+- `POSTGRESQL_MIGRATION_GUIDE.md` — still useful as SQL conversion reference
