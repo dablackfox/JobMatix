@@ -328,6 +328,59 @@ namespace JMxPOS8.Services
             return null;
         }
 
+        public async Task<Customer?> GetCustomerByIdAsync(int customerId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT customer_id, barcode, customername, companyname, grade,
+                               address, suburb, state, postcode,
+                               homephone, businessphone, mobile, emailaddress,
+                               isaccount, accountbalance, creditlimit, inactive
+                        FROM customer
+                        WHERE customer_id = @customerId
+                        LIMIT 1";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        if (await Task.Run(() => reader.Read()))
+                        {
+                            return new Customer
+                            {
+                                CustomerId = Convert.ToInt32(reader["customer_id"]),
+                                Barcode = reader["barcode"].ToString() ?? "",
+                                CustomerName = reader["customername"].ToString() ?? "",
+                                CompanyName = reader["companyname"].ToString() ?? "",
+                                Grade = reader["grade"].ToString() ?? "",
+                                Address = reader["address"].ToString() ?? "",
+                                Suburb = reader["suburb"].ToString() ?? "",
+                                State = reader["state"].ToString() ?? "",
+                                Postcode = reader["postcode"].ToString() ?? "",
+                                HomePhone = reader["homephone"].ToString() ?? "",
+                                BusinessPhone = reader["businessphone"].ToString() ?? "",
+                                Mobile = reader["mobile"].ToString() ?? "",
+                                EmailAddress = reader["emailaddress"].ToString() ?? "",
+                                IsAccount = Convert.ToBoolean(reader["isaccount"]),
+                                AccountBalance = Convert.ToDecimal(reader["accountbalance"]),
+                                CreditLimit = Convert.ToDecimal(reader["creditlimit"]),
+                                Inactive = Convert.ToBoolean(reader["inactive"])
+                            };
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
         public async Task<List<Customer>> SearchCustomersAsync(string searchTerm, int limit = 50)
         {
             var customers = new List<Customer>();

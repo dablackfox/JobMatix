@@ -15,6 +15,7 @@ public partial class JobViewModel : ViewModelBase
     private readonly StaffService _staffService;
     private readonly StockService _stockService;
     private readonly SmsService _smsService;
+    private readonly EmailService _emailService;
 
     public ObservableCollection<JobRecord> OpenJobs { get; } = new();
     public ObservableCollection<JobPartLine> Parts { get; } = new();
@@ -73,6 +74,9 @@ public partial class JobViewModel : ViewModelBase
     private string _notifyMessage = "";
 
     [ObservableProperty]
+    private string _notifyEmailSubject = "";
+
+    [ObservableProperty]
     private string _statusMessage = "";
 
     public bool CanStartWork => SelectedJob != null && SelectedJob.JobStatus is "10-Created" or "20-Suspended" or "23-InProcessSusp";
@@ -84,13 +88,14 @@ public partial class JobViewModel : ViewModelBase
     public bool CanCancel => SelectedJob != null && SelectedJob.JobStatus is not ("50-Completed" or "70-Delivered" or "97-Cancelled");
     public bool CanAddParts => SelectedJob != null && !SelectedJob.JobStatus.StartsWith("70") && !SelectedJob.JobStatus.StartsWith("97");
 
-    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService)
+    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService, EmailService emailService)
     {
         _jobService = jobService;
         _customerService = customerService;
         _staffService = staffService;
         _stockService = stockService;
         _smsService = smsService;
+        _emailService = emailService;
     }
 
     public async Task LoadOpenJobsAsync()
@@ -393,6 +398,42 @@ public partial class JobViewModel : ViewModelBase
         await _jobService.AppendNotificationAsync(SelectedJob.JobId, $"SMS sent: {NotifyMessage.Trim()}");
         StatusMessage = $"SMS sent to {SelectedJob.CustomerMobile}";
         NotifyMessage = "";
+    }
+
+    [RelayCommand]
+    private async Task SendEmail()
+    {
+        if (SelectedJob == null) return;
+        if (string.IsNullOrWhiteSpace(NotifyMessage))
+        {
+            StatusMessage = "Enter a message to send";
+            return;
+        }
+        if (SelectedJob.RmCustomerId == null)
+        {
+            StatusMessage = "This job has no linked customer to email";
+            return;
+        }
+
+        var customer = await _customerService.GetCustomerByIdAsync(SelectedJob.RmCustomerId.Value);
+        if (customer == null || string.IsNullOrWhiteSpace(customer.EmailAddress))
+        {
+            StatusMessage = "No email address on file for this customer";
+            return;
+        }
+
+        string subject = string.IsNullOrWhiteSpace(NotifyEmailSubject) ? $"Your job #{SelectedJob.JobId}" : NotifyEmailSubject.Trim();
+        var result = await _emailService.SendEmailAsync(customer.EmailAddress, subject, NotifyMessage.Trim());
+        if (!result.Success)
+        {
+            StatusMessage = $"Email failed: {result.ErrorMessage}";
+            return;
+        }
+
+        await _jobService.AppendNotificationAsync(SelectedJob.JobId, $"Email sent: {subject} - {NotifyMessage.Trim()}");
+        StatusMessage = $"Email sent to {customer.EmailAddress}";
+        NotifyMessage = "";
+        NotifyEmailSubject = "";
     }
 
     private async Task RefreshSelectedAsync()

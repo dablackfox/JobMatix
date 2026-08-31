@@ -734,6 +734,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2*"/>
@@ -970,8 +971,26 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Email (SMTP) Settings -->
+                    <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,10,0,0" Padding="10"
+                            Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Email Settings (SMTP)" FontWeight="Bold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Width="150" Watermark="Host" Text="{Binding StaffViewModel.EmailHost}"/>
+                                <NumericUpDown Width="90" Minimum="1" Maximum="65535" FormatString="0" Value="{Binding StaffViewModel.EmailPort}"/>
+                                <CheckBox Content="SSL" IsChecked="{Binding StaffViewModel.EmailUseSsl}"/>
+                                <TextBox Width="150" Watermark="Username" Text="{Binding StaffViewModel.EmailUsername}"/>
+                                <TextBox Width="150" Watermark="Password" PasswordChar="*" Text="{Binding StaffViewModel.EmailPassword}"/>
+                                <TextBox Width="180" Watermark="From address" Text="{Binding StaffViewModel.EmailFromAddress}"/>
+                                <Button Content="Save" Command="{Binding StaffViewModel.SaveEmailSettingsCommand}"/>
+                                <TextBlock Text="{Binding StaffViewModel.EmailSettingsStatusMessage}" VerticalAlignment="Center" FontStyle="Italic"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Status Message -->
-                    <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                    <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
                                Text="{Binding StaffViewModel.StatusMessage}"
                                Margin="0,10,0,0" FontStyle="Italic"/>
                 </Grid>
@@ -1679,12 +1698,14 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
 
-                                <!-- Notify Customer (SMS) -->
+                                <!-- Notify Customer (SMS/Email) -->
                                 <TextBlock Text="Notify Customer" FontWeight="Bold" Margin="0,10,0,0"/>
-                                <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerMobile, StringFormat='To: {0}'}" Foreground="Gray"/>
+                                <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerMobile, StringFormat='Mobile: {0}'}" Foreground="Gray"/>
+                                <TextBox Width="200" Watermark="Email subject (optional)" Text="{Binding JobViewModel.NotifyEmailSubject}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBox Width="300" Watermark="Message" Text="{Binding JobViewModel.NotifyMessage}"/>
                                     <Button Content="Send SMS" Command="{Binding JobViewModel.SendSmsCommand}"/>
+                                    <Button Content="Send Email" Command="{Binding JobViewModel.SendEmailCommand}"/>
                                 </StackPanel>
 
                                 <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic"/>

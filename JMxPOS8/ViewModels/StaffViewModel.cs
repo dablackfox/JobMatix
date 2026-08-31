@@ -12,6 +12,7 @@ public partial class StaffViewModel : ViewModelBase
 {
     private readonly StaffService _staffService;
     private readonly SmsService _smsService;
+    private readonly EmailService _emailService;
 
     [ObservableProperty]
     private ObservableCollection<Staff> _staffMembers = new();
@@ -110,10 +111,33 @@ public partial class StaffViewModel : ViewModelBase
     [ObservableProperty]
     private string _smsSettingsStatusMessage = string.Empty;
 
-    public StaffViewModel(StaffService staffService, SmsService smsService)
+    // Email (SMTP) settings - same rationale as SMS above.
+    [ObservableProperty]
+    private string _emailHost = string.Empty;
+
+    [ObservableProperty]
+    private decimal _emailPort = 587;
+
+    [ObservableProperty]
+    private bool _emailUseSsl = true;
+
+    [ObservableProperty]
+    private string _emailUsername = string.Empty;
+
+    [ObservableProperty]
+    private string _emailPassword = string.Empty;
+
+    [ObservableProperty]
+    private string _emailFromAddress = string.Empty;
+
+    [ObservableProperty]
+    private string _emailSettingsStatusMessage = string.Empty;
+
+    public StaffViewModel(StaffService staffService, SmsService smsService, EmailService emailService)
     {
         _staffService = staffService;
         _smsService = smsService;
+        _emailService = emailService;
     }
 
     [RelayCommand]
@@ -135,6 +159,33 @@ public partial class StaffViewModel : ViewModelBase
             FromNumber = SmsFromNumber.Trim()
         });
         SmsSettingsStatusMessage = "SMS gateway settings saved";
+    }
+
+    [RelayCommand]
+    public async Task LoadEmailSettingsAsync()
+    {
+        var settings = await _emailService.GetSettingsAsync();
+        EmailHost = settings.Host;
+        EmailPort = settings.Port;
+        EmailUseSsl = settings.UseSsl;
+        EmailUsername = settings.Username;
+        EmailPassword = settings.Password;
+        EmailFromAddress = settings.FromAddress;
+    }
+
+    [RelayCommand]
+    private async Task SaveEmailSettings()
+    {
+        await _emailService.SaveSettingsAsync(new EmailSettings
+        {
+            Host = EmailHost.Trim(),
+            Port = (int)EmailPort,
+            UseSsl = EmailUseSsl,
+            Username = EmailUsername.Trim(),
+            Password = EmailPassword,
+            FromAddress = EmailFromAddress.Trim()
+        });
+        EmailSettingsStatusMessage = "Email (SMTP) settings saved";
     }
 
     partial void OnSearchTextChanged(string value)
