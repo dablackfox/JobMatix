@@ -15,6 +15,7 @@ namespace JMxPOS8.Services
         private readonly DatabaseService _db;
         private readonly StockService _stockService;
         private readonly CustomerService _customerService;
+        private readonly SerialService _serialService;
 
         // Current sale state
         public ObservableCollection<SaleLineItem> SaleItems { get; private set; }
@@ -43,8 +44,45 @@ namespace JMxPOS8.Services
             _db = db;
             _stockService = stockService;
             _customerService = customerService;
+            _serialService = new SerialService(db);
             SaleItems = new ObservableCollection<SaleLineItem>();
             Payments = new ObservableCollection<Payment>();
+        }
+
+        // Result of attempting to add a serialized item, so the UI can show a specific reason
+        // rather than a generic "failed to add".
+        public enum AddItemResult
+        {
+            Added,
+            NotFound,
+            SerialRequired,
+            SerialAlreadyInSale,
+            SerialAlreadySold
+        }
+
+        public async System.Threading.Tasks.Task<AddItemResult> AddItemByBarcodeAsync(string barcode, decimal quantity, string? serialNumber)
+        {
+            var stock = await _stockService.FindStockByBarcodeAsync(barcode);
+            if (stock == null)
+                return AddItemResult.NotFound;
+
+            if (stock.RequiresSerial)
+            {
+                if (string.IsNullOrWhiteSpace(serialNumber))
+                    return AddItemResult.SerialRequired;
+
+                serialNumber = serialNumber.Trim();
+
+                if (SaleItems.Any(i => string.Equals(i.SerialNumber, serialNumber, StringComparison.OrdinalIgnoreCase)))
+                    return AddItemResult.SerialAlreadyInSale;
+
+                // Refunds legitimately re-record a serial that was previously sold, so only
+                // block on an existing SALE for outgoing sale transactions.
+                if (TransactionType == "Sale" && await _serialService.IsSerialCurrentlySoldAsync(serialNumber))
+                    return AddItemResult.SerialAlreadySold;
+            }
+
+            return AddStockItem(stock, quantity, serialNumber) ? AddItemResult.Added : AddItemResult.NotFound;
         }
 
         public void SetCustomer(Customer customer)
@@ -60,15 +98,6 @@ namespace JMxPOS8.Services
         public void SetGstRate(decimal rate)
         {
             _gstRate = rate;
-        }
-
-        public async System.Threading.Tasks.Task<bool> AddItemByBarcodeAsync(string barcode, decimal quantity = 1m)
-        {
-            var stock = await _stockService.FindStockByBarcodeAsync(barcode);
-            if (stock == null)
-                return false;
-
-            return AddStockItem(stock, quantity);
         }
 
         public bool AddStockItem(StockItem stock, decimal quantity = 1m, string? serialNumber = null)
@@ -263,10 +292,10 @@ namespace JMxPOS8.Services
                                 cmd.CommandText = @"
                                     INSERT INTO invoice_lines (
                                         invoice_id, stock_id, description,
-                                        quantity, unitprice, linetotal, taxcode
+                                        quantity, unitprice, linetotal, taxcode, serialnumber
                                     ) VALUES (
                                         @invoiceId, @stockId, @description,
-                                        @quantity, @unitPrice, @lineTotal, @taxCode
+                                        @quantity, @unitPrice, @lineTotal, @taxCode, @serialNumber
                                     )";
 
                                 AddParameter(cmd, "@invoiceId", invoiceId);
@@ -276,6 +305,7 @@ namespace JMxPOS8.Services
                                 AddParameter(cmd, "@unitPrice", item.UnitPrice);
                                 AddParameter(cmd, "@lineTotal", item.Extension);
                                 AddParameter(cmd, "@taxCode", item.TaxCode);
+                                AddParameter(cmd, "@serialNumber", (object?)item.SerialNumber ?? DBNull.Value);
 
                                 Console.WriteLine($"[SQL LINE] {cmd.CommandText}");
                                 Console.WriteLine($"[PARAMS] invoice={invoiceId}, stock={item.StockId}, qty={item.Quantity}, price={item.UnitPrice}, total={item.Extension}");

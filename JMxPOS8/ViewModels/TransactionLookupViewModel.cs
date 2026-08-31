@@ -29,6 +29,9 @@ namespace JMxPOS8.ViewModels
         private string _itemBarcode = "";
 
         [ObservableProperty]
+        private string _serialNumber = "";
+
+        [ObservableProperty]
         private string _datePeriod = "Any"; // Today, ThisMonth, 12Months, Any, Custom
 
         [ObservableProperty]
@@ -83,6 +86,7 @@ namespace JMxPOS8.ViewModels
             StaffBarcode = "";
             CustomerBarcode = "";
             ItemBarcode = "";
+            SerialNumber = "";
             DatePeriod = "Any";
             StatusMessage = "Filters cleared";
         }
@@ -163,6 +167,10 @@ namespace JMxPOS8.ViewModels
                     {
                         AddParameter(cmd, "@itemBarcode", ItemBarcode);
                     }
+                    if (!string.IsNullOrWhiteSpace(SerialNumber))
+                    {
+                        AddParameter(cmd, "@serialNumber", SerialNumber.Trim());
+                    }
                     if (DatePeriod != "Any")
                     {
                         AddParameter(cmd, "@dateFrom", DateFrom);
@@ -201,18 +209,19 @@ namespace JMxPOS8.ViewModels
 
             if (LookupType == "Invoice")
             {
-                if (!string.IsNullOrWhiteSpace(ItemBarcode))
+                if (!string.IsNullOrWhiteSpace(ItemBarcode) || !string.IsNullOrWhiteSpace(SerialNumber))
                 {
-                    // Search invoice lines for specific item
+                    // Search invoice lines for a specific item and/or serial number
+                    // (serial lookup answers "who bought this / when was it sold" for warranty purposes)
                     sql = @"
-                        SELECT DISTINCT inv.invoice_id, inv.invoicedate, inv.transactiontype, 
-                               inv.total_inc, 
+                        SELECT DISTINCT inv.invoice_id, inv.invoicedate, inv.transactiontype,
+                               inv.total_inc,
                                COALESCE(c.companyname, c.customername) as customer_name,
                                c.barcode as customer_barcode,
                                s.docket_name as staff_name,
                                CASE WHEN EXISTS(
-                                   SELECT 1 FROM payments p 
-                                   WHERE p.invoice_id = inv.invoice_id 
+                                   SELECT 1 FROM payments p
+                                   WHERE p.invoice_id = inv.invoice_id
                                    AND p.paymentmethod = 'Account'
                                ) THEN true ELSE false END as isonaccount,
                                inv.invoicenumber
@@ -221,7 +230,12 @@ namespace JMxPOS8.ViewModels
                         INNER JOIN stock st ON il.stock_id = st.stock_id
                         LEFT JOIN customer c ON inv.customer_id = c.customer_id
                         LEFT JOIN staff s ON inv.staff_id = s.staff_id
-                        WHERE st.barcode = @itemBarcode";
+                        WHERE 1=1";
+
+                    if (!string.IsNullOrWhiteSpace(ItemBarcode))
+                        sql += " AND st.barcode = @itemBarcode";
+                    if (!string.IsNullOrWhiteSpace(SerialNumber))
+                        sql += " AND il.serialnumber ILIKE @serialNumber";
                 }
                 else
                 {

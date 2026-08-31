@@ -129,28 +129,34 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="150"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="140"/>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="50"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Column="0" Name="txtItemBarcode" 
-                                         Text="{Binding SaleViewModel.ItemBarcode}" 
+                                <TextBox Grid.Column="0" Name="txtItemBarcode"
+                                         Text="{Binding SaleViewModel.ItemBarcode}"
                                          Watermark="Barcode (F2)"/>
-                                <TextBox Grid.Column="1" 
-                                         Text="{Binding SaleViewModel.ItemDescription}" 
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding SaleViewModel.ItemDescription}"
                                          Watermark="Description" Margin="5,0" IsReadOnly="True"/>
-                                <TextBox Grid.Column="2" 
-                                         Text="{Binding SaleViewModel.ItemQuantity}" 
+                                <TextBox Grid.Column="2" Name="txtItemSerialNumber"
+                                         Text="{Binding SaleViewModel.ItemSerialNumber}"
+                                         Watermark="Serial number (required)" Margin="5,0"
+                                         IsVisible="{Binding SaleViewModel.ItemRequiresSerial}"
+                                         BorderBrush="OrangeRed" BorderThickness="2"/>
+                                <TextBox Grid.Column="3"
+                                         Text="{Binding SaleViewModel.ItemQuantity}"
                                          Watermark="Qty" Margin="5,0"/>
-                                <TextBox Grid.Column="3" 
-                                         Text="{Binding SaleViewModel.ItemPrice}" 
+                                <TextBox Grid.Column="4"
+                                         Text="{Binding SaleViewModel.ItemPrice}"
                                          Watermark="Price" Margin="5,0"/>
-                                <TextBox Grid.Column="4" 
-                                         Text="{Binding SaleViewModel.ItemExtension}" 
+                                <TextBox Grid.Column="5"
+                                         Text="{Binding SaleViewModel.ItemExtension}"
                                          Watermark="Ext" Margin="5,0" IsReadOnly="True"/>
-                                <Button Grid.Column="5" Content="+" Width="40" Margin="5,0" 
+                                <Button Grid.Column="6" Content="+" Width="40" Margin="5,0"
                                         Command="{Binding SaleViewModel.AddItemCommand}"/>
                             </Grid>
 
@@ -168,6 +174,7 @@
                                                         <ColumnDefinition Width="50"/>
                                                         <ColumnDefinition Width="120"/>
                                                         <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="120"/>
                                                         <ColumnDefinition Width="80"/>
                                                         <ColumnDefinition Width="100"/>
                                                         <ColumnDefinition Width="100"/>
@@ -176,11 +183,12 @@
                                                     <TextBlock Grid.Column="0" Text="{Binding LineNumber}" Margin="5,0"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Barcode}" Margin="5,0"/>
                                                     <TextBlock Grid.Column="2" Text="{Binding Description}" Margin="5,0"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding Quantity}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <TextBlock Grid.Column="4" Text="{Binding UnitPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <TextBlock Grid.Column="5" Text="{Binding Extension, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <Button Grid.Column="6" Content="Remove" 
-                                                           Command="{Binding $parent[Window].DataContext.SaleViewModel.RemoveItemCommand}" 
+                                                    <TextBlock Grid.Column="3" Text="{Binding SerialNumber, StringFormat='S/N: {0}'}" Margin="5,0" FontStyle="Italic" IsVisible="{Binding SerialNumber, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding Quantity}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <TextBlock Grid.Column="5" Text="{Binding UnitPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <TextBlock Grid.Column="6" Text="{Binding Extension, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
+                                                    <Button Grid.Column="7" Content="Remove"
+                                                           Command="{Binding $parent[Window].DataContext.SaleViewModel.RemoveItemCommand}"
                                                            CommandParameter="{Binding}"
                                                            Width="55" Height="25" Margin="5,0"/>
                                                 </Grid>
@@ -954,8 +962,13 @@
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Item:" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding TransactionLookupViewModel.ItemBarcode}" Watermark="Item barcode"/>
 
+                                <!-- Serial Filter -->
+                                <TextBlock Grid.Row="4" Grid.Column="3" Text="Serial:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Grid.Row="4" Grid.Column="4" Text="{Binding TransactionLookupViewModel.SerialNumber}" Watermark="Serial number (warranty lookup)" HorizontalAlignment="Left" Width="250"/>
+                            </Grid>
+                            <Grid Margin="0,10,0,0">
                                 <!-- Buttons -->
-                                <StackPanel Grid.Row="4" Grid.Column="4" Orientation="Horizontal">
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                                     <Button Content="Search" Command="{Binding TransactionLookupViewModel.SearchCommand}" Width="80" Margin="0,0,10,0"/>
                                     <Button Content="Clear" Command="{Binding TransactionLookupViewModel.ClearFiltersCommand}" Width="80"/>
                                 </StackPanel>

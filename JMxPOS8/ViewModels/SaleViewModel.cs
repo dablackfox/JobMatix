@@ -37,6 +37,12 @@ namespace JMxPOS8.ViewModels
         private decimal _itemExtension = 0;
 
         [ObservableProperty]
+        private string _itemSerialNumber = "";
+
+        [ObservableProperty]
+        private bool _itemRequiresSerial = false;
+
+        [ObservableProperty]
         private Staff? _currentStaff;
 
         [ObservableProperty]
@@ -189,12 +195,20 @@ namespace JMxPOS8.ViewModels
                     ItemDescription = stock.Description;
                     ItemPrice = stock.SellPrice;
                     ItemExtension = ItemQuantity * ItemPrice;
+                    ItemRequiresSerial = stock.RequiresSerial;
                     StatusMessage = $"Item found: {stock.Description}";
                     Console.WriteLine($"[SALE] ✅ Item found: {stock.Description} (Stock ID: {stock.StockId}, Barcode: {stock.Barcode})");
                     Console.WriteLine($"[SALE]    Price: ${stock.SellPrice:F2}, Qty in Stock: {stock.QuantityInStock}, Requires Serial: {stock.RequiresSerial}");
-                    
-                    // Auto-add the item
-                    await AddItem();
+
+                    if (stock.RequiresSerial)
+                    {
+                        // Don't auto-add: wait for the serial number to be entered first.
+                        StatusMessage = $"{stock.Description} requires a serial number - enter it, then click Add";
+                    }
+                    else
+                    {
+                        await AddItem();
+                    }
                 }
                 else
                 {
@@ -218,22 +232,35 @@ namespace JMxPOS8.ViewModels
                 return;
             }
 
-            Console.WriteLine($"[SALE] Adding item to sale: Barcode={ItemBarcode}, Qty={ItemQuantity}, Price=${ItemPrice:F2}");
+            Console.WriteLine($"[SALE] Adding item to sale: Barcode={ItemBarcode}, Qty={ItemQuantity}, Price=${ItemPrice:F2}, Serial={ItemSerialNumber}");
             try
             {
-                bool added = await _saleService.AddItemByBarcodeAsync(ItemBarcode.Trim(), ItemQuantity);
-                if (added)
+                var result = await _saleService.AddItemByBarcodeAsync(ItemBarcode.Trim(), ItemQuantity, ItemSerialNumber);
+                switch (result)
                 {
-                    StatusMessage = $"Added: {ItemDescription}";
-                    Console.WriteLine($"[SALE] ✅ Item added to sale: {ItemDescription} x{ItemQuantity} = ${ItemExtension:F2}");
-                    Console.WriteLine($"[SALE]    Sale now has {SaleItems.Count} items, Total: ${TotalInc:F2}");
-                    ClearItemEntry();
-                    UpdateTotals();
-                }
-                else
-                {
-                    StatusMessage = "Failed to add item";
-                    Console.WriteLine($"[SALE] ❌ Failed to add item: {ItemBarcode}");
+                    case SaleService.AddItemResult.Added:
+                        StatusMessage = $"Added: {ItemDescription}";
+                        Console.WriteLine($"[SALE] ✅ Item added to sale: {ItemDescription} x{ItemQuantity} = ${ItemExtension:F2}");
+                        Console.WriteLine($"[SALE]    Sale now has {SaleItems.Count} items, Total: ${TotalInc:F2}");
+                        ClearItemEntry();
+                        UpdateTotals();
+                        break;
+                    case SaleService.AddItemResult.SerialRequired:
+                        StatusMessage = $"{ItemDescription} requires a serial number";
+                        Console.WriteLine($"[SALE] ❌ Serial number required for: {ItemBarcode}");
+                        break;
+                    case SaleService.AddItemResult.SerialAlreadyInSale:
+                        StatusMessage = $"Serial {ItemSerialNumber} is already in this sale";
+                        Console.WriteLine($"[SALE] ❌ Duplicate serial within current sale: {ItemSerialNumber}");
+                        break;
+                    case SaleService.AddItemResult.SerialAlreadySold:
+                        StatusMessage = $"Serial {ItemSerialNumber} has already been sold";
+                        Console.WriteLine($"[SALE] ❌ Serial already sold: {ItemSerialNumber}");
+                        break;
+                    default:
+                        StatusMessage = "Failed to add item";
+                        Console.WriteLine($"[SALE] ❌ Failed to add item: {ItemBarcode}");
+                        break;
                 }
             }
             catch (Exception ex)
@@ -415,6 +442,8 @@ namespace JMxPOS8.ViewModels
             ItemQuantity = 1;
             ItemPrice = 0;
             ItemExtension = 0;
+            ItemSerialNumber = "";
+            ItemRequiresSerial = false;
         }
 
         private void UpdateTotals()

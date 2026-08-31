@@ -12,6 +12,10 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Must run before any Services.DatabaseService is constructed, since its
+        // connection string is read from these environment variables.
+        Services.DatabaseService.LoadEnvironment();
+
         // Handle unhandled exceptions (especially DBus shutdown issues on Linux)
         TaskScheduler.UnobservedTaskException += (sender, e) =>
         {
