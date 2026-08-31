@@ -125,27 +125,22 @@ namespace JMxPOS8.ViewModels
             Console.WriteLine($"[SALE] Processing staff number: {StaffNumber}");
             try
             {
-                if (int.TryParse(StaffNumber.Trim(), out int staffId))
+                // Staff sign in by their own barcode/employee number (e.g. "3"), not the
+                // internal database staff_id - those are unrelated. Looking this up by
+                // primary key instead silently signed in whichever staff row happened to
+                // have that id, not the person whose number was actually typed.
+                var staff = await _staffService.FindStaffByBarcodeAsync(StaffNumber.Trim());
+                if (staff != null)
                 {
-                    Console.WriteLine($"[SALE] Looking up staff ID: {staffId}");
-                    var staff = await _staffService.GetStaffByIdAsync(staffId);
-                    if (staff != null)
-                    {
-                        CurrentStaff = staff;
-                        _saleService.SetStaff(staff);
-                        StatusMessage = $"Staff: {staff.DocketName}";
-                        Console.WriteLine($"[SALE] ✅ Staff authenticated: {staff.DocketName} (ID: {staff.StaffId})");
-                    }
-                    else
-                    {
-                        StatusMessage = "Staff not found!";
-                        Console.WriteLine($"[SALE] ❌ Staff not found for ID: {staffId}");
-                    }
+                    CurrentStaff = staff;
+                    _saleService.SetStaff(staff);
+                    StatusMessage = $"Staff: {staff.DocketName}";
+                    Console.WriteLine($"[SALE] ✅ Staff authenticated: {staff.DocketName} (ID: {staff.StaffId}, Barcode: {staff.Barcode})");
                 }
                 else
                 {
-                    StatusMessage = "Staff number must be numeric";
-                    Console.WriteLine($"[SALE] ❌ Invalid staff number format: {StaffNumber}");
+                    StatusMessage = $"Staff not found for number '{StaffNumber}'";
+                    Console.WriteLine($"[SALE] ❌ Staff not found for barcode: {StaffNumber}");
                 }
             }
             catch (Exception ex)
@@ -153,6 +148,17 @@ namespace JMxPOS8.ViewModels
                 StatusMessage = $"Error: {ex.Message}";
                 Console.WriteLine($"[SALE] ❌ ERROR in ProcessStaffNumber: {ex.Message}");
             }
+        }
+
+        [ObservableProperty]
+        private Customer? _selectedCustomerSuggestion;
+
+        // Fired when a customer is picked from the type-ahead suggestion list (as opposed
+        // to an exact barcode scan handled by ProcessCustomerBarcode below).
+        partial void OnSelectedCustomerSuggestionChanged(Customer? value)
+        {
+            if (value != null)
+                ApplyFoundCustomer(value);
         }
 
         [RelayCommand]
@@ -167,16 +173,11 @@ namespace JMxPOS8.ViewModels
                 var customer = await _customerService.FindCustomerByBarcodeAsync(CustomerBarcode.Trim());
                 if (customer != null)
                 {
-                    CurrentCustomer = customer;
-                    _saleService.SetCustomer(customer);
-                    OnPropertyChanged(nameof(CustomerInfo));
-                    StatusMessage = $"Customer: {customer.CustomerName}";
-                    Console.WriteLine($"[SALE] ✅ Customer found: {customer.CustomerName} (ID: {customer.CustomerId}, Barcode: {customer.Barcode})");
-                    Console.WriteLine($"[SALE]    Account: {customer.IsAccount}, Balance: ${customer.AccountBalance:F2}, Credit Limit: ${customer.CreditLimit:F2}");
+                    ApplyFoundCustomer(customer);
                 }
                 else
                 {
-                    StatusMessage = "Customer not found!";
+                    StatusMessage = $"Customer not found for barcode '{CustomerBarcode}' - try typing part of their name instead";
                     CurrentCustomer = null;
                     _saleService.SetCustomer(null!);
                     Console.WriteLine($"[SALE] ❌ Customer not found for barcode: {CustomerBarcode}");
@@ -187,6 +188,17 @@ namespace JMxPOS8.ViewModels
                 StatusMessage = $"Error: {ex.Message}";
                 Console.WriteLine($"[SALE] ❌ ERROR in ProcessCustomerBarcode: {ex.Message}");
             }
+        }
+
+        private void ApplyFoundCustomer(Customer customer)
+        {
+            CurrentCustomer = customer;
+            _saleService.SetCustomer(customer);
+            CustomerBarcode = customer.CustomerName;
+            OnPropertyChanged(nameof(CustomerInfo));
+            StatusMessage = $"Customer: {customer.CustomerName}";
+            Console.WriteLine($"[SALE] ✅ Customer found: {customer.CustomerName} (ID: {customer.CustomerId}, Barcode: {customer.Barcode})");
+            Console.WriteLine($"[SALE]    Account: {customer.IsAccount}, Balance: ${customer.AccountBalance:F2}, Credit Limit: ${customer.CreditLimit:F2}");
         }
 
         [RelayCommand]
@@ -201,27 +213,11 @@ namespace JMxPOS8.ViewModels
                 var stock = await _stockService.FindStockByBarcodeAsync(ItemBarcode.Trim());
                 if (stock != null)
                 {
-                    ItemDescription = stock.Description;
-                    ItemPrice = stock.SellPrice;
-                    ItemExtension = ItemQuantity * ItemPrice;
-                    ItemRequiresSerial = stock.RequiresSerial;
-                    StatusMessage = $"Item found: {stock.Description}";
-                    Console.WriteLine($"[SALE] ✅ Item found: {stock.Description} (Stock ID: {stock.StockId}, Barcode: {stock.Barcode})");
-                    Console.WriteLine($"[SALE]    Price: ${stock.SellPrice:F2}, Qty in Stock: {stock.QuantityInStock}, Requires Serial: {stock.RequiresSerial}");
-
-                    if (stock.RequiresSerial)
-                    {
-                        // Don't auto-add: wait for the serial number to be entered first.
-                        StatusMessage = $"{stock.Description} requires a serial number - enter it, then click Add";
-                    }
-                    else
-                    {
-                        await AddItem();
-                    }
+                    await ApplyFoundStock(stock);
                 }
                 else
                 {
-                    StatusMessage = "Item not found!";
+                    StatusMessage = $"Item not found for barcode '{ItemBarcode}' - try typing part of the description instead";
                     Console.WriteLine($"[SALE] ❌ Item not found for barcode: {ItemBarcode}");
                 }
             }
@@ -229,6 +225,39 @@ namespace JMxPOS8.ViewModels
             {
                 StatusMessage = $"Error: {ex.Message}";
                 Console.WriteLine($"[SALE] ❌ ERROR in ProcessItemBarcode: {ex.Message}");
+            }
+        }
+
+        [ObservableProperty]
+        private StockItem? _selectedStockSuggestion;
+
+        // Fired when an item is picked from the type-ahead suggestion list (as opposed to
+        // an exact barcode scan handled by ProcessItemBarcode above).
+        partial void OnSelectedStockSuggestionChanged(StockItem? value)
+        {
+            if (value != null)
+                _ = ApplyFoundStock(value);
+        }
+
+        private async Task ApplyFoundStock(StockItem stock)
+        {
+            ItemBarcode = stock.Barcode;
+            ItemDescription = stock.Description;
+            ItemPrice = stock.SellPrice;
+            ItemExtension = ItemQuantity * ItemPrice;
+            ItemRequiresSerial = stock.RequiresSerial;
+            StatusMessage = $"Item found: {stock.Description}";
+            Console.WriteLine($"[SALE] ✅ Item found: {stock.Description} (Stock ID: {stock.StockId}, Barcode: {stock.Barcode})");
+            Console.WriteLine($"[SALE]    Price: ${stock.SellPrice:F2}, Qty in Stock: {stock.QuantityInStock}, Requires Serial: {stock.RequiresSerial}");
+
+            if (stock.RequiresSerial)
+            {
+                // Don't auto-add: wait for the serial number to be entered first.
+                StatusMessage = $"{stock.Description} requires a serial number - enter it, then click Add";
+            }
+            else
+            {
+                await AddItem();
             }
         }
 

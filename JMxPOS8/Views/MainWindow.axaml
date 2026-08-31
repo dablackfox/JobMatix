@@ -87,14 +87,38 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Column="1" Name="txtStaffNumber" 
-                                     Text="{Binding SaleViewModel.StaffNumber}" 
-                                     Watermark="Enter staff number (1, 2, 3...)"/>
+                            <TextBox Grid.Column="1" Name="txtStaffNumber"
+                                     Text="{Binding SaleViewModel.StaffNumber}"
+                                     Watermark="Enter staff barcode/number"/>
 
                         <TextBlock Grid.Column="3" Text="Customer:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBox Grid.Column="4" Name="txtCustomerBarcode" 
-                                 Text="{Binding SaleViewModel.CustomerBarcode}" 
-                                 Watermark="Scan customer barcode (F2=Search)"/>
+                        <AutoCompleteBox Grid.Column="4" Name="autoCompleteCustomer"
+                                 Text="{Binding SaleViewModel.CustomerBarcode}"
+                                 SelectedItem="{Binding SaleViewModel.SelectedCustomerSuggestion}"
+                                 FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
+                                 Watermark="Scan barcode, or type customer name to search">
+                            <AutoCompleteBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding CustomerName}"/>
+                                        <TextBlock Text="{Binding CompanyName}" FontSize="11" Foreground="Gray" IsVisible="{Binding CompanyName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
+                        </Grid>
+
+                        <!-- Signed-in staff / found customer / last action feedback -->
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding SaleViewModel.StaffDisplay, StringFormat='Signed in: {0}'}"
+                                       FontWeight="Bold" Foreground="DarkGreen"
+                                       IsVisible="{Binding SaleViewModel.CurrentStaff, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding SaleViewModel.StatusMessage}" FontStyle="Italic" Foreground="DimGray"/>
                         </Grid>
                     </StackPanel>
 
@@ -159,9 +183,20 @@
                                     <ColumnDefinition Width="50"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Column="0" Name="txtItemBarcode"
+                                <AutoCompleteBox Grid.Column="0" Name="autoCompleteItemBarcode"
                                          Text="{Binding SaleViewModel.ItemBarcode}"
-                                         Watermark="Barcode (F2)"/>
+                                         SelectedItem="{Binding SaleViewModel.SelectedStockSuggestion}"
+                                         FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
+                                         Watermark="Barcode, or type description to search">
+                                    <AutoCompleteBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Description}"/>
+                                                <TextBlock Text="{Binding Barcode, StringFormat='Barcode: {0}'}" FontSize="11" Foreground="Gray"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </AutoCompleteBox.ItemTemplate>
+                                </AutoCompleteBox>
                                 <TextBox Grid.Column="1"
                                          Text="{Binding SaleViewModel.ItemDescription}"
                                          Watermark="Description" Margin="5,0" IsReadOnly="True"/>
