@@ -18,8 +18,8 @@ public partial class MainWindow : Window
 
     // Everything sale-specific (staff/customer/item AutoCompleteBox wiring, Enter-key
     // handling) now lives in SaleTabView, once per open sale document - this window only
-    // still handles the one field that's actually app-shell-level: the Staff admin
-    // manager-override prompt.
+    // still handles fields that are actually app-shell-level: the Staff admin and Void
+    // manager-override prompts.
     private async void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
@@ -32,6 +32,13 @@ public partial class MainWindow : Window
         if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtStaffOverrideBarcode" })
         {
             await viewModel.UnlockStaffAdminCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtVoidOverrideBarcode" })
+        {
+            await viewModel.TransactionLookupViewModel.ConfirmVoidCommand.ExecuteAsync(null);
             e.Handled = true;
         }
     }

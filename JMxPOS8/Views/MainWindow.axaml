@@ -1099,6 +1099,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Search Filters -->
@@ -1181,6 +1182,7 @@
                                                 <ColumnDefinition Width="150"/>
                                                 <ColumnDefinition Width="100"/>
                                                 <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="70"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding TransactionId}" Margin="5,0" FontWeight="Bold"/>
                                             <TextBlock Grid.Column="1" Text="{Binding DisplayDate}" Margin="5,0"/>
@@ -1189,6 +1191,8 @@
                                             <TextBlock Grid.Column="4" Text="{Binding CustomerName}" Margin="5,0"/>
                                             <TextBlock Grid.Column="5" Text="{Binding DisplayAmount}" Margin="5,0" HorizontalAlignment="Right" FontWeight="Bold"/>
                                             <TextBlock Grid.Column="6" Text="{Binding StaffName}" Margin="5,0"/>
+                                            <TextBlock Grid.Column="7" Text="VOIDED" Margin="5,0" FontWeight="Bold" Foreground="Crimson"
+                                                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -1200,8 +1204,26 @@
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
                         <Button Content="View/Print Invoice" Command="{Binding TransactionLookupViewModel.ViewTransactionCommand}" Width="150" Margin="0,0,10,0"/>
                         <Button Content="Print Receipt" Command="{Binding TransactionLookupViewModel.PrintTransactionCommand}" Width="120" Margin="0,0,10,0"/>
+                        <Button Content="Void" Command="{Binding TransactionLookupViewModel.RequestVoidCommand}" Width="100" Margin="0,0,10,0"
+                                Background="Crimson" Foreground="White"/>
                         <TextBlock Text="{Binding TransactionLookupViewModel.StatusMessage}" VerticalAlignment="Center" Margin="20,0,0,0" FontStyle="Italic"/>
                     </StackPanel>
+
+                    <!-- Void manager override - same pattern as Staff admin: checked at the
+                         point of use, not tied to any persistent signed-in session. -->
+                    <Border Grid.Row="3" Margin="0,10,0,0" Padding="10" Background="#FFF3E0" BorderBrush="Crimson" BorderThickness="1" CornerRadius="4"
+                            IsVisible="{Binding TransactionLookupViewModel.IsVoidPromptOpen}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding TransactionLookupViewModel.SelectedTransaction.TransactionId, StringFormat='Void transaction #{0} - requires an admin barcode'}" FontWeight="Bold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Name="txtVoidOverrideBarcode" Width="220" Watermark="Admin barcode/number"
+                                         Text="{Binding TransactionLookupViewModel.VoidOverrideBarcode}"/>
+                                <Button Content="Confirm Void" Command="{Binding TransactionLookupViewModel.ConfirmVoidCommand}" Background="Crimson" Foreground="White"/>
+                                <Button Content="Cancel" Command="{Binding TransactionLookupViewModel.CancelVoidCommand}"/>
+                                <TextBlock Text="{Binding TransactionLookupViewModel.VoidStatusMessage}" Foreground="Crimson" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </TabItem>
         </TabControl>

@@ -48,6 +48,17 @@ namespace JMxPOS8.ViewModels
 
         public ObservableCollection<TransactionSummary> Transactions { get; }
 
+        // Voiding is a manager-override action, checked at the point of use (same pattern
+        // as Staff admin) rather than tied to any persistent signed-in session.
+        [ObservableProperty]
+        private bool _isVoidPromptOpen;
+
+        [ObservableProperty]
+        private string _voidOverrideBarcode = "";
+
+        [ObservableProperty]
+        private string _voidStatusMessage = "";
+
         public TransactionLookupViewModel(DatabaseService dbService, CustomerService customerService, StaffService staffService)
         {
             _dbService = dbService;
@@ -116,6 +127,150 @@ namespace JMxPOS8.ViewModels
             Console.WriteLine($"[LOOKUP] Viewing transaction: {SelectedTransaction.TransactionType} ID {SelectedTransaction.TransactionId}");
             // TODO: Open invoice viewer/printer
             StatusMessage = $"Viewing {SelectedTransaction.TransactionType} #{SelectedTransaction.TransactionId}";
+        }
+
+        [RelayCommand]
+        private void RequestVoid()
+        {
+            if (SelectedTransaction == null)
+            {
+                StatusMessage = "No transaction selected";
+                return;
+            }
+
+            if (LookupType == "Payment")
+            {
+                StatusMessage = "Void a payment's invoice instead, not the payment row directly";
+                return;
+            }
+
+            if (SelectedTransaction.Status == "VOIDED")
+            {
+                StatusMessage = $"#{SelectedTransaction.TransactionId} is already voided";
+                return;
+            }
+
+            VoidOverrideBarcode = "";
+            VoidStatusMessage = "";
+            IsVoidPromptOpen = true;
+        }
+
+        [RelayCommand]
+        private void CancelVoid()
+        {
+            IsVoidPromptOpen = false;
+            VoidOverrideBarcode = "";
+            VoidStatusMessage = "";
+        }
+
+        [RelayCommand]
+        private async Task ConfirmVoid()
+        {
+            if (SelectedTransaction == null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(VoidOverrideBarcode))
+                return;
+
+            var staff = await _staffService.FindStaffByBarcodeAsync(VoidOverrideBarcode.Trim());
+            if (staff == null)
+            {
+                VoidStatusMessage = $"Staff not found for '{VoidOverrideBarcode}'";
+                return;
+            }
+
+            if (!staff.IsAdministrator)
+            {
+                VoidStatusMessage = $"{staff.DocketName} is not an administrator";
+                return;
+            }
+
+            try
+            {
+                await VoidInvoiceAsync(SelectedTransaction.TransactionId, staff.DocketName);
+                IsVoidPromptOpen = false;
+                VoidOverrideBarcode = "";
+                VoidStatusMessage = "";
+                StatusMessage = $"#{SelectedTransaction.TransactionId} voided by {staff.DocketName}";
+                await Search();
+            }
+            catch (Exception ex)
+            {
+                VoidStatusMessage = $"Error voiding: {ex.Message}";
+            }
+        }
+
+        // Reverses whatever stock effect the original transaction had (a voided Sale puts
+        // stock back, a voided Refund takes it back out; Quotes/Laybys never touched stock
+        // so voiding them doesn't either - mirrors SaleService.CommitSaleAsync's own logic),
+        // then marks the invoice VOIDED. Wrapped in one DB transaction for atomicity.
+        private async Task VoidInvoiceAsync(int invoiceId, string voidedByStaffName)
+        {
+            using var conn = _dbService.GetConnection();
+            await Task.Run(() => conn.Open());
+            using var transaction = conn.BeginTransaction();
+
+            try
+            {
+                string transactionType;
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = "SELECT transactiontype, status FROM invoice WHERE invoice_id = @id FOR UPDATE";
+                    AddParameter(cmd, "@id", invoiceId);
+                    using var reader = await Task.Run(() => cmd.ExecuteReader());
+                    if (!await Task.Run(() => reader.Read()))
+                        throw new InvalidOperationException($"Invoice #{invoiceId} not found");
+                    transactionType = reader.GetString(0);
+                    if (reader.GetString(1) == "VOIDED")
+                        throw new InvalidOperationException("Already voided");
+                }
+
+                if (transactionType == "SALE" || transactionType == "REFUND")
+                {
+                    decimal sign = transactionType == "SALE" ? 1m : -1m;
+                    using var cmd = conn.CreateCommand();
+                    cmd.Transaction = transaction;
+                    // Aggregated by stock_id first - an invoice can have multiple lines for
+                    // the same item (e.g. serials sold individually), and a plain UPDATE...
+                    // FROM join would only apply one of them, not the sum of all.
+                    cmd.CommandText = @"
+                        UPDATE stock
+                        SET quantityinstock = quantityinstock + (agg.total_qty * @sign),
+                            date_modified = CURRENT_TIMESTAMP
+                        FROM (
+                            SELECT stock_id, SUM(quantity) AS total_qty
+                            FROM invoice_lines
+                            WHERE invoice_id = @id
+                            GROUP BY stock_id
+                        ) agg
+                        WHERE stock.stock_id = agg.stock_id";
+                    AddParameter(cmd, "@sign", sign);
+                    AddParameter(cmd, "@id", invoiceId);
+                    await Task.Run(() => cmd.ExecuteNonQuery());
+                }
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = @"
+                        UPDATE invoice
+                        SET status = 'VOIDED',
+                            notes = notes || @noteSuffix,
+                            date_modified = CURRENT_TIMESTAMP
+                        WHERE invoice_id = @id";
+                    AddParameter(cmd, "@noteSuffix", $" [VOIDED by {voidedByStaffName} on {DateTime.Now:dd-MMM-yyyy HH:mm}]");
+                    AddParameter(cmd, "@id", invoiceId);
+                    await Task.Run(() => cmd.ExecuteNonQuery());
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
         [RelayCommand]
@@ -206,7 +361,8 @@ namespace JMxPOS8.ViewModels
                                 CustomerBarcode = reader.IsDBNull(5) ? "" : reader.GetString(5),
                                 StaffName = reader.IsDBNull(6) ? "" : reader.GetString(6),
                                 IsOnAccount = !reader.IsDBNull(7) && reader.GetBoolean(7),
-                                InvoiceNumber = !reader.IsDBNull(8) ? reader.GetString(8) : ""
+                                InvoiceNumber = !reader.IsDBNull(8) ? reader.GetString(8) : "",
+                                Status = !reader.IsDBNull(9) ? reader.GetString(9) : ""
                             });
                         }
                     }
@@ -237,7 +393,8 @@ namespace JMxPOS8.ViewModels
                                    WHERE p.invoice_id = inv.invoice_id
                                    AND p.paymentmethod = 'Account'
                                ) THEN true ELSE false END as isonaccount,
-                               inv.invoicenumber
+                               inv.invoicenumber,
+                               inv.status
                         FROM invoice inv
                         INNER JOIN invoice_lines il ON inv.invoice_id = il.invoice_id
                         INNER JOIN stock st ON il.stock_id = st.stock_id
@@ -264,7 +421,8 @@ namespace JMxPOS8.ViewModels
                                    WHERE p.invoice_id = inv.invoice_id 
                                    AND p.paymentmethod = 'Account'
                                ) THEN true ELSE false END as isonaccount,
-                               inv.invoicenumber
+                               inv.invoicenumber,
+                               inv.status
                         FROM invoice inv
                         LEFT JOIN customer c ON inv.customer_id = c.customer_id
                         LEFT JOIN staff s ON inv.staff_id = s.staff_id
@@ -296,7 +454,8 @@ namespace JMxPOS8.ViewModels
                            c.barcode as customer_barcode,
                            s.docket_name as staff_name,
                            false as isonaccount,
-                           '' as invoicenumber
+                           '' as invoicenumber,
+                           '' as status
                     FROM payments p
                     LEFT JOIN customer c ON p.customer_id = c.customer_id
                     LEFT JOIN staff s ON p.staff_id = s.staff_id
@@ -326,7 +485,8 @@ namespace JMxPOS8.ViewModels
                            c.barcode as customer_barcode,
                            s.docket_name as staff_name,
                            false as isonaccount,
-                           inv.invoicenumber
+                           inv.invoicenumber,
+                               inv.status
                     FROM invoice inv
                     LEFT JOIN customer c ON inv.customer_id = c.customer_id
                     LEFT JOIN staff s ON inv.staff_id = s.staff_id
@@ -366,6 +526,7 @@ namespace JMxPOS8.ViewModels
         public string StaffName { get; set; } = "";
         public bool IsOnAccount { get; set; }
         public string InvoiceNumber { get; set; } = "";
+        public string Status { get; set; } = "";
 
         public string DisplayDate => TransactionDate.ToString("dd-MMM-yyyy HH:mm");
         public string DisplayAmount => TotalAmount.ToString("C");
