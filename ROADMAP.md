@@ -1,477 +1,163 @@
-# JobMatix Migration Roadmap - Master Plan
+# JobMatix Revival Roadmap v2
 
-**Last Updated**: January 15, 2026  
-**Project Manager**: System Migration Team  
-**Timeline**: January 2026 - June 2026
-
----
-
-## Executive Summary
-
-JobMatix is migrating from Windows-based .NET Framework 3.5 applications to cross-platform .NET 8 with PostgreSQL database backend. The migration enables Linux deployment, modern development practices, and long-term maintainability.
-
-### Overall Progress: ~25% Complete
-
-- ✅ **Infrastructure**: Docker PostgreSQL environment deployed
-- ✅ **Database Migration**: All schemas converted and deployed
-- ✅ **POS Application**: 40% complete (basic functionality working)
-- ⏳ **Main JobMatix App**: Not started
-- ⏳ **Remote Agent App**: Not started
+**Last Updated**: August 31, 2026
+**Supersedes**: `ROADMAP-ARCHIVE-2026-01.md` (see "What Changed" below — that version had factual errors and fictional resourcing; don't use it for planning, keep it only for history)
+**Project**: Martin Fenwick, solo maintainer, AI-assisted (Claude Code)
+**Status of the software**: JobMatix/JMxPOS was last live in production ~2020–2021 at Precise PCs. It is **not currently running anywhere**. This is a revival for a fresh multi-store IBG rollout, not a live cutover — there is no production system to protect or migrate off today.
 
 ---
 
-## Project Structure
+## What Changed From v1 (and why)
 
-```
-JobMatix Suite:
-├── JMxPOS8 (Point of Sale)           → 40% Complete ✅
-├── JobMatix62.Net (Main App)         → 0% Complete ⏳
-└── JMxRAs62.Net (Remote Agent)       → 0% Complete ⏳
+The old roadmap (Jan 2026) was written after a burst of work on JMxPOS8 and contained several errors that would have caused real damage if left unfixed:
 
-Supporting:
-├── PostgreSQL Database               → 100% Complete ✅
-├── Docker Infrastructure             → 100% Complete ✅
-└── Database Abstraction Layer        → 100% Complete ✅
-```
-
----
-
-## Phase 1: Infrastructure & Database ✅ COMPLETE
-
-### Completed: January 1-10, 2026
-
-**Deliverables**:
-- ✅ Docker PostgreSQL 15 environment
-- ✅ pgAdmin 4 web interface
-- ✅ 4 databases created (jobmatix_main, jobmatix_jobs, jobmatix_pos, jobmatix_backup)
-- ✅ All SQL Server schemas converted to PostgreSQL
-- ✅ Test data inserted
-- ✅ Database abstraction layer (modDatabaseAbstraction.vb)
-- ✅ PostgreSQL support functions (modPostgreSqlSupport.vb)
-- ✅ Environment configuration (.env files)
-
-**Documentation**:
-- `POSTGRESQL_MIGRATION_GUIDE.md`
-- `README-DOCKER.md`
-- `MIGRATION-STATUS.md`
+1. **"Phase 4: Remote Agent" was based on a wrong guess.** `JMxRAs62.Net` was assumed to be a data-sync/replication engine. It is actually **Return Authorisations** (supplier warranty-return tracking) — there is no sync/replication code anywhere in the old or new codebase. Cross-store sync was never designed by anyone; it's a real gap now handled explicitly in Phase 4 below, and RA has moved to Phase 3 where it actually belongs.
+2. **The database abstraction layer (`JMxRetailHost620.Net`) was assumed to need "40-60 hours of wiring up."** In reality only 13 of 638 raw database call sites across the legacy apps route through it — finishing it is effectively a full rewrite anyway. **This roadmap abandons that approach** in favor of what `JMxPOS8` already proved works: a clean C#/Avalonia rewrite per app, service by service.
+3. **Fictional resourcing.** v1 was denominated in "1-2 developers full-time for 6 months" with a placeholder "System Migration Team" owner. Reality: one person plus AI-assisted development, part-time. Every calendar date in v1 was wrong twice over — once because 7.5 months passed with zero activity, and again because the underlying pace assumption never matched who's doing the work. **This version does not invent calendar dates.** Phases are ordered by dependency and sized relatively (S/M/L/XL); add real dates yourself once you know your hours/week, and update `date-modified` at the top of this file whenever you revisit it — that's the whole "review cadence," no forced schedule.
+4. **No live-cutover risk after all** — confirmed this is a revival of dormant software, not a migration off a system stores depend on today. This removes v1's implicit (and unstated) parallel-run/rollback pressure. It does **not** remove the question of whether old Precise PCs data (job history, customer records) is worth importing — that's a Phase 0 decision below, not a Phase 7 afterthought like v1 had it.
+5. **Multi-store data model was never designed in** — it appeared 3 times across all v1 docs, always as an unelaborated bullet buried in the wrong phase (Phase 4). It's the entire reason this project was revived and needs to be decided *before* Phase 3 (12 weeks of planned work in the old plan) is built on top of a single-tenant assumption. See Phase 0.
+6. **Dead modules identified and dropped**: `JMxKeyGen420_OS` (licensing — already disabled by Geoff when he open-sourced JobMatix under Apache 2.0), `backup-agent` (superseded by IBG's existing rsnapshot+DO-Spaces backup infra), MYOB Retail Manager quote-import (MYOB Retail Manager was discontinued years ago, no modern equivalent).
+7. **New gaps found that weren't on v1 at all**: stocktake, customer statements, schema drift (checked-in SQL scripts no longer match the live database), zero foreign keys in the Jobs database, plaintext staff passwords, an undefined role/permissions model beyond one `isadministrator` boolean, and zero offline-resilience planning for a retail POS.
+8. **Good news v1 didn't know**: the old POS's "EFTPOS integration" and the barcode scanner were both lower-risk than feared — EFTPOS was only ever manual bookkeeping (no live terminal API to port), and scanners are standard HID keyboard-wedge devices that should just work with the existing UI.
 
 ---
 
-## Phase 2: POS Application (JMxPOS8) 🔄 IN PROGRESS
+## Phase 0: Architecture Decisions — do this before more Phase 2/3 work
 
-### Timeline: January 11-31, 2026 (3 weeks)
+These are the decisions that would be expensive to reverse later. Everything downstream assumes an answer here.
 
-### ✅ Completed (January 11-15)
+### 0.1 Store/location data model — **you're weighing two real options**
 
-**Core Services** (1 week):
-- ✅ DatabaseService - Connection management
-- ✅ StockService - Inventory operations
-- ✅ CustomerService - Customer management
-- ✅ StaffService - Staff authentication
-- ✅ SaleService - Complete POS transaction logic
+| Option | What it costs now | What you get |
+|---|---|---|
+| **A. Separate Postgres per store + a new lightweight central reporting API** (recommended) | Small — no schema changes needed today, just a per-store provisioning script. The reporting API is a new, small Node/Express service on DO (matches IBG's existing infra pattern — you already run comparable services for rmm-psa), built independently, later. | Ships fastest, keeps the 40%-built JMxPOS8 investment intact, each store's POS keeps working even if the internet or the central link drops (real requirement for a till — you can't stop selling because head office is unreachable). |
+| **B. Full rewrite as a webapp/Electron app, everything via API** | Large — this is a genuine full rewrite, not a port. Throws away the working Avalonia app. Offline resilience (register still needs to work if the network drops) has to be re-solved explicitly — a native app talking to a local DB gets this close to free; a browser/Electron-over-API app doesn't. | Centralized deployment/updates, one codebase instead of native+API. Only worth it if you decide native desktop is the wrong long-term bet. |
 
-**Basic UI** (4 days):
-- ✅ MainWindow with tabbed interface
-- ✅ Sale tab (full POS workflow)
-- ✅ Stock tab (CRUD operations)
-- ✅ Customers tab (CRUD operations)
-- ✅ Reports tab (sales/stock/customer reports)
-- ✅ ListBox-based display (fixed DataGrid issues)
-- ✅ All basic operations tested and working
+**Recommendation: A.** Keep building JMxPOS8 native, add a small central reporting service later (Phase 4) that each store's Postgres pushes summaries to/from. Revisit B only if A proves genuinely unworkable in practice — don't pre-pay for a full rewrite against a hypothetical.
 
-**Bug Fixes**:
-- ✅ DataGrid display issue (switched to ListBox)
-- ✅ Schema compatibility fixes
-- ✅ Date picker type issues
-- ✅ ObservableCollection binding
+If you go with A, the schema stays single-tenant per database (no `store_id` column needed) — a store's DB simply *is* that store. If you ever go with B or otherwise consolidate to one shared database, that's when `location_id` + row-level security is needed — `rmm-psa-backend`'s `feature/multi-tenant-rls` branch already has this exact tenant-middleware + RLS pattern built and is a directly reusable reference.
 
-### 🔄 In Progress (January 16-20)
+### 0.2 Historical data from Precise PCs
 
-**Priority 1 - Critical Features** (Week 3):
-1. **Receipt Printing** (3-4 days)
-   - Thermal printer support (80mm)
-   - Receipt template design
-   - Print preview
-   - Reprint functionality
-   - **Files to reference**: clsPrintSaleDocs.vb, clsPrintDirect.vb
+Is there an old SQL Server backup/database from the Precise PCs deployment worth importing (job history, customer records, warranty history)? If yes, add a one-time import task to Phase 1. If no surviving data or it doesn't matter, this whole project stays greenfield — no import task needed. **Open question, needs your answer before Phase 1 closes out.**
 
-2. **Serial Number Tracking** (2-3 days)
-   - Serial entry UI
-   - Uniqueness validation
-   - Serial lookup functionality
-   - Prevent sale without serial (when required)
-   - **Files to reference**: frmGoodsSerials.vb, frmFindSerial.vb
+### 0.3 Feature calls needed before building
 
-### ⏳ Planned (January 21-31)
-
-**Priority 2 - Important Features** (Week 4):
-3. **Cash Drawer Management** (3-4 days)
-   - Opening float
-   - Cash up/EOD reconciliation
-   - Physical drawer kick
-   - Cash variance reports
-   - **Files to reference**: frmCashDrawers.vb, frmCashup.vb
-
-4. **Transaction Management** (2-3 days)
-   - View past transactions
-   - Reprint receipts
-   - Void/reverse transactions
-   - **Files to reference**: ucTransLookup.vb, clsAccountReversal.vb
-
-**Priority 3 - Enhanced Features** (Week 5):
-5. **Layby Workflow** (2-3 days)
-   - Layby deposits
-   - Layby pickup/finalization
-   - **Files to reference**: ucChildLaybys.vb
-
-6. **Barcode Label Printing** (1-2 days)
-   - Label generation
-   - Batch printing
-   - **Files to reference**: frmStockLabels.vb
-
-### POS Completion Target: February 5, 2026
-
-**Definition of Done**:
-- ✅ All critical features implemented
-- ✅ Receipt printing working
-- ✅ Serial tracking complete
-- ✅ Cash drawer management functional
-- ✅ Full end-to-end testing passed
-- ✅ Production-ready for pilot deployment
+- **Recurring "Subscriptions" billing** (`ucChildSubscription.vb` in the old POS — auto-generates periodic invoices/emails) — does any current IBG store actually need recurring billing? If not, drop it and save the effort.
+- **Exchange/calendar sync** (`clsExchange20.vb`, used for tech appointment scheduling) — uses the EWS API, which Microsoft is retiring in favor of Graph API. If this is still wanted, it needs a full rebuild against Graph, not a port. Recommend dropping unless you confirm it's actually used for appointment scheduling today.
 
 ---
 
-## Phase 3: Main JobMatix Application 📋 PLANNED
+## Phase 1: Infrastructure & Database — mostly done, needs rework
 
-### Timeline: February 6 - April 30, 2026 (12 weeks)
+**Done (from v1):**
+- ✅ Docker Postgres 15 + pgAdmin running (ports remapped this session to 5433/5050 to avoid a local conflict)
+- ✅ Initial schemas for `jobmatix_pos` (8 tables) and `jobmatix_jobs` (13 tables) deployed
 
-**Scope**: Full job/repair management system
-
-### Original Application Analysis
-
-**JMxJT620.NET** (Main Application):
-- **Files**: ~150 VB.NET files
-- **Main Form**: frmJobMatix42Main.vb (~5,000+ lines)
-- **Complexity**: High (15+ years of features)
-- **Core Functions**:
-  - Job creation and tracking
-  - Service/repair workflow
-  - Parts management
-  - Customer management (shared with POS)
-  - Staff management
-  - Reporting
-  - Document management
-  - Return authorizations (RA)
-
-### Phased Approach
-
-#### Phase 3A: Core Job Management (4 weeks)
-
-**Week 1-2: Job Data Layer**
-- Convert job-related data models
-- Implement JobService (CRUD operations)
-- Convert clsOnSiteJobs.vb
-- Task/parts services
-- Test database operations
-
-**Week 3-4: Job UI**
-- Main job list/browser
-- Job creation form (frmNewJob32.vb → NewJobView.axaml)
-- Job editing form (frmJobMaintBase.vb → JobEditView.axaml)
-- Job search functionality
-- Job status workflow
-
-#### Phase 3B: Advanced Job Features (4 weeks)
-
-**Week 5-6: Parts & Inventory**
-- Parts lookup (FrmFindPart.vb)
-- Parts allocation to jobs
-- Parts ordering
-- Supplier integration
-- Model/Brand management (frmModelEdit3.vb)
-
-**Week 7-8: Quality & Compliance**
-- Service checklists
-- Job quality control
-- Document attachments
-- Photo management
-- Warranty tracking
-
-#### Phase 3C: Reporting & Integration (4 weeks)
-
-**Week 9-10: Job Reports**
-- Job status reports
-- Parts usage reports
-- Technician reports
-- Customer job history
-- Goods in care (frmGoodsInCare.vb)
-
-**Week 11-12: Integration & Polish**
-- POS integration (sell parts from jobs)
-- Customer notifications (frmNotifyCust22.vb)
-- SMS updates (frmSMSUpdate.vb)
-- Email integration
-- Final testing
-
-### JobMatix Completion Target: April 30, 2026
+**New work identified this session:**
+- 🔧 **Fix schema drift**: `stock.requiresserial` exists on the live database but is missing from the checked-in `sql-scripts/create-pos-schema-postgresql.sql` — someone hand-patched the live DB without updating the script. Anyone rebuilding from scratch (new store, disaster recovery) gets a broken schema today. Audit the live DB against the scripts and reconcile; treat the scripts as source of truth going forward, not the other way around.
+- 🔧 **Add foreign keys to the Jobs database** — currently zero FK constraints across all 13 tables (Jobs/Tasks/Parts/Documents/ReturnAuthorizations included), unlike the POS database which does this correctly. Orphaned rows are possible today.
+- 🔧 **Hash staff passwords** — currently plaintext (`Staff.password VARCHAR(80)`, confirmed live). Fix before any real deployment, this is a genuine security bug, not a style nit.
+- 🔧 **Define or drop `jobmatix_main` and `jobmatix_backup`** — both are empty shells today (no tables beyond a placeholder). Decide what "main" (cross-app config? store registry?) actually needs to hold, or drop the database entirely if Phase 0.1 makes it unnecessary.
+- 🔧 Fix a leftover hardcoded default (`Jobs.DatePromised` defaults to the literal `2020-12-25`, a copy-paste artifact from the original VB.NET code) — should be null or computed.
+- 🗑️ **Drop `JMxRetailHost620.Net`** (the SQL-Server/Postgres abstraction layer) — confirmed to be a facade covering 13 of 638 call sites; finishing it is a full rewrite in disguise. Rewrite each remaining legacy app fresh instead, the way JMxPOS8 already did.
+- 🗑️ **Drop `JMxKeyGen420_OS`** — licensing/activation, already disabled in code by Geoff, irrelevant to an internal deployment.
 
 ---
 
-## Phase 4: Remote Agent Application 🌐 PLANNED
+## Phase 2: POS Application (JMxPOS8) — ~40% complete, continue
 
-### Timeline: May 1-31, 2026 (4 weeks)
+**Done (from v1, verified this session — it still builds clean):**
+- ✅ Core services (Database/Stock/Customer/Staff/Sale), full MVVM, 4-tab UI (Sale/Stock/Customers/Reports), complete sale workflow, stock/customer CRUD, basic reporting.
 
-**Scope**: Remote data synchronization and backup
+**Critical — blocks any real store from using this (size: L):**
+- **Receipt printing** — this is a rewrite, not a port. The old POS used `System.Drawing.Printing.PrintDocument` and raw Win32 `WritePrinter` calls, both Windows-only. Linux path: CUPS raw queue + generated ESC/POS commands.
+- **Cash drawer kick** — same underlying mechanism as receipt printing (drawer is wired through the printer's kick connector); same CUPS/ESC-POS approach, needs hardware validation per printer model.
+- **Serial number tracking** — UI placeholders exist, validation/lookup logic doesn't.
+- **Cash-up / EOD reconciliation** — till reconciliation across Cash/EFTPOS/CreditNote with refund handling. Nothing built yet.
 
-**JMxRAs62.Net** (Remote Agent):
-- Purpose: Sync data between locations, backup management
-- Complexity: Medium
-- Integration: Works with both POS and JobMatix
+**Important — real features, not yet on v1's radar (size: M each):**
+- **Stocktake** (physical inventory count/reconciliation) — gap, not previously scoped at all.
+- **Customer statements** — gap, not previously scoped at all.
+- **Transaction lookup/void** (carried over from v1).
+- **Goods received** (supplier stock receiving workflow).
+- **Email integration** (send invoices/statements directly).
 
-### Implementation Plan
+**Confirm before building (Phase 0.3):**
+- Subscriptions/recurring billing — only build if a store actually needs it.
 
-**Week 1-2: Agent Core**
-- Data sync engine
-- Connection management
-- Conflict resolution
-- Database replication logic
+**Explicitly dropped:**
+- Nothing else from the old POS — no other dead modules were found in it.
 
-**Week 3: Backup Management**
-- Automated backups
-- Backup scheduling
-- Backup verification
-- Restore functionality
-
-**Week 4: UI & Testing**
-- Agent configuration UI
-- Status monitoring
-- Alert system
-- Full testing
-
-### Remote Agent Completion Target: May 31, 2026
+**Hardware — start procurement now, in parallel with software (real lead time, don't let it gate on code readiness):**
+- Thermal receipt printer (80mm) — order a test unit now.
+- Cash drawer — same.
+- Barcode scanner — low risk (standard HID keyboard-wedge device, should already work with the existing UI), but still buy one and verify, don't assume.
+- Label printer (Brother QL/Dymo) — separate driver concern from the receipt printer, currently unscoped anywhere — add an explicit test task once Phase 2's critical items are done.
 
 ---
 
-## Phase 5: Testing & Deployment 🚀 PLANNED
+## Phase 3: JobMatix Main Application (job/repair tracking) — 0%, largest phase
 
-### Timeline: June 1-30, 2026 (4 weeks)
+This is the biggest remaining phase. The legacy app (`JMxJT620.NET`) is ~94,000 lines across 79 files, with one 14,400-line main form.
 
-**Week 1-2: Integration Testing**
-- Full system integration tests
-- Multi-location testing
-- Performance testing
-- Load testing
-- Security audit
+**Core must-have (size: XL, this is most of the phase):**
+- Job intake/creation, job maintenance/status workflow (largest single legacy component at ~7,200 lines), parts lookup/allocation, model/brand management, goods-in-care tracking, job docket/quote printing.
 
-**Week 3: Pilot Deployment**
-- Deploy to 1-2 pilot locations
-- Staff training
-- Monitor for issues
-- Gather feedback
-- Quick fixes
+**Important (size: M each):**
+- SMS notifications — **low risk**, the old code uses 4 plain-HTTP Australian SMS gateways (SMS Boss, SMS Broadcast, SMSGlobal, DirectSMS), no modem/GSM hardware dependency, trivial to port.
+- General customer notifications, job reporting, customer job history, on-site/mobile job scheduling.
+- **Return Authorisations** (`JMxRAs62.Net`, moved here from v1's mis-scoped "Phase 4") — supplier warranty-return tracking, ties directly into POS goods-returned logic. Belongs with the rest of the job-management workflow, not as standalone infrastructure.
 
-**Week 4: Production Rollout**
-- Phased rollout to all locations
-- Migration assistance
-- Documentation finalization
-- Knowledge transfer
-- Support procedures
+**Explicitly dropped:**
+- MYOB Retail Manager quote import — MYOB Retail Manager was discontinued years ago; JMxPOS8 should be the quote/order source going forward instead.
 
-### Full Production Target: June 30, 2026
+**Needs a small replacement, not a rewrite (size: S):**
+- `JobMatix62.Net` is the app launcher/bootstrapper (picks between POS and Job Tracking, remembers last-used app) — not dead code, but small and mechanical. Needs an equivalent menu/picker in the new stack.
+
+**Decision carried from Phase 0.3:**
+- Exchange/calendar sync — build against Graph API if genuinely needed, otherwise drop.
 
 ---
 
-## Resource Requirements
+## Phase 4: Cross-Store Reporting (replaces v1's mis-scoped "Remote Agent" phase)
 
-### Development Team
+v1 assumed `JMxRAs62.Net` was a data-sync/replication engine and planned a whole phase around wiring it up. It doesn't do that (see "What Changed" above) — this is genuinely new work, not a port of anything.
 
-**Required Skills**:
-- .NET 8 / C# development
-- Avalonia UI framework
-- PostgreSQL database
-- Linux deployment
-- Docker containerization
-- VB.NET (for code conversion)
+- Build the small central reporting API decided in Phase 0.1 (Node/Express on DO) — each store's local Postgres pushes/pulls summary data to/from it for head-office visibility.
+- Each store's POS/JobMatix installation must keep working standalone without this — it's additive, not a dependency.
+- Sequence this **after** Phase 2/3 are solid at a single store — don't let it block getting one store fully running.
 
-**Time Commitment**:
-- **POS**: 3-4 weeks (1 developer)
-- **JobMatix Main**: 12 weeks (1-2 developers)
-- **Remote Agent**: 4 weeks (1 developer)
-- **Testing**: 4 weeks (1-2 developers + QA)
-
-### Infrastructure
-
-- ✅ Development workstations (Linux recommended)
-- ✅ PostgreSQL test database (Docker)
-- ⏳ Staging servers
-- ⏳ Production servers
-- ⏳ Backup infrastructure
-
-### Testing Equipment
-
-- ⏳ Thermal receipt printers (80mm)
-- ⏳ Barcode scanners
-- ⏳ Cash drawers (with kick mechanism)
-- ⏳ EFTPOS terminals (test mode)
-- ⏳ Label printers (Brother QL/Dymo)
+**Backups**: don't port `backup-agent`. Replace with IBG's existing rsnapshot + DigitalOcean Spaces infrastructure plus a simple `pg_dump` cron per store — far less effort for the same outcome.
 
 ---
 
-## Risk Management
+## Phase 5: Testing, Pilot, Rollout
 
-### High Priority Risks
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| **Printer compatibility on Linux** | HIGH | Research early, test multiple printer models |
-| **Data migration errors** | HIGH | Extensive validation, rollback procedures |
-| **Performance issues** | MEDIUM | Load testing, database optimization |
-| **User training** | MEDIUM | Documentation, training videos, pilot program |
-| **Feature gaps** | MEDIUM | Regular review against original apps |
-
-### Technical Challenges
-
-1. **Receipt Printing on Linux**
-   - Challenge: Different printer drivers
-   - Solution: Use CUPS, test multiple printer brands
-
-2. **Cash Drawer Integration**
-   - Challenge: Serial/USB communication
-   - Solution: Platform-specific implementations
-
-3. **UI Complexity**
-   - Challenge: JobMatix has very complex forms
-   - Solution: Phased approach, simplify where possible
-
-4. **Performance at Scale**
-   - Challenge: Large databases (10+ years of data)
-   - Solution: Indexing, pagination, archiving old data
+- Pilot at one store first before wider IBG rollout — natural candidate is wherever you want to prove the workflow with real staff.
+- No live-cutover/parallel-run risk since this is greenfield (confirmed: JobMatix isn't running anywhere today) — lower pressure than v1 assumed, but still worth validating the workflow against real repair-shop habits if any ex-Precise-PCs staff/knowledge is available.
+- Hardware (Phase 2) should already be procured and tested by this point, not starting fresh here.
 
 ---
 
-## Success Criteria
+## Risk Register (updated)
 
-### Phase Completion Metrics
-
-**POS Application**:
-- ✅ All core features functional
-- ✅ Can complete a full sale transaction
-- ✅ Receipts print correctly
-- ✅ Stock updates properly
-- ✅ Reports generate accurately
-- ✅ No data loss or corruption
-- ✅ Response time < 1 second for typical operations
-
-**JobMatix Application**:
-- ⏳ Can create and track jobs
-- ⏳ Parts allocation works
-- ⏳ Customer notifications functional
-- ⏳ All reports generate correctly
-- ⏳ Document management works
-- ⏳ No regression from original app
-
-**Remote Agent**:
-- ⏳ Data syncs reliably
-- ⏳ Backups complete successfully
-- ⏳ Minimal bandwidth usage
-- ⏳ Conflict resolution works correctly
-
-### Overall Success
-
-- ✅ Applications run on Linux
-- ✅ PostgreSQL database stable
-- ⏳ Performance meets or exceeds original apps
-- ⏳ User acceptance achieved
-- ⏳ Support documentation complete
-- ⏳ Migration completed within budget and timeline
-
----
-
-## Current Focus & Next Actions
-
-### This Week (January 16-20, 2026)
-
-**Immediate Tasks**:
-1. 🔥 **Implement receipt printing** (Priority 1)
-   - Research Avalonia printing APIs
-   - Design receipt template
-   - Test with thermal printer
-   - Add print preview
-
-2. 🔥 **Complete serial number tracking** (Priority 1)
-   - Build serial entry dialog
-   - Validate serial uniqueness
-   - Store serials with invoice lines
-   - Add serial lookup
-
-3. ✅ **Test full sale workflow**
-   - Create test scenarios
-   - Document any issues
-   - Verify all payment types
-   - Test account customers
-
-### Next Week (January 21-27, 2026)
-
-4. **Cash drawer management**
-5. **Transaction lookup/void**
-6. **Layby workflow**
-7. **Production readiness checklist**
-
----
-
-## Decision Log
-
-### Architecture Decisions
-
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| Jan 5 | Use Avalonia UI instead of Windows Forms | Cross-platform requirement, modern MVVM |
-| Jan 8 | PostgreSQL instead of SQL Server | Open source, Linux native, better performance |
-| Jan 10 | .NET 8 instead of .NET Framework | Long-term support, cross-platform |
-| Jan 15 | ListBox instead of DataGrid | DataGrid binding issues in Avalonia |
-
-### Process Decisions
-
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| Jan 5 | Start with POS before JobMatix | Smaller scope, test migration approach |
-| Jan 12 | MVVM pattern throughout | Maintainability, testability, Avalonia best practice |
-| Jan 15 | Phase-based delivery | Reduce risk, get feedback early |
+| Risk | Notes |
+|---|---|
+| Multi-store model decision (Phase 0.1) | Blocks Phase 4 design, does **not** block Phase 2/3 — a single store's POS is architecture-agnostic in the near term. Don't let indecision here stall the work that doesn't depend on it. |
+| Solo maintainer bus factor | One person + AI assistance. Keep things simple and documented; avoid cleverness that only you can maintain. |
+| Hardware procurement lead time | Real, currently the easiest risk to eliminate — order test units now, in parallel with Phase 2 software work. |
+| Schema-as-documentation drift | The checked-in SQL scripts already drifted from the live DB once. Make reconciling them part of Phase 1, and treat scripts as authoritative from then on. |
+| EWS/calendar retirement | Only a risk if Phase 0.3 confirms calendar sync is still wanted — otherwise moot. |
+| ~~Live cutover / parallel-run~~ | Not applicable — confirmed greenfield, nothing is live today. |
+| ~~Printer/EFTPOS integration complexity~~ | Lower than v1 feared — EFTPOS was never a live terminal integration even in the old app (manual bookkeeping only), and the scanner is a standard HID device. Receipt printing/cash drawer are real work but well-understood (CUPS/ESC-POS), not unknowns. |
 
 ---
 
 ## Documentation Index
 
-### Completed Documentation
-- ✅ `POSTGRESQL_MIGRATION_GUIDE.md` - Database migration procedures
-- ✅ `README-DOCKER.md` - Docker setup instructions
-- ✅ `MIGRATION-STATUS.md` - Detailed migration status
-- ✅ `MIGRATION-VALIDATION.md` - Validation procedures
-- ✅ `POS-NET8-MIGRATION-PLAN.md` - POS migration strategies
-- ✅ `JMxPOS8/CONVERSION_STATUS.md` - POS conversion progress
-- ✅ `JMxPOS8/STOCK_MANAGEMENT.md` - Stock features
-- ✅ `JMxPOS8/CUSTOMER_MANAGEMENT.md` - Customer features
-- ✅ `JMxPOS8/REPORTS.md` - Reporting features
-- ✅ `JMxPOS8/SCHEMA_COMPARISON.md` - Schema notes
-- ✅ `JMxPOS8/TESTING.md` - Test procedures
-- ✅ `ROADMAP.md` - This file (master roadmap)
-
-### Planned Documentation
-- ⏳ `JMxPOS8/PRINTING.md` - Receipt/label printing guide
-- ⏳ `JMxPOS8/DEPLOYMENT.md` - Deployment procedures
-- ⏳ `JMxPOS8/USER_MANUAL.md` - End-user documentation
-- ⏳ `JobMatix62/CONVERSION_PLAN.md` - Main app conversion plan
-- ⏳ `JMxRAs62/CONVERSION_PLAN.md` - Remote agent plan
-
----
-
-## Contact & Support
-
-**Project Questions**: Review this roadmap and CONVERSION_STATUS.md  
-**Technical Issues**: Check MIGRATION-STATUS.md and individual component READMEs  
-**Database Issues**: See POSTGRESQL_MIGRATION_GUIDE.md
-
----
-
-**Next Review Date**: January 22, 2026  
-**Status**: ON TRACK ✅
+- `ROADMAP.md` — this file, the master plan
+- `ROADMAP-ARCHIVE-2026-01.md` — superseded v1, kept for history only
+- `MIGRATION-STATUS.md`, `CURRENT-STATUS.txt` — **stale**, written against v1's assumptions and fictional dates; don't use for planning until rewritten against this roadmap
+- `JMxPOS8/CONVERSION_STATUS.md` — POS-specific progress detail, still broadly accurate for what's built
+- `POSTGRESQL_MIGRATION_GUIDE.md` — still useful as SQL conversion reference, not as a schedule

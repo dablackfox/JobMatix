@@ -1,6 +1,10 @@
 =================================================================
     JOBMATIX MIGRATION - CURRENT STATUS
     Date: January 15, 2026
+
+    ** STALE - superseded by ROADMAP.md (2026-08-31) **
+    ** Dates below never happened, some facts below were wrong **
+    ** (see ROADMAP.md "What Changed From v1" for corrections)  **
 =================================================================
 
 OVERALL PROGRESS: ~25% Complete

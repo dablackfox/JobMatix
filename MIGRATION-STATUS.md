@@ -1,5 +1,7 @@
 # PostgreSQL Migration - Implementation Summary
 
+> **STALE — superseded by `ROADMAP.md` (2026-08-31).** Several claims below (e.g. the abstraction-layer integration estimate, "Phase 4: Remote Agent") turned out to be wrong on closer inspection — see `ROADMAP.md`'s "What Changed From v1" section. Kept here for historical detail on what was built in January, not as a plan.
+
 ## Date: January 15, 2026
 ## Status: Phase 2 In Progress - POS Application 40% Complete
 
