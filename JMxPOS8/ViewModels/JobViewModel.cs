@@ -14,6 +14,7 @@ public partial class JobViewModel : ViewModelBase
     private readonly CustomerService _customerService;
     private readonly StaffService _staffService;
     private readonly StockService _stockService;
+    private readonly SmsService _smsService;
 
     public ObservableCollection<JobRecord> OpenJobs { get; } = new();
     public ObservableCollection<JobPartLine> Parts { get; } = new();
@@ -69,6 +70,9 @@ public partial class JobViewModel : ViewModelBase
     private string _scanPartBarcode = "";
 
     [ObservableProperty]
+    private string _notifyMessage = "";
+
+    [ObservableProperty]
     private string _statusMessage = "";
 
     public bool CanStartWork => SelectedJob != null && SelectedJob.JobStatus is "10-Created" or "20-Suspended" or "23-InProcessSusp";
@@ -80,12 +84,13 @@ public partial class JobViewModel : ViewModelBase
     public bool CanCancel => SelectedJob != null && SelectedJob.JobStatus is not ("50-Completed" or "70-Delivered" or "97-Cancelled");
     public bool CanAddParts => SelectedJob != null && !SelectedJob.JobStatus.StartsWith("70") && !SelectedJob.JobStatus.StartsWith("97");
 
-    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService)
+    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService)
     {
         _jobService = jobService;
         _customerService = customerService;
         _staffService = staffService;
         _stockService = stockService;
+        _smsService = smsService;
     }
 
     public async Task LoadOpenJobsAsync()
@@ -364,6 +369,30 @@ public partial class JobViewModel : ViewModelBase
         if (part == null) return;
         await _jobService.RemovePartAsync(part.PartId);
         Parts.Remove(part);
+    }
+
+    [RelayCommand]
+    private async Task SendSms()
+    {
+        if (SelectedJob == null) return;
+        if (string.IsNullOrWhiteSpace(NotifyMessage))
+        {
+            StatusMessage = "Enter a message to send";
+            return;
+        }
+
+        var result = await _smsService.SendSmsAsync(SelectedJob.CustomerMobile, NotifyMessage.Trim());
+        if (!result.Success)
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(result.ErrorMessage)
+                ? $"SMS failed: {result.RawResponse}"
+                : $"SMS failed: {result.ErrorMessage}";
+            return;
+        }
+
+        await _jobService.AppendNotificationAsync(SelectedJob.JobId, $"SMS sent: {NotifyMessage.Trim()}");
+        StatusMessage = $"SMS sent to {SelectedJob.CustomerMobile}";
+        NotifyMessage = "";
     }
 
     private async Task RefreshSelectedAsync()

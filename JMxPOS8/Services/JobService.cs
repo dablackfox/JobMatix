@@ -244,6 +244,22 @@ public class JobService
         await Task.Run(() => cmd.ExecuteNonQuery());
     }
 
+    // Matches the legacy pattern (frmNotifyCust22.vb) of logging every sent notification
+    // straight onto the job record rather than a separate notifications table.
+    public async Task AppendNotificationAsync(int jobId, string note)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE jobs
+            SET notifications = notifications || @note
+            WHERE job_id = @jobId";
+        AddParam(cmd, "@note", $"[{DateTime.Now:dd-MMM-yyyy HH:mm}] {note}\n");
+        AddParam(cmd, "@jobId", jobId);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
     private async Task<string> TransitionAsync(int jobId, Dictionary<string, string> statusMap)
     {
         using var conn = _db.GetConnection();

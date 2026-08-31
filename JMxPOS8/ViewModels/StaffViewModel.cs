@@ -11,6 +11,7 @@ namespace JMxPOS8.ViewModels;
 public partial class StaffViewModel : ViewModelBase
 {
     private readonly StaffService _staffService;
+    private readonly SmsService _smsService;
 
     [ObservableProperty]
     private ObservableCollection<Staff> _staffMembers = new();
@@ -93,9 +94,56 @@ public partial class StaffViewModel : ViewModelBase
 
     private int _editingStaffId;
 
-    public StaffViewModel(StaffService staffService)
+    // SMS gateway settings (ROADMAP.md Phase 3) - lives on the Staff admin screen since it's
+    // operational configuration, not a per-staff field.
+    [ObservableProperty]
+    private string _smsGatewaySelection = "SmsBoss";
+
+    [ObservableProperty]
+    private string _smsUsername = string.Empty;
+
+    [ObservableProperty]
+    private string _smsPassword = string.Empty;
+
+    [ObservableProperty]
+    private string _smsFromNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _smsSettingsStatusMessage = string.Empty;
+
+    public StaffViewModel(StaffService staffService, SmsService smsService)
     {
         _staffService = staffService;
+        _smsService = smsService;
+    }
+
+    [RelayCommand]
+    public async Task LoadSmsSettingsAsync()
+    {
+        var settings = await _smsService.GetSettingsAsync();
+        SmsGatewaySelection = settings.Gateway.ToString();
+        SmsUsername = settings.Username;
+        SmsPassword = settings.Password;
+        SmsFromNumber = settings.FromNumber;
+    }
+
+    [RelayCommand]
+    private async Task SaveSmsSettings()
+    {
+        if (!Enum.TryParse<SmsGateway>(SmsGatewaySelection, out var gateway))
+        {
+            SmsSettingsStatusMessage = $"Unknown gateway '{SmsGatewaySelection}'";
+            return;
+        }
+
+        await _smsService.SaveSettingsAsync(new SmsGatewaySettings
+        {
+            Gateway = gateway,
+            Username = SmsUsername.Trim(),
+            Password = SmsPassword,
+            FromNumber = SmsFromNumber.Trim()
+        });
+        SmsSettingsStatusMessage = "SMS gateway settings saved";
     }
 
     partial void OnSearchTextChanged(string value)

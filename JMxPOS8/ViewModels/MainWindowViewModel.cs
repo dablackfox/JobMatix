@@ -89,14 +89,15 @@ public partial class MainWindowViewModel : ViewModelBase
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService, _staffService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
-        StaffViewModel = new StaffViewModel(_staffService);
+        var smsService = new SmsService(_dbService);
+        StaffViewModel = new StaffViewModel(_staffService, smsService);
         StocktakeViewModel = new StocktakeViewModel(new StocktakeService(_dbService, _stockService), _staffService);
         var supplierService = new SupplierService(_dbService);
         GoodsReceivedViewModel = new GoodsReceivedViewModel(
             new GoodsReceivedService(_dbService), supplierService, _stockService, _staffService);
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
-        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService);
+        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService);
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -399,6 +400,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StaffOverrideStatusMessage = "";
         StatusText = $"Staff admin unlocked by {staff.DocketName}";
         await StaffViewModel.LoadStaffAsync();
+        await StaffViewModel.LoadSmsSettingsAsync();
     }
 
     [RelayCommand]
@@ -438,6 +440,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     {
                         StatusText = "Loading staff...";
                         await StaffViewModel.LoadStaffAsync();
+                        await StaffViewModel.LoadSmsSettingsAsync();
                         StatusText = $"Staff loaded: {StaffViewModel.StaffMembers.Count} records";
                     }
                     break;
