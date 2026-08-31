@@ -33,6 +33,9 @@ public partial class ReportsViewModel : ViewModelBase
     }
 
     [ObservableProperty]
+    private string _statementCustomerBarcode = "";
+
+    [ObservableProperty]
     private DateTimeOffset? _startDate = DateTimeOffset.Now.AddDays(-30);
 
     [ObservableProperty]
@@ -480,6 +483,126 @@ public partial class ReportsViewModel : ViewModelBase
             }
 
             StatusMessage = $"Report complete: {ReportData.Count} products";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    // Lists an account customer's activity for the period alongside their live
+    // accountbalance - the running "Balance" column is scoped to what's shown here, not the
+    // real account balance, since accountbalance only accrues the *unpaid* portion of each
+    // on-account sale (see SaleService.CommitSaleAsync) rather than gross invoice/payment
+    // totals, so an independently-derived reconciliation would risk silently disagreeing
+    // with the live figure. The live figure is shown as its own summary line instead.
+    [RelayCommand]
+    private async Task RunCustomerStatement()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(StatementCustomerBarcode))
+            {
+                StatusMessage = "Enter a customer barcode first";
+                return;
+            }
+
+            var customer = await _customerService.FindCustomerByBarcodeAsync(StatementCustomerBarcode.Trim());
+            if (customer == null)
+            {
+                StatusMessage = $"Customer not found for '{StatementCustomerBarcode}'";
+                return;
+            }
+
+            StatusMessage = "Generating customer statement...";
+            ReportTitle = "Customer Statement";
+            ReportData.Clear();
+
+            var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
+            var end = (EndDate ?? DateTimeOffset.Now).DateTime.AddDays(1);
+
+            var lines = new System.Collections.Generic.List<(DateTime Date, string Label, decimal Amount)>();
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT invoicedate, invoicenumber, transactiontype, total_inc
+                        FROM invoice
+                        WHERE customer_id = @customerId
+                          AND invoicedate BETWEEN @start AND @end
+                          AND transactiontype IN ('SALE', 'REFUND')
+                          AND (status IS NULL OR status <> 'VOIDED')
+                        ORDER BY invoicedate";
+                    AddCmdParam(cmd, "@customerId", customer.CustomerId);
+                    AddCmdParam(cmd, "@start", start);
+                    AddCmdParam(cmd, "@end", end);
+                    using var reader = await Task.Run(() => cmd.ExecuteReader());
+                    while (await Task.Run(() => reader.Read()))
+                    {
+                        var date = reader.GetDateTime(0);
+                        var invoiceNumber = reader.GetString(1);
+                        var transType = reader.GetString(2);
+                        var total = reader.GetDecimal(3);
+                        decimal signedAmount = transType == "REFUND" ? -total : total;
+                        lines.Add((date, $"Invoice {invoiceNumber} ({transType})", signedAmount));
+                    }
+                }
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT paymentdate, paymentmethod, amount
+                        FROM payments
+                        WHERE customer_id = @customerId
+                          AND paymentdate BETWEEN @start AND @end
+                        ORDER BY paymentdate";
+                    AddCmdParam(cmd, "@customerId", customer.CustomerId);
+                    AddCmdParam(cmd, "@start", start);
+                    AddCmdParam(cmd, "@end", end);
+                    using var reader = await Task.Run(() => cmd.ExecuteReader());
+                    while (await Task.Run(() => reader.Read()))
+                    {
+                        var date = reader.GetDateTime(0);
+                        var method = reader.GetString(1);
+                        var amount = reader.GetDecimal(2);
+                        lines.Add((date, $"Payment ({method})", -amount));
+                    }
+                }
+            }
+
+            decimal running = 0;
+            decimal totalInvoiced = 0;
+            decimal totalPaid = 0;
+            foreach (var line in lines.OrderBy(l => l.Date))
+            {
+                running += line.Amount;
+                if (line.Amount > 0) totalInvoiced += line.Amount;
+                else totalPaid += -line.Amount;
+
+                ReportData.Add(new ReportItem
+                {
+                    Column1 = line.Date.ToString("dd-MMM-yyyy"),
+                    Column2 = line.Label,
+                    Column3 = line.Amount.ToString("C"),
+                    Column4 = running.ToString("C")
+                });
+            }
+
+            Summary1Label = "Customer:";
+            Summary1Value = customer.CustomerName;
+            Summary2Label = "Total Invoiced:";
+            Summary2Value = totalInvoiced.ToString("C");
+            Summary3Label = "Total Paid:";
+            Summary3Value = totalPaid.ToString("C");
+            Summary4Label = "Current Account Balance:";
+            Summary4Value = customer.AccountBalance.ToString("C");
+
+            StatusMessage = $"Statement generated: {ReportData.Count} transaction(s)";
         }
         catch (Exception ex)
         {
