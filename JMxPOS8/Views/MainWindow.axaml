@@ -95,6 +95,7 @@
                         <AutoCompleteBox Grid.Column="4" Name="autoCompleteCustomer"
                                  Text="{Binding SaleViewModel.CustomerBarcode}"
                                  SelectedItem="{Binding SaleViewModel.SelectedCustomerSuggestion}"
+                                 ValueMemberBinding="{Binding CustomerName}"
                                  FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
                                  Watermark="Scan barcode, or type customer name to search">
                             <AutoCompleteBox.ItemTemplate>
@@ -186,6 +187,7 @@
                                 <AutoCompleteBox Grid.Column="0" Name="autoCompleteItemBarcode"
                                          Text="{Binding SaleViewModel.ItemBarcode}"
                                          SelectedItem="{Binding SaleViewModel.SelectedStockSuggestion}"
+                                         ValueMemberBinding="{Binding Barcode}"
                                          FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
                                          Watermark="Barcode, or type description to search">
                                     <AutoCompleteBox.ItemTemplate>
@@ -200,9 +202,10 @@
                                 <TextBox Grid.Column="1"
                                          Text="{Binding SaleViewModel.ItemDescription}"
                                          Watermark="Description" Margin="5,0" IsReadOnly="True"/>
-                                <TextBox Grid.Column="2" Name="txtItemSerialNumber"
+                                <AutoCompleteBox Grid.Column="2" Name="autoCompleteSerialNumber"
                                          Text="{Binding SaleViewModel.ItemSerialNumber}"
-                                         Watermark="Serial number (required)" Margin="5,0"
+                                         FilterMode="None" MinimumPrefixLength="0" MinimumPopulateDelay="0:0:0.2"
+                                         Watermark="Scan or pick serial (required)" Margin="5,0"
                                          IsVisible="{Binding SaleViewModel.ItemRequiresSerial}"
                                          BorderBrush="OrangeRed" BorderThickness="2"/>
                                 <TextBox Grid.Column="3"

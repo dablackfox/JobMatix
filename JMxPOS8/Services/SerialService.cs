@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace JMxPOS8.Services
@@ -69,6 +70,52 @@ namespace JMxPOS8.Services
         {
             var latest = await FindLatestBySerialAsync(serialNumber);
             return latest != null && string.Equals(latest.TransactionType, "SALE", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Serial numbers physically on hand for a given stock item, for the "pick from what's
+        // actually in stock" autofill on the Sale tab - mirrors what the old POS's serial
+        // picker modal showed, backed by the imported serial_audit table.
+        public async Task<List<string>> GetAvailableSerialsAsync(int stockId, string? search, int limit = 20)
+        {
+            var results = new List<string>();
+
+            using var conn = _db.GetConnection();
+            await Task.Run(() => conn.Open());
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT serial_number
+                FROM serial_audit
+                WHERE stock_id = @stockId
+                  AND is_in_stock = true
+                  AND (@search = '' OR serial_number ILIKE @searchPattern)
+                ORDER BY serial_number
+                LIMIT @limit";
+
+            var stockIdParam = cmd.CreateParameter();
+            stockIdParam.ParameterName = "@stockId";
+            stockIdParam.Value = stockId;
+            cmd.Parameters.Add(stockIdParam);
+
+            var searchParam = cmd.CreateParameter();
+            searchParam.ParameterName = "@search";
+            searchParam.Value = search ?? "";
+            cmd.Parameters.Add(searchParam);
+
+            var searchPatternParam = cmd.CreateParameter();
+            searchPatternParam.ParameterName = "@searchPattern";
+            searchPatternParam.Value = $"%{search}%";
+            cmd.Parameters.Add(searchPatternParam);
+
+            var limitParam = cmd.CreateParameter();
+            limitParam.ParameterName = "@limit";
+            limitParam.Value = limit;
+            cmd.Parameters.Add(limitParam);
+
+            using var reader = await Task.Run(() => cmd.ExecuteReader());
+            while (await Task.Run(() => reader.Read()))
+                results.Add(reader.GetString(0));
+
+            return results;
         }
     }
 }

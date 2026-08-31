@@ -51,6 +51,25 @@ public partial class MainWindow : Window
                 return matches.Cast<object>();
             };
         }
+
+        var serialBox = this.FindControl<AutoCompleteBox>("autoCompleteSerialNumber");
+        if (serialBox != null)
+        {
+            serialBox.AsyncPopulator = async (searchText, _) =>
+            {
+                // Scoped to whichever item is currently in the barcode field - re-resolves
+                // it by barcode rather than tracking extra state, since that field always
+                // holds the real barcode once an item's been found (see ApplyFoundStock).
+                var barcode = viewModel.SaleViewModel.ItemBarcode;
+                if (string.IsNullOrWhiteSpace(barcode))
+                    return Enumerable.Empty<object>();
+                var stock = await viewModel.StockService.FindStockByBarcodeAsync(barcode);
+                if (stock == null)
+                    return Enumerable.Empty<object>();
+                var serials = await viewModel.SerialService.GetAvailableSerialsAsync(stock.StockId, searchText);
+                return serials.Cast<object>();
+            };
+        }
     }
 
     private async void OnPreviewKeyDown(object? sender, KeyEventArgs e)
@@ -87,6 +106,13 @@ public partial class MainWindow : Window
             else if (autoBox.Name == "autoCompleteItemBarcode")
             {
                 await saleVM.ProcessItemBarcodeCommand.ExecuteAsync(null);
+                e.Handled = true;
+            }
+            else if (autoBox.Name == "autoCompleteSerialNumber")
+            {
+                // Scanning (or picking) a serial then pressing Enter completes the add,
+                // the same way scanning the item barcode itself does.
+                await saleVM.AddItemCommand.ExecuteAsync(null);
                 e.Handled = true;
             }
         }

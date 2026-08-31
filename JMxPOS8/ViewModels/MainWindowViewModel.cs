@@ -13,6 +13,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly StockService _stockService;
     private readonly CustomerService _customerService;
     private readonly StaffService _staffService;
+    private readonly SerialService _serialService;
 
     [ObservableProperty]
     private string _statusText = "Ready";
@@ -45,6 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _stockService = new StockService(_dbService);
         _customerService = new CustomerService(_dbService);
         _staffService = new StaffService(_dbService);
+        _serialService = new SerialService(_dbService);
 
         // Create ViewModels
         SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService, _staffService);
@@ -69,6 +71,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StockService StockService => _stockService;
     public CustomerService CustomerService => _customerService;
     public StaffService StaffService => _staffService;
+    public SerialService SerialService => _serialService;
     public DatabaseService DatabaseService => _dbService;
 
     [RelayCommand]
