@@ -236,3 +236,13 @@ BEGIN
         ALTER TABLE servicemodelchecklists ADD CONSTRAINT fk_smc_stock FOREIGN KEY (rm_stock_id) REFERENCES stock(stock_id) ON DELETE SET NULL;
     END IF;
 END $$;
+
+-- Added post-merge (2026-08-31): 3 legacy RAItems columns that weren't carried over when
+-- this table was first ported, found while scoping the RA feature build (ROADMAP.md
+-- Phase 0.4). Also fixes rastatus's stale default ('Open') to match the real 7-state
+-- vocabulary the legacy app actually uses (10-Created/20-RMA-Requested/30-RMA-Granted/
+-- 50-GoodsSentToSupplier/70-GoodsCompleted/95-RMA-Refused/97-RMA-Cancelled).
+ALTER TABLE returnauthorizations ADD COLUMN IF NOT EXISTS ra_symptoms VARCHAR(511) NOT NULL DEFAULT '';
+ALTER TABLE returnauthorizations ADD COLUMN IF NOT EXISTS date_goods_received_back TIMESTAMP;
+ALTER TABLE returnauthorizations ADD COLUMN IF NOT EXISTS return_result_comment VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE returnauthorizations ALTER COLUMN rastatus SET DEFAULT '10-Created';

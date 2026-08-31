@@ -72,6 +72,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public StaffViewModel StaffViewModel { get; }
     public StocktakeViewModel StocktakeViewModel { get; }
     public GoodsReceivedViewModel GoodsReceivedViewModel { get; }
+    public ReturnAuthorizationViewModel ReturnAuthorizationViewModel { get; }
 
     public MainWindowViewModel()
     {
@@ -89,8 +90,11 @@ public partial class MainWindowViewModel : ViewModelBase
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         StaffViewModel = new StaffViewModel(_staffService);
         StocktakeViewModel = new StocktakeViewModel(new StocktakeService(_dbService, _stockService), _staffService);
+        var supplierService = new SupplierService(_dbService);
         GoodsReceivedViewModel = new GoodsReceivedViewModel(
-            new GoodsReceivedService(_dbService), new SupplierService(_dbService), _stockService, _staffService);
+            new GoodsReceivedService(_dbService), supplierService, _stockService, _staffService);
+        ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
+            new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
 
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
@@ -333,6 +337,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task ReturnAuthorizations()
+    {
+        SelectedTabIndex = 8;
+        StatusText = "Loading open return authorisations...";
+        await ReturnAuthorizationViewModel.LoadOpenRAsAsync();
+        StatusText = $"RAs loaded: {ReturnAuthorizationViewModel.OpenRAs.Count} open";
+    }
+
+    [RelayCommand]
     private void NewStaffItem()
     {
         SelectedTabIndex = 3;
@@ -429,6 +442,11 @@ public partial class MainWindowViewModel : ViewModelBase
                     StatusText = "Loading recent goods received...";
                     await GoodsReceivedViewModel.LoadRecentAsync();
                     StatusText = $"Goods received loaded: {GoodsReceivedViewModel.RecentReceipts.Count} recent";
+                    break;
+                case 8: // Return Authorisations tab
+                    StatusText = "Loading open return authorisations...";
+                    await ReturnAuthorizationViewModel.LoadOpenRAsAsync();
+                    StatusText = $"RAs loaded: {ReturnAuthorizationViewModel.OpenRAs.Count} open";
                     break;
             }
         }

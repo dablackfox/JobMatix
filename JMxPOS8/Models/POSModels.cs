@@ -254,6 +254,43 @@ namespace JMxPOS8.Models
         public decimal TotalInc { get; set; }
     }
 
+    // Supplier warranty-return tracking. Origin can be Job/Counter/Stock - only ~9.5% of
+    // real historical RAs actually reference a job (see ROADMAP.md Phase 3 audit), so this
+    // is a standalone POS-adjacent feature, not part of the core job workflow.
+    public class ReturnAuthorization
+    {
+        public int RaId { get; set; }
+        public int? JobId { get; set; }
+        public string CustomerBarcode { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public int? SupplierId { get; set; }
+        public string SupplierName { get; set; } = string.Empty;
+        public string RaNumber { get; set; } = string.Empty;
+        public DateTime RaDate { get; set; }
+        public string RaStatus { get; set; } = "10-Created";
+        public string Origin { get; set; } = "Counter";
+        public string ItemDescription { get; set; } = string.Empty;
+        public int? RmStockId { get; set; }
+        public string ItemBarcode { get; set; } = string.Empty;
+        public string SerialNumber { get; set; } = string.Empty;
+        public string ProblemDescription { get; set; } = string.Empty;
+        public string RaSymptoms { get; set; } = string.Empty;
+        public string RmaRequestNotes { get; set; } = string.Empty;
+        public string SupplierRmaNo { get; set; } = string.Empty;
+        public string CourierBarcode { get; set; } = string.Empty;
+        public string ReturnResult { get; set; } = string.Empty;
+        public string ReturnResultComment { get; set; } = string.Empty;
+        public string Resolution { get; set; } = string.Empty;
+        public int? StaffIdCreated { get; set; }
+        public string StaffNameCreated { get; set; } = string.Empty;
+        public DateTime DateCreated { get; set; }
+        public DateTime? DateGoodsSentBack { get; set; }
+        public DateTime? DateGoodsReceivedBack { get; set; }
+        public DateTime? DateCompleted { get; set; }
+
+        public string Summary => $"#{RaId} - {RaNumber} - {ItemDescription} - {RaStatus}";
+    }
+
     // A parked sale, held aside to serve another customer, that can be resumed later.
     public class HeldSale
     {

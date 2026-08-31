@@ -47,6 +47,7 @@
                 <Separator/>
                 <MenuItem Header="Stock_take" Command="{Binding StocktakeCommand}"/>
                 <MenuItem Header="_Goods Received" Command="{Binding GoodsReceivedCommand}"/>
+                <MenuItem Header="_Return Authorisations" Command="{Binding ReturnAuthorizationsCommand}"/>
             </MenuItem>
             <MenuItem Header="_Customers">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
@@ -1473,6 +1474,94 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Return Authorisations Tab -->
+            <TabItem Header="Return Auths">
+                <Grid Margin="10" ColumnDefinitions="1.3*,2*">
+                    <!-- New RA form -->
+                    <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,*">
+                        <TextBlock Grid.Row="0" Text="New Return Authorisation" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <StackPanel Grid.Row="1" Spacing="8">
+                            <ComboBox SelectedItem="{Binding ReturnAuthorizationViewModel.NewOrigin}" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="Counter"/>
+                                <ComboBoxItem Content="Stock"/>
+                                <ComboBoxItem Content="Job"/>
+                            </ComboBox>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewCustomerBarcode}" Watermark="Customer barcode (optional)"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewSupplierBarcode}" Watermark="Supplier barcode"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewItemBarcode}" Watermark="Item barcode (optional - links to stock)"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewItemDescription}" Watermark="Item description"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewSerialNumber}" Watermark="Serial number (optional)"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewProblemDescription}" Watermark="Problem description" AcceptsReturn="True" Height="60"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewSymptoms}" Watermark="Symptoms"/>
+                            <TextBox Text="{Binding ReturnAuthorizationViewModel.NewStaffBarcode}" Watermark="Your staff barcode"/>
+                            <Button Content="Create RA" Command="{Binding ReturnAuthorizationViewModel.CreateRaCommand}" Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
+                            <TextBlock Text="{Binding ReturnAuthorizationViewModel.StatusMessage}" FontStyle="Italic"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Open RAs + action panel -->
+                    <Grid Grid.Column="1" RowDefinitions="2*,Auto">
+                        <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding ReturnAuthorizationViewModel.OpenRAs}"
+                                     SelectedItem="{Binding ReturnAuthorizationViewModel.SelectedRa}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="50,*,140,*,140" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding RaId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding ItemDescription}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding SupplierName}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Origin}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding RaStatus}" FontWeight="Bold"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <Border Grid.Row="1" Margin="0,10,0,0" Padding="10" Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1"
+                                IsVisible="{Binding ReturnAuthorizationViewModel.SelectedRa, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding ReturnAuthorizationViewModel.SelectedRa.Summary}" FontWeight="Bold"/>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanRequestFromSupplier}">
+                                    <TextBox Width="300" Watermark="Request notes" Text="{Binding ReturnAuthorizationViewModel.ActionNotes}"/>
+                                    <Button Content="Request from Supplier" Command="{Binding ReturnAuthorizationViewModel.RequestFromSupplierCommand}"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanGrantRma}">
+                                    <TextBox Width="300" Watermark="Supplier RMA number" Text="{Binding ReturnAuthorizationViewModel.ActionNotes}"/>
+                                    <Button Content="Record RMA Granted" Command="{Binding ReturnAuthorizationViewModel.GrantRmaCommand}"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanSendToSupplier}">
+                                    <TextBox Width="200" Watermark="Courier barcode" Text="{Binding ReturnAuthorizationViewModel.ActionCourierBarcode}"/>
+                                    <TextBox Width="150" Watermark="Your staff barcode" Text="{Binding ReturnAuthorizationViewModel.ActionStaffBarcode}"/>
+                                    <Button Content="Send to Supplier" Command="{Binding ReturnAuthorizationViewModel.SendToSupplierCommand}"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanComplete}">
+                                    <ComboBox SelectedItem="{Binding ReturnAuthorizationViewModel.ActionReturnResult}" Width="130">
+                                        <ComboBoxItem Content="Replaced"/>
+                                        <ComboBoxItem Content="Repaired"/>
+                                        <ComboBoxItem Content="Returned"/>
+                                        <ComboBoxItem Content="Credited"/>
+                                        <ComboBoxItem Content="Other"/>
+                                    </ComboBox>
+                                    <TextBox Width="220" Watermark="Comment" Text="{Binding ReturnAuthorizationViewModel.ActionNotes}"/>
+                                    <CheckBox Content="Goods received back" IsChecked="{Binding ReturnAuthorizationViewModel.ActionGoodsReceivedBack}"/>
+                                    <Button Content="Complete" Command="{Binding ReturnAuthorizationViewModel.CompleteRaCommand}" Background="ForestGreen" Foreground="White"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanCloseOut}">
+                                    <Button Content="Refuse" Command="{Binding ReturnAuthorizationViewModel.RefuseRaCommand}" Background="Crimson" Foreground="White"/>
+                                    <Button Content="Cancel RA" Command="{Binding ReturnAuthorizationViewModel.CancelRaCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </Grid>
