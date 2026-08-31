@@ -26,8 +26,20 @@ namespace JMxPOS8.ViewModels
         // persistent app-wide session.
         public event Action<Staff?>? StaffChanged;
 
+        // Exposed so the extracted SaleTabView can wire its own AutoCompleteBox lookups
+        // per document instance, rather than the app shell owning a single set of them.
+        public StockService StockService => _stockService;
+        public CustomerService CustomerService => _customerService;
+        public SerialService SerialService { get; }
+
         public ObservableCollection<HeldSale> HeldSales { get; } = new();
         public bool HasHeldSales => HeldSales.Count > 0;
+
+        // Short label for this document's tab header - just a slot number until a staff
+        // member is attributed, then their name, so open tabs are distinguishable at a
+        // glance without cluttering the single-sale (no tab strip shown) case.
+        public string TabTitle => CurrentStaff != null ? CurrentStaff.DocketName : $"Sale {TabNumber}";
+        public int TabNumber { get; set; }
 
         [ObservableProperty]
         private string _staffNumber = "";
@@ -91,7 +103,8 @@ namespace JMxPOS8.ViewModels
             _customerService = customerService;
             _staffService = staffService;
             _saleService = new SaleService(dbService, stockService, customerService);
-            
+            SerialService = new SerialService(dbService);
+
             SaleItems = _saleService.SaleItems;
 
             // Subscribe to collection changes to update totals
@@ -114,6 +127,7 @@ namespace JMxPOS8.ViewModels
         {
             OnPropertyChanged(nameof(CustomerInfo));
             OnPropertyChanged(nameof(StaffDisplay));
+            OnPropertyChanged(nameof(TabTitle));
             StaffChanged?.Invoke(value);
         }
 

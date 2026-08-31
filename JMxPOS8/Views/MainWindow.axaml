@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:JMxPOS8.ViewModels"
+        xmlns:views="using:JMxPOS8.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -72,250 +73,43 @@
         <TabControl SelectedIndex="{Binding SelectedTabIndex}">
             <!-- Sales Tab -->
             <TabItem Header="Sale">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Staff/Customer Section -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                        <TextBlock Text="Staff &amp; Customer" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Column="1" Name="txtStaffNumber"
-                                     Text="{Binding SaleViewModel.StaffNumber}"
-                                     Watermark="Enter staff barcode/number"/>
-
-                        <TextBlock Grid.Column="3" Text="Customer:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <AutoCompleteBox Grid.Column="4" Name="autoCompleteCustomer"
-                                 Text="{Binding SaleViewModel.CustomerBarcode}"
-                                 SelectedItem="{Binding SaleViewModel.SelectedCustomerSuggestion}"
-                                 ValueMemberBinding="{Binding CustomerName}"
-                                 FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
-                                 Watermark="Scan barcode, or type customer name to search">
-                            <AutoCompleteBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding CustomerName}"/>
-                                        <TextBlock Text="{Binding CompanyName}" FontSize="11" Foreground="Gray" IsVisible="{Binding CompanyName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
-                        </Grid>
-
-                        <!-- Last action feedback (who's signed in is shown in the Staff field above) -->
-                        <TextBlock Text="{Binding SaleViewModel.StatusMessage}" FontStyle="Italic" Foreground="DimGray" Margin="0,6,0,0"/>
-                    </StackPanel>
-
-                    <!-- Transaction Type -->
-                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                <Grid Margin="0" RowDefinitions="Auto,*">
+                    <!-- Tab strip for concurrent sale documents - hidden entirely unless a
+                         second sale is actually open, so the common single-sale case looks
+                         exactly as before. A big sale can sit untouched on its own tab while
+                         a different staff member rings up something else on another. -->
+                    <Border Grid.Row="0" IsVisible="{Binding HasMultipleSaleTabs}" Background="#E8E8E8" BorderBrush="Gray" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Transaction:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <Button Content="Sale" Margin="0,0,5,0" Width="80"
-                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
-                                    CommandParameter="Sale"/>
-                            <Button Content="Refund" Margin="0,0,5,0" Width="80"
-                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
-                                    CommandParameter="Refund"/>
-                            <Button Content="Quote" Margin="0,0,5,0" Width="80"
-                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
-                                    CommandParameter="Quote"/>
-                            <Button Content="Layby" Margin="0,0,20,0" Width="80"
-                                    Command="{Binding SaleViewModel.SetTransactionTypeCommand}"
-                                    CommandParameter="Layby"/>
-                            <Button Content="Hold Sale (F6)" Width="120"
-                                    Command="{Binding SaleViewModel.HoldSaleCommand}"/>
-                        </StackPanel>
-
-                        <!-- Held Sales -->
-                        <ItemsControl ItemsSource="{Binding SaleViewModel.HeldSales}"
-                                      IsVisible="{Binding SaleViewModel.HasHeldSales}"
-                                      Margin="0,8,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1" CornerRadius="3" Padding="8,4" Margin="0,0,0,4">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0" Text="{Binding Summary}" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1" Content="Resume"
-                                                    Command="{Binding $parent[Window].DataContext.SaleViewModel.ResumeHeldSaleCommand}"
-                                                    CommandParameter="{Binding}"
-                                                    Width="80" Height="25"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-
-                    <!-- Sale Items Grid -->
-                    <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Margin="0,0,0,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- Item Entry -->
-                            <Grid Grid.Row="0" Background="LightGray" Margin="5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="140"/>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="50"/>
-                                </Grid.ColumnDefinitions>
-
-                                <AutoCompleteBox Grid.Column="0" Name="autoCompleteItemBarcode"
-                                         Text="{Binding SaleViewModel.ItemBarcode}"
-                                         SelectedItem="{Binding SaleViewModel.SelectedStockSuggestion}"
-                                         ValueMemberBinding="{Binding Barcode}"
-                                         FilterMode="None" MinimumPrefixLength="2" MinimumPopulateDelay="0:0:0.2"
-                                         Watermark="Barcode, or type description to search">
-                                    <AutoCompleteBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Description}"/>
-                                                <TextBlock Text="{Binding Barcode, StringFormat='Barcode: {0}'}" FontSize="11" Foreground="Gray"/>
+                            <ItemsControl ItemsSource="{Binding OpenSales}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="4,4,0,0" Padding="10,6" CornerRadius="4,4,0,0" Background="White" BorderBrush="Gray" BorderThickness="1,1,1,0">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button Content="{Binding TabTitle}" Background="Transparent" BorderThickness="0" Padding="0"
+                                                        Command="{Binding $parent[Window].DataContext.SelectSaleTabCommand}" CommandParameter="{Binding}"/>
+                                                <Button Content="x" Width="20" Height="20" Padding="0" Background="Transparent" BorderThickness="0"
+                                                        Command="{Binding $parent[Window].DataContext.CloseSaleTabCommand}" CommandParameter="{Binding}"/>
                                             </StackPanel>
-                                        </DataTemplate>
-                                    </AutoCompleteBox.ItemTemplate>
-                                </AutoCompleteBox>
-                                <TextBox Grid.Column="1"
-                                         Text="{Binding SaleViewModel.ItemDescription}"
-                                         Watermark="Description" Margin="5,0" IsReadOnly="True"/>
-                                <AutoCompleteBox Grid.Column="2" Name="autoCompleteSerialNumber"
-                                         Text="{Binding SaleViewModel.ItemSerialNumber}"
-                                         FilterMode="None" MinimumPrefixLength="0" MinimumPopulateDelay="0:0:0.2"
-                                         Watermark="Scan or pick serial (required)" Margin="5,0"
-                                         IsVisible="{Binding SaleViewModel.ItemRequiresSerial}"
-                                         BorderBrush="OrangeRed" BorderThickness="2"/>
-                                <TextBox Grid.Column="3"
-                                         Text="{Binding SaleViewModel.ItemQuantity}"
-                                         Watermark="Qty" Margin="5,0"/>
-                                <TextBox Grid.Column="4"
-                                         Text="{Binding SaleViewModel.ItemPrice}"
-                                         Watermark="Price" Margin="5,0"/>
-                                <TextBox Grid.Column="5"
-                                         Text="{Binding SaleViewModel.ItemExtension}"
-                                         Watermark="Ext" Margin="5,0" IsReadOnly="True"/>
-                                <Button Grid.Column="6" Content="+" Width="40" Margin="5,0"
-                                        Command="{Binding SaleViewModel.AddItemCommand}"/>
-                            </Grid>
-
-                            <!-- Items List -->
-                            <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1">
-                                <ListBox Name="dgSaleItems" 
-                                        ItemsSource="{Binding SaleViewModel.SaleItems}"
-                                        SelectedItem="{Binding SaleViewModel.SelectedSaleItem}"
-                                        SelectionMode="Single">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="50"/>
-                                                        <ColumnDefinition Width="120"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="120"/>
-                                                        <ColumnDefinition Width="80"/>
-                                                        <ColumnDefinition Width="100"/>
-                                                        <ColumnDefinition Width="100"/>
-                                                        <ColumnDefinition Width="60"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding LineNumber}" Margin="5,0"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Barcode}" Margin="5,0"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding Description}" Margin="5,0"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding SerialNumber, StringFormat='S/N: {0}'}" Margin="5,0" FontStyle="Italic" IsVisible="{Binding SerialNumber, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                                    <TextBlock Grid.Column="4" Text="{Binding Quantity}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <TextBlock Grid.Column="5" Text="{Binding UnitPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <TextBlock Grid.Column="6" Text="{Binding Extension, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
-                                                    <Button Grid.Column="7" Content="Remove"
-                                                           Command="{Binding $parent[Window].DataContext.SaleViewModel.RemoveItemCommand}"
-                                                           CommandParameter="{Binding}"
-                                                           Width="55" Height="25" Margin="5,0"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Border>
-
-                            <!-- Totals -->
-                            <Grid Grid.Row="2" Margin="5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="200"/>
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Subtotal:" Margin="0,0,10,5"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SaleViewModel.SubtotalEx, StringFormat='${0:F2}'}" HorizontalAlignment="Right" Margin="0,0,0,5"/>
-
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Tax (GST):" Margin="0,0,10,5"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SaleViewModel.TaxAmount, StringFormat='${0:F2}'}" HorizontalAlignment="Right" Margin="0,0,0,5"/>
-
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Discount:" Margin="0,0,10,5"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SaleViewModel.DiscountAmount}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Total:" FontWeight="Bold" FontSize="16" Margin="0,0,10,0"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SaleViewModel.TotalInc, StringFormat='${0:F2}'}" FontWeight="Bold" FontSize="16" HorizontalAlignment="Right"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="+ New Sale" Margin="8,4,0,0" Command="{Binding NewSaleTabCommand}"/>
+                        </StackPanel>
                     </Border>
 
-                    <!-- Payment Section -->
-                    <Grid Grid.Row="3">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="200"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
-                            <Button Content="Cash (F1)" Width="100" Margin="0,0,5,0" 
-                                    Command="{Binding SaleViewModel.AddCashPaymentCommand}"/>
-                            <Button Content="EFTPOS (F2)" Width="100" Margin="0,0,5,0" 
-                                    Command="{Binding SaleViewModel.AddEftposPaymentCommand}"/>
-                            <Button Content="Credit Card" Width="100" Margin="0,0,5,0" 
-                                    Command="{Binding SaleViewModel.AddCreditCardPaymentCommand}"/>
-                            <Button Content="Account" Width="100" 
-                                    Command="{Binding SaleViewModel.ChargeToAccountCommand}"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1">
-                            <Button Content="Commit Sale (F12)" Height="40" 
-                                    Command="{Binding SaleViewModel.CommitSaleCommand}" 
-                                    Background="Green" Foreground="White" FontWeight="Bold"/>
-                        </StackPanel>
-                    </Grid>
+                    <ContentControl Grid.Row="1" Content="{Binding ActiveSaleDocument}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate DataType="vm:SaleViewModel">
+                                <views:SaleTabView/>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
                 </Grid>
             </TabItem>
 

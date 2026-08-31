@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -37,6 +38,20 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isStaffAdminUnlocked;
 
     private int _lastInvoiceId;
+    private int _nextSaleTabNumber = 1;
+
+    // Multiple independent sales can be open at once (a communal till: a large sale can
+    // sit untouched while a different staff member rings up something else on another
+    // tab, matching how the legacy app's tab system worked - see ROADMAP notes). Each tab
+    // strip entry is a fully independent SaleViewModel; there is always at least one.
+    public ObservableCollection<SaleViewModel> OpenSales { get; } = new();
+
+    [ObservableProperty]
+    private SaleViewModel? _activeSaleDocument;
+
+    // Only shown once there's a second sale open, so the common single-sale case looks
+    // exactly as it always has - no tab-strip clutter for the 95% case.
+    public bool HasMultipleSaleTabs => OpenSales.Count > 1;
 
     // This is a communal till shared by many staff across a shift - ordinary sales/stock/
     // customer/reports access has no login gate at all, matching real POS practice (staff
@@ -51,7 +66,6 @@ public partial class MainWindowViewModel : ViewModelBase
         _ = LoadTabDataAsync(value);
     }
 
-    public SaleViewModel SaleViewModel { get; }
     public CustomerViewModel CustomerViewModel { get; }
     public StockViewModel StockViewModel { get; }
     public ReportsViewModel ReportsViewModel { get; }
@@ -67,19 +81,82 @@ public partial class MainWindowViewModel : ViewModelBase
         _serialService = new SerialService(_dbService);
 
         // Create ViewModels
-        SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService, _staffService);
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         StaffViewModel = new StaffViewModel(_staffService);
 
-        SaleViewModel.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
-        // Status bar mirrors whoever is currently attributed to the sale in progress -
-        // display only, this drives no access control (see IsStaffAdminUnlocked instead).
-        SaleViewModel.StaffChanged += staff => CurrentStaff = staff;
+        OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
+        ActiveSaleDocument = CreateSaleDocument();
 
         StatusText = "Ready";
+    }
+
+    private SaleViewModel CreateSaleDocument()
+    {
+        var doc = new SaleViewModel(_dbService, _stockService, _customerService, _staffService)
+        {
+            TabNumber = _nextSaleTabNumber++
+        };
+
+        doc.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
+        // Status bar mirrors whoever is attributed to the *currently active* tab only -
+        // display only, this drives no access control (see IsStaffAdminUnlocked instead).
+        doc.StaffChanged += staff =>
+        {
+            if (doc == ActiveSaleDocument)
+                CurrentStaff = staff;
+        };
+
+        OpenSales.Add(doc);
+        return doc;
+    }
+
+    [RelayCommand]
+    private void NewSaleTab()
+    {
+        ActiveSaleDocument = CreateSaleDocument();
+        SelectedTabIndex = 0;
+    }
+
+    [RelayCommand]
+    private void SelectSaleTab(SaleViewModel? doc)
+    {
+        if (doc == null)
+            return;
+        ActiveSaleDocument = doc;
+    }
+
+    [RelayCommand]
+    private void CloseSaleTab(SaleViewModel? doc)
+    {
+        if (doc == null)
+            return;
+
+        if (doc.SaleItems.Count > 0)
+        {
+            StatusText = "Hold or complete this sale before closing its tab";
+            return;
+        }
+
+        int idx = OpenSales.IndexOf(doc);
+        OpenSales.Remove(doc);
+
+        if (OpenSales.Count == 0)
+        {
+            // Always keep at least one sale document open.
+            ActiveSaleDocument = CreateSaleDocument();
+        }
+        else if (ActiveSaleDocument == doc)
+        {
+            ActiveSaleDocument = OpenSales[Math.Max(0, idx - 1)];
+        }
+    }
+
+    partial void OnActiveSaleDocumentChanged(SaleViewModel? value)
+    {
+        CurrentStaff = value?.CurrentStaff;
     }
 
     public string StaffInfo => CurrentStaff != null 
@@ -105,8 +182,17 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void NewSale()
     {
-        StatusText = "Starting new sale...";
         SelectedTabIndex = 0;
+
+        // If the current tab is already mid-sale, open a fresh tab rather than disturbing
+        // it - an empty current tab is just reused instead of piling up empty tabs.
+        var active = ActiveSaleDocument;
+        if (active != null && (active.SaleItems.Count > 0 || active.CurrentCustomer != null))
+        {
+            NewSaleTab();
+        }
+
+        StatusText = "Starting new sale...";
     }
 
     [RelayCommand]
@@ -142,8 +228,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private void HoldSale()
     {
         SelectedTabIndex = 0;
-        SaleViewModel.HoldSaleCommand.Execute(null);
-        StatusText = SaleViewModel.StatusMessage;
+        if (ActiveSaleDocument == null)
+            return;
+        ActiveSaleDocument.HoldSaleCommand.Execute(null);
+        StatusText = ActiveSaleDocument.StatusMessage;
     }
 
     [RelayCommand]
