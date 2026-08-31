@@ -154,9 +154,13 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    partial void OnActiveSaleDocumentChanged(SaleViewModel? value)
+    partial void OnActiveSaleDocumentChanged(SaleViewModel? oldValue, SaleViewModel? newValue)
     {
-        CurrentStaff = value?.CurrentStaff;
+        if (oldValue != null)
+            oldValue.IsActive = false;
+        if (newValue != null)
+            newValue.IsActive = true;
+        CurrentStaff = newValue?.CurrentStaff;
     }
 
     public string StaffInfo => CurrentStaff != null 

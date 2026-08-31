@@ -41,6 +41,11 @@ namespace JMxPOS8.ViewModels
         public string TabTitle => CurrentStaff != null ? CurrentStaff.DocketName : $"Sale {TabNumber}";
         public int TabNumber { get; set; }
 
+        // Whether this is the currently focused tab, set by MainWindowViewModel - used
+        // purely to highlight the active tab chip in the strip.
+        [ObservableProperty]
+        private bool _isActive;
+
         [ObservableProperty]
         private string _staffNumber = "";
 
@@ -496,6 +501,11 @@ namespace JMxPOS8.ViewModels
 
             _saleService.ResumeHeldSale(held);
             CurrentCustomer = held.Customer;
+            // CustomerBarcode is the AutoCompleteBox's displayed text - it's a separate
+            // field from CurrentCustomer, and ApplyFoundCustomer sets both. This didn't,
+            // so the customer field visibly looked empty even though CurrentCustomer (and
+            // everything depending on it) was actually restored correctly.
+            CustomerBarcode = held.Customer?.CustomerName ?? "";
             TransactionType = held.TransactionType;
             DiscountAmount = held.DiscountAmount;
             HeldSales.Remove(held);

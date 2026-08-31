@@ -14,6 +14,19 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
+    <Window.Styles>
+        <!-- Sale tab strip chips: light/neutral by default, the active one stands out with
+             a white background and a green accent underline instead of a heavy dark bar. -->
+        <Style Selector="Border.saleTab">
+            <Setter Property="Background" Value="#F0F0F0"/>
+            <Setter Property="BorderBrush" Value="#D0D0D0"/>
+        </Style>
+        <Style Selector="Border.saleTab.active">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2E7D32"/>
+        </Style>
+    </Window.Styles>
+
     <DockPanel>
         <!-- Menu Bar -->
         <Menu DockPanel.Dock="Top">
@@ -74,34 +87,39 @@
             <!-- Sales Tab -->
             <TabItem Header="Sale">
                 <Grid Margin="0" RowDefinitions="Auto,*">
-                    <!-- Tab strip for concurrent sale documents - hidden entirely unless a
-                         second sale is actually open, so the common single-sale case looks
-                         exactly as before. A big sale can sit untouched on its own tab while
-                         a different staff member rings up something else on another. -->
-                    <Border Grid.Row="0" IsVisible="{Binding HasMultipleSaleTabs}" Background="#E8E8E8" BorderBrush="Gray" BorderThickness="0,0,0,1">
-                        <StackPanel Orientation="Horizontal">
-                            <ItemsControl ItemsSource="{Binding OpenSales}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="4,4,0,0" Padding="10,6" CornerRadius="4,4,0,0" Background="White" BorderBrush="Gray" BorderThickness="1,1,1,0">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <Button Content="{Binding TabTitle}" Background="Transparent" BorderThickness="0" Padding="0"
-                                                        Command="{Binding $parent[Window].DataContext.SelectSaleTabCommand}" CommandParameter="{Binding}"/>
-                                                <Button Content="x" Width="20" Height="20" Padding="0" Background="Transparent" BorderThickness="0"
-                                                        Command="{Binding $parent[Window].DataContext.CloseSaleTabCommand}" CommandParameter="{Binding}"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="+ New Sale" Margin="8,4,0,0" Command="{Binding NewSaleTabCommand}"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- Tab strip for concurrent sale documents. The row of existing tab
+                         chips only appears once a second sale is actually open, so the
+                         common single-sale case looks almost exactly as before - but the
+                         "+" itself stays visible at all times, so there's always a way to
+                         open another tab (it used to be nested inside the same hidden
+                         container as the chips, so closing back down to one tab left no
+                         way to open a second one again except a smart-guard menu command
+                         that silently no-ops on an empty sale). -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="Transparent">
+                        <ItemsControl Grid.Column="0" ItemsSource="{Binding OpenSales}" IsVisible="{Binding HasMultipleSaleTabs}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes="saleTab" Classes.active="{Binding IsActive}"
+                                            Margin="0,4,4,0" Padding="10,6" CornerRadius="4,4,0,0" BorderThickness="1,1,1,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="{Binding TabTitle}" Background="Transparent" BorderThickness="0" Padding="0"
+                                                    Command="{Binding $parent[Window].DataContext.SelectSaleTabCommand}" CommandParameter="{Binding}"/>
+                                            <Button Content="✕" Width="20" Height="20" Padding="0" Background="Transparent" BorderThickness="0"
+                                                    Command="{Binding $parent[Window].DataContext.CloseSaleTabCommand}" CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Grid.Column="1" Content="+" Width="28" Height="28" Padding="0" Margin="0,4,4,0"
+                                Command="{Binding NewSaleTabCommand}" ToolTip.Tip="Open a new sale tab"
+                                Background="#F0F0F0" BorderBrush="#D0D0D0" CornerRadius="4"/>
+                    </Grid>
 
                     <ContentControl Grid.Row="1" Content="{Binding ActiveSaleDocument}">
                         <ContentControl.ContentTemplate>
