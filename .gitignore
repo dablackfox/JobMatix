@@ -5,8 +5,11 @@
 docker/postgres/data/
 docker/pgadmin/data/
 
-# PostgreSQL backups
+# PostgreSQL backups (ad-hoc dumps only - schema files under sql-scripts/ and
+# docker/ are the tracked source of truth and must not be swept up by this)
 *.sql
+!/sql-scripts/**/*.sql
+!/docker/**/*.sql
 *.backup
 
 # .NET build outputs
