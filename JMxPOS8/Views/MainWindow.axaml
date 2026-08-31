@@ -17,31 +17,33 @@
         <!-- Menu Bar -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
+                <MenuItem Header="Sig_n Out" Command="{Binding SignOutCommand}" IsEnabled="{Binding IsSignedIn}"/>
+                <Separator/>
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" InputGesture="Alt+F4"/>
             </MenuItem>
-            <MenuItem Header="_Sales">
+            <MenuItem Header="_Sales" IsEnabled="{Binding IsSignedIn}">
                 <MenuItem Header="_New Sale" Command="{Binding NewSaleCommand}" InputGesture="F9"/>
                 <MenuItem Header="_Hold Sale" Command="{Binding HoldSaleCommand}" InputGesture="F6"/>
                 <Separator/>
                 <MenuItem Header="_Show Last Invoice" Command="{Binding ShowLastInvoiceCommand}" InputGesture="F8"/>
             </MenuItem>
-            <MenuItem Header="S_tock">
+            <MenuItem Header="S_tock" IsEnabled="{Binding IsSignedIn}">
                 <MenuItem Header="_Stock List" Command="{Binding StockListCommand}" InputGesture="Ctrl+O"/>
                 <MenuItem Header="_Find Stock" Command="{Binding FindStockCommand}" InputGesture="F2"/>
                 <Separator/>
                 <MenuItem Header="_New Stock Item" Command="{Binding NewStockItemCommand}" InputGesture="F5"/>
             </MenuItem>
-            <MenuItem Header="_Customers">
+            <MenuItem Header="_Customers" IsEnabled="{Binding IsSignedIn}">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
                 <MenuItem Header="_Find Customer" Command="{Binding FindCustomerCommand}" InputGesture="F3"/>
                 <Separator/>
                 <MenuItem Header="_New Customer" Command="{Binding NewCustomerItemCommand}" InputGesture="F5"/>
             </MenuItem>
-            <MenuItem Header="_Staff">
+            <MenuItem Header="_Staff" IsVisible="{Binding IsAdminSignedIn}">
                 <MenuItem Header="Staff _List" Command="{Binding StaffListCommand}"/>
                 <MenuItem Header="_New Staff Member" Command="{Binding NewStaffItemCommand}"/>
             </MenuItem>
-            <MenuItem Header="_Reports">
+            <MenuItem Header="_Reports" IsEnabled="{Binding IsSignedIn}">
                 <MenuItem Header="_Sales Report" Command="{Binding SalesReportCommand}"/>
                 <MenuItem Header="S_tock Report" Command="{Binding StockReportCommand}"/>
                 <MenuItem Header="C_ustomer Report" Command="{Binding CustomerReportCommand}"/>
@@ -66,8 +68,9 @@
             </StackPanel>
         </Panel>
 
-        <!-- Main Content Area with Tabs -->
-        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+        <!-- Main Content Area with Tabs, gated behind sign-in -->
+        <Panel>
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}" IsEnabled="{Binding IsSignedIn}">
             <!-- Sales Tab -->
             <TabItem Header="Sale">
                 <Grid Margin="10">
@@ -91,9 +94,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Column="1" Name="txtStaffNumber"
-                                     Text="{Binding SaleViewModel.StaffNumber}"
-                                     Watermark="Enter staff barcode/number"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SaleViewModel.StaffDisplay}" VerticalAlignment="Center" FontWeight="Bold"/>
 
                         <TextBlock Grid.Column="3" Text="Customer:" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <AutoCompleteBox Grid.Column="4" Name="autoCompleteCustomer"
@@ -113,18 +114,8 @@
                         </AutoCompleteBox>
                         </Grid>
 
-                        <!-- Signed-in staff / found customer / last action feedback -->
-                        <Grid Margin="0,6,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding SaleViewModel.StaffDisplay, StringFormat='Signed in: {0}'}"
-                                       FontWeight="Bold" Foreground="DarkGreen"
-                                       IsVisible="{Binding SaleViewModel.CurrentStaff, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            <TextBlock Grid.Column="2" Text="{Binding SaleViewModel.StatusMessage}" FontStyle="Italic" Foreground="DimGray"/>
-                        </Grid>
+                        <!-- Last action feedback (who's signed in is shown in the Staff field above) -->
+                        <TextBlock Text="{Binding SaleViewModel.StatusMessage}" FontStyle="Italic" Foreground="DimGray" Margin="0,6,0,0"/>
                     </StackPanel>
 
                     <!-- Transaction Type -->
@@ -833,7 +824,7 @@
             </TabItem>
 
             <!-- Staff Tab -->
-            <TabItem Header="Staff">
+            <TabItem Header="Staff" IsVisible="{Binding IsAdminSignedIn}">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1314,6 +1305,29 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+        <!-- Sign-in gate: covers the tab content (not the menu/status bar) until a staff
+             member is signed in. PIN/stronger auth deferred - barcode/staff-number entry
+             is the login mechanism for now. -->
+        <Border IsVisible="{Binding !IsSignedIn}" Background="#F5F5F5">
+            <Border Width="380" Padding="30" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="White" BorderBrush="Gray" BorderThickness="1" CornerRadius="6"
+                    BoxShadow="0 2 12 0 #40000000">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Staff Sign In" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Enter your staff barcode/number to continue" Foreground="Gray"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                    <TextBox Name="txtLoginBarcode" Text="{Binding LoginBarcode}"
+                             Watermark="Staff barcode/number" FontSize="16" HorizontalContentAlignment="Center"/>
+                    <Button Content="Sign In" Command="{Binding SignInCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Background="#2E7D32" Foreground="White"/>
+                    <TextBlock Text="{Binding LoginStatusMessage}" Foreground="Crimson"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+        </Panel>
     </DockPanel>
 
 </Window>

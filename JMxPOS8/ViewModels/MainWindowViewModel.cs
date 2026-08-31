@@ -27,7 +27,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private int _selectedTabIndex;
 
+    [ObservableProperty]
+    private string _loginBarcode = "";
+
+    [ObservableProperty]
+    private string _loginStatusMessage = "";
+
     private int _lastInvoiceId;
+
+    // Every feature is gated behind a staff member being signed in (see the login overlay
+    // in MainWindow.axaml); the Staff admin area is further gated to administrators only.
+    // A PIN or other stronger auth is deferred - barcode/staff-number entry is the login
+    // mechanism for now, same as it already was for the till itself.
+    public bool IsSignedIn => CurrentStaff != null;
+    public bool IsAdminSignedIn => CurrentStaff?.IsAdministrator == true;
 
     partial void OnSelectedTabIndexChanged(int value)
     {
@@ -50,7 +63,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _serialService = new SerialService(_dbService);
 
         // Create ViewModels
-        SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService, _staffService);
+        SaleViewModel = new SaleViewModel(_dbService, _stockService, _customerService);
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
         ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService);
@@ -59,7 +72,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         SaleViewModel.SaleCommitted += invoiceId => _lastInvoiceId = invoiceId;
 
-        LoadTestData();
+        StatusText = "Please sign in";
     }
 
     public string StaffInfo => CurrentStaff != null 
@@ -216,6 +229,48 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnCurrentStaffChanged(Staff? value)
     {
         OnPropertyChanged(nameof(StaffInfo));
+        OnPropertyChanged(nameof(IsSignedIn));
+        OnPropertyChanged(nameof(IsAdminSignedIn));
+    }
+
+    [RelayCommand]
+    private async Task SignIn()
+    {
+        if (string.IsNullOrWhiteSpace(LoginBarcode))
+            return;
+
+        var staff = await _staffService.FindStaffByBarcodeAsync(LoginBarcode.Trim());
+        if (staff == null)
+        {
+            LoginStatusMessage = $"Staff not found for '{LoginBarcode}'";
+            return;
+        }
+
+        CurrentStaff = staff;
+        SaleViewModel.SetSignedInStaff(staff);
+        LoginBarcode = "";
+        LoginStatusMessage = "";
+        StatusText = $"Signed in: {staff.DocketName}";
+
+        // A non-admin can't be on the Staff tab (it's hidden for them), but if they were
+        // signed in there by another admin and handed the till, bounce back to Sale.
+        if (!staff.IsAdministrator && SelectedTabIndex == 3)
+            SelectedTabIndex = 0;
+    }
+
+    [RelayCommand]
+    private void SignOut()
+    {
+        if (SaleViewModel.SaleItems.Count > 0)
+        {
+            StatusText = "Hold or complete the current sale before signing out";
+            return;
+        }
+
+        CurrentStaff = null;
+        SaleViewModel.SetSignedInStaff(null);
+        SelectedTabIndex = 0;
+        StatusText = "Please sign in";
     }
 
     partial void OnCurrentTillChanged(string value)
@@ -258,25 +313,4 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private async void LoadTestData()
-    {
-        try
-        {
-            // Try to load first staff member (staff_id = 1)
-            var staff = await _staffService.GetStaffByIdAsync(1);
-            if (staff != null)
-            {
-                CurrentStaff = staff;
-                StatusText = $"Ready - Staff #{staff.StaffId} {staff.DocketName}";
-            }
-            else
-            {
-                StatusText = "Ready - Please sign in";
-            }
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Ready - {ex.Message}";
-        }
-    }
 }

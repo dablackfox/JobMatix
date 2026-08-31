@@ -90,7 +90,7 @@ namespace JMxPOS8.Services
             CurrentCustomer = customer;
         }
 
-        public void SetStaff(Staff staff)
+        public void SetStaff(Staff? staff)
         {
             CurrentStaff = staff;
         }

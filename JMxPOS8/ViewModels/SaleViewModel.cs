@@ -13,7 +13,6 @@ namespace JMxPOS8.ViewModels
         private readonly SaleService _saleService;
         private readonly StockService _stockService;
         private readonly CustomerService _customerService;
-        private readonly StaffService _staffService;
         private int _nextHoldId = 1;
 
         // Raised with the invoice id whenever a sale is successfully committed, so other
@@ -22,9 +21,6 @@ namespace JMxPOS8.ViewModels
 
         public ObservableCollection<HeldSale> HeldSales { get; } = new();
         public bool HasHeldSales => HeldSales.Count > 0;
-
-        [ObservableProperty]
-        private string _staffNumber = "";
 
         [ObservableProperty]
         private string _customerBarcode = "";
@@ -78,12 +74,11 @@ namespace JMxPOS8.ViewModels
 
         public ObservableCollection<SaleLineItem> SaleItems { get; }
 
-        public SaleViewModel(DatabaseService dbService, StockService stockService, 
-                            CustomerService customerService, StaffService staffService)
+        public SaleViewModel(DatabaseService dbService, StockService stockService,
+                            CustomerService customerService)
         {
             _stockService = stockService;
             _customerService = customerService;
-            _staffService = staffService;
             _saleService = new SaleService(dbService, stockService, customerService);
             
             SaleItems = _saleService.SaleItems;
@@ -116,38 +111,12 @@ namespace JMxPOS8.ViewModels
             OnPropertyChanged(nameof(CustomerDisplay));
         }
 
-        [RelayCommand]
-        private async Task ProcessStaffNumber()
+        // Staff sign-in is now app-wide (see MainWindowViewModel's login gate) rather than
+        // entered per-sale here - this just reflects whoever is currently signed in.
+        public void SetSignedInStaff(Staff? staff)
         {
-            if (string.IsNullOrWhiteSpace(StaffNumber))
-                return;
-
-            Console.WriteLine($"[SALE] Processing staff number: {StaffNumber}");
-            try
-            {
-                // Staff sign in by their own barcode/employee number (e.g. "3"), not the
-                // internal database staff_id - those are unrelated. Looking this up by
-                // primary key instead silently signed in whichever staff row happened to
-                // have that id, not the person whose number was actually typed.
-                var staff = await _staffService.FindStaffByBarcodeAsync(StaffNumber.Trim());
-                if (staff != null)
-                {
-                    CurrentStaff = staff;
-                    _saleService.SetStaff(staff);
-                    StatusMessage = $"Staff: {staff.DocketName}";
-                    Console.WriteLine($"[SALE] ✅ Staff authenticated: {staff.DocketName} (ID: {staff.StaffId}, Barcode: {staff.Barcode})");
-                }
-                else
-                {
-                    StatusMessage = $"Staff not found for number '{StaffNumber}'";
-                    Console.WriteLine($"[SALE] ❌ Staff not found for barcode: {StaffNumber}");
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Error: {ex.Message}";
-                Console.WriteLine($"[SALE] ❌ ERROR in ProcessStaffNumber: {ex.Message}");
-            }
+            CurrentStaff = staff;
+            _saleService.SetStaff(staff);
         }
 
         [ObservableProperty]

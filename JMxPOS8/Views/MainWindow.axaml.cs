@@ -81,14 +81,14 @@ public partial class MainWindow : Window
         if (e.Source is not Visual sourceVisual)
             return;
 
-        var saleVM = viewModel.SaleViewModel;
-
-        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtStaffNumber" })
+        if (sourceVisual.FindAncestorOfType<TextBox>(includeSelf: true) is { Name: "txtLoginBarcode" })
         {
-            await saleVM.ProcessStaffNumberCommand.ExecuteAsync(null);
+            await viewModel.SignInCommand.ExecuteAsync(null);
             e.Handled = true;
             return;
         }
+
+        var saleVM = viewModel.SaleViewModel;
 
         if (sourceVisual.FindAncestorOfType<AutoCompleteBox>(includeSelf: true) is { } autoBox)
         {
