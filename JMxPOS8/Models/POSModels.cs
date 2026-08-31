@@ -137,6 +137,34 @@ namespace JMxPOS8.Models
         public int StockId { get; set; }
     }
 
+    // Customer detail sub-tabs (Invoices/Item Sales/Payments/Quotes) - read-only summaries,
+    // one query per tab, mirroring the legacy customer screen's tabbed history views.
+    public class CustomerInvoiceSummary
+    {
+        public int InvoiceId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public DateTime InvoiceDate { get; set; }
+        public string TransactionType { get; set; } = string.Empty;
+        public decimal TotalInc { get; set; }
+    }
+
+    public class CustomerItemSaleSummary
+    {
+        public DateTime InvoiceDate { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal LineTotal { get; set; }
+    }
+
+    public class CustomerPaymentSummary
+    {
+        public DateTime PaymentDate { get; set; }
+        public string PaymentMethod { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string TransactionType { get; set; } = string.Empty;
+    }
+
     // A parked sale, held aside to serve another customer, that can be resumed later.
     public class HeldSale
     {

@@ -15,6 +15,170 @@ namespace JMxPOS8.Services
             _db = db;
         }
 
+        public async Task<List<CustomerInvoiceSummary>> GetCustomerInvoicesAsync(int customerId, int limit = 100)
+        {
+            var items = new List<CustomerInvoiceSummary>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT invoice_id, invoicenumber, invoicedate, transactiontype, total_inc
+                        FROM invoice
+                        WHERE customer_id = @customerId AND transactiontype <> 'QUOTE'
+                        ORDER BY invoicedate DESC
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            items.Add(new CustomerInvoiceSummary
+                            {
+                                InvoiceId = Convert.ToInt32(reader["invoice_id"]),
+                                InvoiceNumber = reader["invoicenumber"].ToString() ?? "",
+                                InvoiceDate = Convert.ToDateTime(reader["invoicedate"]),
+                                TransactionType = reader["transactiontype"].ToString() ?? "",
+                                TotalInc = Convert.ToDecimal(reader["total_inc"])
+                            });
+                        }
+                    }
+                }
+            }
+
+            return items;
+        }
+
+        public async Task<List<CustomerInvoiceSummary>> GetCustomerQuotesAsync(int customerId, int limit = 100)
+        {
+            var items = new List<CustomerInvoiceSummary>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT invoice_id, invoicenumber, invoicedate, transactiontype, total_inc
+                        FROM invoice
+                        WHERE customer_id = @customerId AND transactiontype = 'QUOTE'
+                        ORDER BY invoicedate DESC
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            items.Add(new CustomerInvoiceSummary
+                            {
+                                InvoiceId = Convert.ToInt32(reader["invoice_id"]),
+                                InvoiceNumber = reader["invoicenumber"].ToString() ?? "",
+                                InvoiceDate = Convert.ToDateTime(reader["invoicedate"]),
+                                TransactionType = reader["transactiontype"].ToString() ?? "",
+                                TotalInc = Convert.ToDecimal(reader["total_inc"])
+                            });
+                        }
+                    }
+                }
+            }
+
+            return items;
+        }
+
+        public async Task<List<CustomerItemSaleSummary>> GetCustomerItemSalesAsync(int customerId, int limit = 200)
+        {
+            var items = new List<CustomerItemSaleSummary>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT inv.invoicedate, il.description, il.quantity, il.unitprice, il.linetotal
+                        FROM invoice_lines il
+                        JOIN invoice inv ON inv.invoice_id = il.invoice_id
+                        WHERE inv.customer_id = @customerId
+                        ORDER BY inv.invoicedate DESC
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            items.Add(new CustomerItemSaleSummary
+                            {
+                                InvoiceDate = Convert.ToDateTime(reader["invoicedate"]),
+                                Description = reader["description"].ToString() ?? "",
+                                Quantity = Convert.ToDecimal(reader["quantity"]),
+                                UnitPrice = Convert.ToDecimal(reader["unitprice"]),
+                                LineTotal = Convert.ToDecimal(reader["linetotal"])
+                            });
+                        }
+                    }
+                }
+            }
+
+            return items;
+        }
+
+        public async Task<List<CustomerPaymentSummary>> GetCustomerPaymentsAsync(int customerId, int limit = 100)
+        {
+            var items = new List<CustomerPaymentSummary>();
+
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $@"
+                        SELECT paymentdate, paymentmethod, amount, transactiontype
+                        FROM payments
+                        WHERE customer_id = @customerId
+                        ORDER BY paymentdate DESC
+                        LIMIT {limit}";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@customerId";
+                    param.Value = customerId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            items.Add(new CustomerPaymentSummary
+                            {
+                                PaymentDate = Convert.ToDateTime(reader["paymentdate"]),
+                                PaymentMethod = reader["paymentmethod"].ToString() ?? "",
+                                Amount = Convert.ToDecimal(reader["amount"]),
+                                TransactionType = reader["transactiontype"].ToString() ?? ""
+                            });
+                        }
+                    }
+                }
+            }
+
+            return items;
+        }
+
         public async Task<List<Customer>> GetAllCustomersAsync(int limit = 100)
         {
             var customers = new List<Customer>();

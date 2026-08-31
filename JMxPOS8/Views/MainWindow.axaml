@@ -584,9 +584,11 @@
                     </Border>
 
                     <!-- Customer Detail Form -->
-                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="10">
+                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Gray" BorderThickness="1">
+                      <TabControl>
+                        <TabItem Header="Details">
                         <ScrollViewer>
-                            <StackPanel Spacing="5">
+                            <StackPanel Spacing="5" Margin="10">
                                 <TextBlock Text="Customer Details" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
 
                                 <!-- Basic Info -->
@@ -815,11 +817,74 @@
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="Invoices">
+                            <ListBox ItemsSource="{Binding CustomerViewModel.Invoices}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding InvoiceNumber}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </TabItem>
+
+                        <TabItem Header="Item Sales">
+                            <ListBox ItemsSource="{Binding CustomerViewModel.ItemSales}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="140,*,70,90,100" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat=N2}" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding UnitPrice, StringFormat=C}" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding LineTotal, StringFormat=C}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </TabItem>
+
+                        <TabItem Header="Payments">
+                            <ListBox ItemsSource="{Binding CustomerViewModel.Payments}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding PaymentDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PaymentMethod}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Amount, StringFormat=C}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </TabItem>
+
+                        <TabItem Header="Quotes">
+                            <ListBox ItemsSource="{Binding CustomerViewModel.Quotes}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding InvoiceNumber}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </TabItem>
+                      </TabControl>
                     </Border>
 
                     <!-- Status Message -->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
-                               Text="{Binding CustomerViewModel.StatusMessage}" 
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                               Text="{Binding CustomerViewModel.StatusMessage}"
                                Margin="0,10,0,0" FontStyle="Italic"/>
                 </Grid>
             </TabItem>

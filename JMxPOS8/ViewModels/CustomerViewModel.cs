@@ -19,12 +19,38 @@ public partial class CustomerViewModel : ViewModelBase
     [ObservableProperty]
     private Customer? _selectedCustomer;
 
+    public ObservableCollection<CustomerInvoiceSummary> Invoices { get; } = new();
+    public ObservableCollection<CustomerItemSaleSummary> ItemSales { get; } = new();
+    public ObservableCollection<CustomerPaymentSummary> Payments { get; } = new();
+    public ObservableCollection<CustomerInvoiceSummary> Quotes { get; } = new();
+
     partial void OnSelectedCustomerChanged(Customer? value)
     {
         if (value != null && !IsEditing)
         {
             LoadCustomerToForm(value);
             StatusMessage = $"Viewing: {value.CustomerName}";
+            _ = LoadCustomerHistoryAsync(value.CustomerId);
+        }
+    }
+
+    private async Task LoadCustomerHistoryAsync(int customerId)
+    {
+        Invoices.Clear();
+        ItemSales.Clear();
+        Payments.Clear();
+        Quotes.Clear();
+
+        try
+        {
+            foreach (var i in await _customerService.GetCustomerInvoicesAsync(customerId)) Invoices.Add(i);
+            foreach (var i in await _customerService.GetCustomerItemSalesAsync(customerId)) ItemSales.Add(i);
+            foreach (var p in await _customerService.GetCustomerPaymentsAsync(customerId)) Payments.Add(p);
+            foreach (var q in await _customerService.GetCustomerQuotesAsync(customerId)) Quotes.Add(q);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading customer history: {ex.Message}";
         }
     }
 
