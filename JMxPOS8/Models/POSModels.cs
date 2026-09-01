@@ -383,6 +383,25 @@ namespace JMxPOS8.Models
         public bool HasPriceDrift => CurrentSellPrice.HasValue && CurrentSellPrice.Value != SellPrice;
     }
 
+    // A proposed (not yet committed) component on a ticket at "Quotation Required" -
+    // "build me a PC with these parts" territory, distinct from real Parts (which
+    // represent stock actually consumed on the job). Backed by the legacy quote_job_parts
+    // table (7,842 real historical rows migrated, previously unread by any C# code -
+    // ROADMAP.md, direct feedback 2026-09-01: "i cant find any customers with quotes").
+    // No serial number here by design - not required until the quote is approved and
+    // converted into a real Part (JobService.ApproveQuoteAsync).
+    public class QuotePartLine
+    {
+        public int QuotePartId { get; set; }
+        public int JobId { get; set; }
+        public int? StockId { get; set; }
+        public string Barcode { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int Quantity { get; set; } = 1;
+        public decimal SellInc { get; set; }
+        public DateTime DateCreated { get; set; }
+    }
+
     // A ticket note (job_notes) - a running log entry, distinct from the single-value
     // legacy jobs.servicenotes/diagnosis fields. IsPrivate distinguishes an internal-only
     // note from one meant to be customer-facing (ROADMAP.md - added per direct feedback,

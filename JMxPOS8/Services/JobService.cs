@@ -199,13 +199,61 @@ public class JobService
         var cleaned = ProblemDescriptionHelper.StripCustomerInstructionMarker(job.ProblemShort);
         var newProblemShort = $"{cleaned} {ProblemDescriptionHelper.MarkerFor(CustomerInstruction.ProceedWithService)}".Trim();
 
+        using (var conn = _db.GetConnection())
+        {
+            await Task.Run(() => conn.Open());
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE jobs SET problemshort = @problemShort WHERE job_id = @jobId";
+            AddParam(cmd, "@problemShort", newProblemShort);
+            AddParam(cmd, "@jobId", jobId);
+            await Task.Run(() => cmd.ExecuteNonQuery());
+        }
+
+        await ConvertQuotePartsToPartsAsync(jobId);
+    }
+
+    // Phase 3, 2026-09-01: "the quote is converted to a job with all components added to
+    // the job automatically" - the owner's own words. Locks in the quoted sell price (a
+    // customer-facing commitment) but re-pulls the current cost price from stock rather
+    // than trying to preserve one the quote never actually captured (quote_job_parts has
+    // no cost column at all - only quotepart_sell_inc) - cost is an internal accounting
+    // figure, so a fresh value is more accurate than none. Leaves the quote_job_parts rows
+    // in place afterward as a permanent record of what was quoted, deliberately not deleted.
+    private async Task ConvertQuotePartsToPartsAsync(int jobId)
+    {
+        var quoteParts = await GetQuotePartsAsync(jobId);
+        if (quoteParts.Count == 0)
+            return;
+
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE jobs SET problemshort = @problemShort WHERE job_id = @jobId";
-        AddParam(cmd, "@problemShort", newProblemShort);
-        AddParam(cmd, "@jobId", jobId);
-        await Task.Run(() => cmd.ExecuteNonQuery());
+
+        foreach (var quotePart in quoteParts)
+        {
+            decimal costPrice = 0;
+            if (quotePart.StockId.HasValue)
+            {
+                using var costCmd = conn.CreateCommand();
+                costCmd.CommandText = "SELECT costprice FROM stock WHERE stock_id = @stockId";
+                AddParam(costCmd, "@stockId", quotePart.StockId.Value);
+                var result = await Task.Run(() => costCmd.ExecuteScalar());
+                if (result != null && result != DBNull.Value)
+                    costPrice = Convert.ToDecimal(result);
+            }
+
+            using var insertCmd = conn.CreateCommand();
+            insertCmd.CommandText = @"
+                INSERT INTO parts (job_id, stock_id, partcode, partdescr, quantity, costprice, sellprice)
+                VALUES (@jobId, @stockId, @partCode, @partDescr, @quantity, @costPrice, @sellPrice)";
+            AddParam(insertCmd, "@jobId", jobId);
+            AddParam(insertCmd, "@stockId", quotePart.StockId.HasValue ? (object)quotePart.StockId.Value : DBNull.Value);
+            AddParam(insertCmd, "@partCode", quotePart.Barcode);
+            AddParam(insertCmd, "@partDescr", quotePart.Description);
+            AddParam(insertCmd, "@quantity", quotePart.Quantity);
+            AddParam(insertCmd, "@costPrice", costPrice);
+            AddParam(insertCmd, "@sellPrice", quotePart.SellInc);
+            await Task.Run(() => insertCmd.ExecuteNonQuery());
+        }
     }
 
     public async Task SuspendAsync(int jobId)
@@ -323,6 +371,95 @@ public class JobService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM parts WHERE part_id = @partId";
         AddParam(cmd, "@partId", partId);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
+    // Quote Parts (Phase 2, 2026-09-01) - proposed components on a ticket at "Quotation
+    // Required," backed by the legacy quote_job_parts table. Reads/writes the same shape
+    // for both the 7,842 rows of historical data and new tickets going forward - no
+    // separate "is this historical" flag needed, the table means the same thing either way.
+    public async Task<List<QuotePartLine>> GetQuotePartsAsync(int jobId)
+    {
+        var results = new List<QuotePartLine>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT quotepart_id, quotepart_jobid, quotepart_stockid, quotepart_barcode,
+                   quotepart_description, quotepart_orderqty, quotepart_sell_inc, date_created
+            FROM quote_job_parts
+            WHERE quotepart_jobid = @jobId
+            ORDER BY quotepart_id";
+        AddParam(cmd, "@jobId", jobId);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            results.Add(new QuotePartLine
+            {
+                QuotePartId = reader.GetInt32(0),
+                JobId = reader.GetInt32(1),
+                StockId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                Barcode = reader.GetString(3),
+                Description = reader.GetString(4),
+                Quantity = reader.GetInt32(5),
+                SellInc = reader.GetDecimal(6),
+                DateCreated = reader.GetDateTime(7)
+            });
+        }
+        return results;
+    }
+
+    public enum AddQuotePartResult { Added, NotFound }
+
+    // Defaults the proposed price from the current stock sell price but doesn't force it -
+    // a quote is a price proposal, staff may reasonably want to adjust it before the
+    // customer sees it (see UpdateQuotePartAsync). quotepart_orderid is left NULL - that
+    // column ties to a legacy purchase-order concept this phase doesn't touch.
+    public async Task<AddQuotePartResult> AddQuotePartByBarcodeAsync(int jobId, string barcode, int quantity, StockService stockService)
+    {
+        var stock = await stockService.FindStockByBarcodeAsync(barcode);
+        if (stock == null)
+            return AddQuotePartResult.NotFound;
+
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO quote_job_parts (
+                quotepart_jobid, quotepart_stockid, quotepart_barcode, quotepart_description,
+                quotepart_orderqty, quotepart_sell_inc
+            ) VALUES (
+                @jobId, @stockId, @barcode, @description, @quantity, @sellInc
+            )";
+        AddParam(cmd, "@jobId", jobId);
+        AddParam(cmd, "@stockId", stock.StockId);
+        AddParam(cmd, "@barcode", stock.Barcode);
+        AddParam(cmd, "@description", stock.Description);
+        AddParam(cmd, "@quantity", quantity);
+        AddParam(cmd, "@sellInc", stock.SellPrice);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+        return AddQuotePartResult.Added;
+    }
+
+    public async Task UpdateQuotePartAsync(int quotePartId, int quantity, decimal sellInc)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE quote_job_parts SET quotepart_orderqty = @quantity, quotepart_sell_inc = @sellInc WHERE quotepart_id = @quotePartId";
+        AddParam(cmd, "@quantity", quantity);
+        AddParam(cmd, "@sellInc", sellInc);
+        AddParam(cmd, "@quotePartId", quotePartId);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
+    public async Task RemoveQuotePartAsync(int quotePartId)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM quote_job_parts WHERE quotepart_id = @quotePartId";
+        AddParam(cmd, "@quotePartId", quotePartId);
         await Task.Run(() => cmd.ExecuteNonQuery());
     }
 

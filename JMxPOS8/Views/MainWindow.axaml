@@ -1894,6 +1894,44 @@
                                     </Grid>
                                 </Border>
 
+                                <!-- Quoted Components (Phase 2, 2026-09-01) - proposed build
+                                     components on a ticket, not yet real committed Parts. Backed by
+                                     the legacy quote_job_parts table (7,842 real historical rows,
+                                     previously invisible anywhere in this app - direct feedback:
+                                     "i cant find any customers with quotes"). Shown whenever there's
+                                     something to see, current or historical - see
+                                     JobViewModel.ShowQuotePartsSection. -->
+                                <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" CornerRadius="4" Padding="10"
+                                        IsVisible="{Binding JobViewModel.ShowQuotePartsSection}">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Quoted Components" FontWeight="Bold"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding JobViewModel.SelectedJob.IsQuotationRequired}">
+                                            <TextBox Width="180" Watermark="Scan barcode" Text="{Binding JobViewModel.ScanQuotePartBarcode}">
+                                                <TextBox.KeyBindings>
+                                                    <KeyBinding Gesture="Enter" Command="{Binding JobViewModel.AddQuotePartCommand}"/>
+                                                </TextBox.KeyBindings>
+                                            </TextBox>
+                                            <TextBox Width="60" Watermark="Qty" Text="{Binding JobViewModel.QuotePartQuantity}"/>
+                                            <Button Content="Add" Command="{Binding JobViewModel.AddQuotePartCommand}"/>
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding JobViewModel.QuoteParts}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid ColumnDefinitions="*,60,90,30" Margin="0,2">
+                                                        <TextBlock Grid.Column="0" Text="{Binding Description}"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat=N0}" HorizontalAlignment="Right"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding SellInc, StringFormat=C}" HorizontalAlignment="Right"/>
+                                                        <Button Grid.Column="3" Content="x" Width="30"
+                                                                IsVisible="{Binding $parent[Window].DataContext.JobViewModel.SelectedJob.IsQuotationRequired}"
+                                                                Command="{Binding $parent[Window].DataContext.JobViewModel.RemoveQuotePartCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+
                                 <!-- Time tracking (direct feedback, 2026-09-01): "a start stop auto add
                                      time to notes and billing was a major sore point" of the legacy app.
                                      Concurrent by design - this ticket's timer is independent of any other

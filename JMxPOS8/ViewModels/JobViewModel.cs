@@ -128,6 +128,53 @@ public partial class JobViewModel : ViewModelBase
     }
     public ObservableCollection<JobPartLine> Parts { get; } = new();
 
+    // Quote Parts (Phase 2, 2026-09-01) - proposed components, not yet real Parts. Loaded
+    // alongside Parts/Notes whenever a ticket is opened, and shown whenever there are any
+    // (not gated to only "while Quotation Required") so the 7,842 rows of historical data
+    // stay visible on tickets that have long since moved past that status.
+    public ObservableCollection<QuotePartLine> QuoteParts { get; } = new();
+
+    // Section shows whenever there's anything to see (current proposal or historical
+    // record) OR the ticket is actively awaiting approval (so staff can start proposing
+    // components on a fresh Quotation Required ticket that has none yet).
+    public bool ShowQuotePartsSection => QuoteParts.Count > 0 || SelectedJob?.IsQuotationRequired == true;
+
+    [ObservableProperty]
+    private string _scanQuotePartBarcode = "";
+
+    [ObservableProperty]
+    private int _quotePartQuantity = 1;
+
+    [RelayCommand]
+    private async Task AddQuotePart()
+    {
+        if (SelectedJob == null || string.IsNullOrWhiteSpace(ScanQuotePartBarcode))
+            return;
+
+        var result = await _jobService.AddQuotePartByBarcodeAsync(SelectedJob.JobId, ScanQuotePartBarcode.Trim(), QuotePartQuantity < 1 ? 1 : QuotePartQuantity, _stockService);
+        if (result == JobService.AddQuotePartResult.NotFound)
+        {
+            StatusMessage = $"No stock item found for barcode '{ScanQuotePartBarcode}'";
+        }
+        else
+        {
+            StatusMessage = $"Added quoted part '{ScanQuotePartBarcode}'";
+            QuoteParts.Clear();
+            foreach (var part in await _jobService.GetQuotePartsAsync(SelectedJob.JobId))
+                QuoteParts.Add(part);
+            ScanQuotePartBarcode = "";
+            QuotePartQuantity = 1;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveQuotePart(QuotePartLine? part)
+    {
+        if (part == null || SelectedJob == null) return;
+        await _jobService.RemoveQuotePartAsync(part.QuotePartId);
+        QuoteParts.Remove(part);
+    }
+
     // Ticket notes (job_notes) - a running log distinct from the single-value legacy
     // servicenotes/diagnosis fields, with a public/private flag so an internal-only note
     // can be told apart from a customer-facing one at a glance (color-coded in XAML).
@@ -397,6 +444,7 @@ public partial class JobViewModel : ViewModelBase
         _emailService = emailService;
         _jobTimeService = jobTimeService;
         OpenJobs.CollectionChanged += (_, _) => RebuildGroupedOpenJobs();
+        QuoteParts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowQuotePartsSection));
 
         // Ticks the live "elapsed" displays (the per-ticket running timer and every entry
         // in the global running-timers list) once a second - nothing here re-queries the
@@ -466,6 +514,7 @@ public partial class JobViewModel : ViewModelBase
     {
         RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(IsViewingTicket));
+        OnPropertyChanged(nameof(ShowQuotePartsSection));
         if (_suppressSelectionSideEffects)
             return;
         _ = HandleSelectionChangeAsync(value);
@@ -479,6 +528,7 @@ public partial class JobViewModel : ViewModelBase
 
         Parts.Clear();
         Notes.Clear();
+        QuoteParts.Clear();
         if (newJob == null)
             return;
 
@@ -498,6 +548,8 @@ public partial class JobViewModel : ViewModelBase
 
         foreach (var part in await _jobService.GetJobPartsAsync(newJob.JobId))
             Parts.Add(part);
+        foreach (var quotePart in await _jobService.GetQuotePartsAsync(newJob.JobId))
+            QuoteParts.Add(quotePart);
 
         await LoadNotesAsync(newJob.JobId);
         await LoadCurrentJobTimerAsync(newJob.JobId);
@@ -680,9 +732,20 @@ public partial class JobViewModel : ViewModelBase
     private async Task ApproveQuote()
     {
         if (SelectedJob == null) return;
-        await _jobService.ApproveQuoteAsync(SelectedJob.JobId);
-        StatusMessage = $"Job #{SelectedJob.JobId} approved - proceeding with service";
+        var jobId = SelectedJob.JobId;
+        await _jobService.ApproveQuoteAsync(jobId);
+        StatusMessage = $"Job #{jobId} approved - proceeding with service";
         await RefreshSelectedAsync();
+
+        // ApproveQuoteAsync just converted any quote_job_parts into real parts - reload
+        // both so the ticket page reflects that immediately (RefreshSelectedAsync only
+        // reloads SelectedJob itself, not Parts/QuoteParts).
+        Parts.Clear();
+        foreach (var part in await _jobService.GetJobPartsAsync(jobId))
+            Parts.Add(part);
+        QuoteParts.Clear();
+        foreach (var quotePart in await _jobService.GetQuotePartsAsync(jobId))
+            QuoteParts.Add(quotePart);
     }
 
     [RelayCommand]
