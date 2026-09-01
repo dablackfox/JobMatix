@@ -1038,7 +1038,7 @@
                     <!-- Report Selection and Date Range -->
                     <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
                         <TextBlock Text="Report Type" FontWeight="Bold" Margin="0,0,0,5"/>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="6">
                             <Button Content="Daily Sales" Command="{Binding ReportsViewModel.RunDailySalesReportCommand}" Width="120"/>
                             <Button Content="Stock Value" Command="{Binding ReportsViewModel.RunStockValueReportCommand}" Width="120"/>
                             <Button Content="Low Stock" Command="{Binding ReportsViewModel.RunLowStockReportCommand}" Width="120"/>
@@ -1046,8 +1046,12 @@
                             <Button Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
                             <Button Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
                             <Button Content="Cost / Margin" Command="{Binding ReportsViewModel.RunCostMarginReportCommand}" Width="120"/>
+                            <Button Content="Jobs" Command="{Binding ReportsViewModel.RunJobsReportCommand}" Width="100"/>
+                            <Button Content="Parts" Command="{Binding ReportsViewModel.RunPartsReportCommand}" Width="100"/>
+                            <Button Content="Staff" Command="{Binding ReportsViewModel.RunStaffReportCommand}" Width="100"/>
+                            <Button Content="Timesheet" Command="{Binding ReportsViewModel.RunTimesheetReportCommand}" Width="110"/>
                             <Button Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120" Background="#2E7D32" Foreground="White"/>
-                        </StackPanel>
+                        </WrapPanel>
 
                         <!-- Date Range Selection -->
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">

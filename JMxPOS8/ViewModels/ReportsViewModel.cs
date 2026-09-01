@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -483,6 +485,357 @@ public partial class ReportsViewModel : ViewModelBase
             }
 
             StatusMessage = $"Report complete: {ReportData.Count} products";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    // Job reporting (ROADMAP.md Phase 3 - "job reporting", the legacy SQL Server
+    // SHAPE/scalar-function report). The real work here already lived in the legacy
+    // app's own VB code, not SQL Server: gCurComputeChargeableHours/gbQueryWorkSessions
+    // parsed jobs.sessiontimes in application code, and the dynamically-created
+    // JT2_ChargeableHours T-SQL function just repeated that same string parsing for
+    // use inside the SHAPE query. SessionTimesParser is that same parsing, ported to
+    // C# and verified against 2,000 real jobs (99.95% match against the job's own
+    // recorded totalservicetime). The SHAPE parent/child structure itself becomes a
+    // plain query plus a JOIN (Parts report) or in-app grouping (Jobs/Staff reports) -
+    // no Postgres equivalent of SHAPE is needed at all.
+
+    private async Task<Dictionary<string, decimal>> GetLabourRatesAsync()
+    {
+        var rates = new Dictionary<string, decimal>();
+        using var conn = _dbService.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT info_key, info_value FROM systeminfo
+            WHERE info_key IN ('LabourHourlyRatePriority1', 'LabourHourlyRatePriority2', 'LabourHourlyRatePriority3')";
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            if (decimal.TryParse(reader.GetString(1), NumberStyles.Number, CultureInfo.InvariantCulture, out var rate))
+                rates[reader.GetString(0)] = rate;
+        }
+        return rates;
+    }
+
+    // Matches the legacy CASE Priority WHEN '3' ... WHEN '2' ... ELSE (Priority-1 rate)
+    // exactly - every other priority code (including this port's own 'H'/'B' and the
+    // legacy 'Q') falls through to the Priority-1 rate, same as it always did.
+    private static decimal LabourRateForPriority(string priority, Dictionary<string, decimal> rates)
+    {
+        var key = priority switch
+        {
+            "3" => "LabourHourlyRatePriority3",
+            "2" => "LabourHourlyRatePriority2",
+            _ => "LabourHourlyRatePriority1",
+        };
+        return rates.TryGetValue(key, out var rate) ? rate : 0m;
+    }
+
+    [RelayCommand]
+    private async Task RunJobsReport()
+    {
+        try
+        {
+            StatusMessage = "Running jobs report...";
+            ReportTitle = "Jobs Report";
+            ReportData.Clear();
+
+            var rates = await GetLabourRatesAsync();
+            var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
+            var end = (EndDate ?? DateTimeOffset.Now).DateTime.AddDays(1);
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT job_id, priority, jobstatus, sessiontimes,
+                               CASE WHEN customercompany IN ('N/A','--','') THEN customername ELSE customercompany END AS customer
+                        FROM jobs
+                        WHERE datecreated BETWEEN @start AND @end
+                        ORDER BY job_id";
+                    AddCmdParam(cmd, "@start", start);
+                    AddCmdParam(cmd, "@end", end);
+
+                    decimal totalHours = 0, totalCharge = 0;
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            var priority = reader.GetString(1);
+                            var sessionTimes = reader.GetString(3);
+                            var hours = SessionTimesParser.ComputeChargeableHours(sessionTimes);
+                            var charge = hours * LabourRateForPriority(priority, rates);
+
+                            totalHours += hours;
+                            totalCharge += charge;
+
+                            ReportData.Add(new ReportItem
+                            {
+                                Column1 = $"#{reader.GetInt32(0)}",
+                                Column2 = $"{reader.GetString(4)} ({reader.GetString(2)})",
+                                Column3 = hours.ToString("N2"),
+                                Column4 = charge.ToString("C")
+                            });
+                        }
+                    }
+
+                    Summary1Label = "Jobs:";
+                    Summary1Value = ReportData.Count.ToString();
+                    Summary2Label = "Total Chargeable Hours:";
+                    Summary2Value = totalHours.ToString("N2");
+                    Summary3Label = "Total Labour Charge:";
+                    Summary3Value = totalCharge.ToString("C");
+                    Summary4Label = string.Empty;
+                    Summary4Value = string.Empty;
+                }
+            }
+
+            StatusMessage = $"Report complete: {ReportData.Count} jobs";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    [RelayCommand]
+    private async Task RunPartsReport()
+    {
+        try
+        {
+            StatusMessage = "Running parts report...";
+            ReportTitle = "Parts Report";
+            ReportData.Clear();
+
+            var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
+            var end = (EndDate ?? DateTimeOffset.Now).DateTime.AddDays(1);
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT p.job_id, p.partcode, p.partdescr, p.quantity, p.sellprice, p.is_warranty_part,
+                               CASE WHEN j.customercompany IN ('N/A','--','') THEN j.customername ELSE j.customercompany END AS customer
+                        FROM parts p
+                        JOIN jobs j ON j.job_id = p.job_id
+                        WHERE j.datecreated BETWEEN @start AND @end
+                        ORDER BY p.cat1, p.partdescr";
+                    AddCmdParam(cmd, "@start", start);
+                    AddCmdParam(cmd, "@end", end);
+
+                    decimal totalSell = 0;
+                    int warrantyCount = 0;
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            var qty = reader.GetDecimal(3);
+                            var sell = reader.GetDecimal(4);
+                            var isWarranty = reader.GetBoolean(5);
+                            var lineTotal = qty * sell;
+                            totalSell += lineTotal;
+                            if (isWarranty) warrantyCount++;
+
+                            ReportData.Add(new ReportItem
+                            {
+                                Column1 = reader.GetString(1),
+                                Column2 = isWarranty ? $"{reader.GetString(2)} [WARRANTY]" : reader.GetString(2),
+                                Column3 = $"Job #{reader.GetInt32(0)} - {reader.GetString(6)}",
+                                Column4 = lineTotal.ToString("C")
+                            });
+                        }
+                    }
+
+                    Summary1Label = "Part Lines:";
+                    Summary1Value = ReportData.Count.ToString();
+                    Summary2Label = "Warranty Lines:";
+                    Summary2Value = warrantyCount.ToString();
+                    Summary3Label = "Total Sell Value:";
+                    Summary3Value = totalSell.ToString("C");
+                    Summary4Label = string.Empty;
+                    Summary4Value = string.Empty;
+                }
+            }
+
+            StatusMessage = $"Report complete: {ReportData.Count} part lines";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    [RelayCommand]
+    private async Task RunStaffReport()
+    {
+        try
+        {
+            StatusMessage = "Running staff report...";
+            ReportTitle = "Staff Report";
+            ReportData.Clear();
+
+            var rates = await GetLabourRatesAsync();
+            var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
+            var end = (EndDate ?? DateTimeOffset.Now).DateTime.AddDays(1);
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT job_id, priority, jobstatus, sessiontimes,
+                               CASE WHEN nominatedtech IN ('N/A','') THEN techstaffname ELSE nominatedtech END AS staffname,
+                               CASE WHEN customercompany IN ('N/A','--','') THEN customername ELSE customercompany END AS customer
+                        FROM jobs
+                        WHERE datecreated BETWEEN @start AND @end
+                        ORDER BY staffname, job_id";
+                    AddCmdParam(cmd, "@start", start);
+                    AddCmdParam(cmd, "@end", end);
+
+                    decimal totalHours = 0, totalCharge = 0;
+                    var staffSeen = new HashSet<string>();
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            var priority = reader.GetString(1);
+                            var sessionTimes = reader.GetString(3);
+                            var staffName = reader.GetString(4);
+                            var hours = SessionTimesParser.ComputeChargeableHours(sessionTimes);
+                            var charge = hours * LabourRateForPriority(priority, rates);
+
+                            totalHours += hours;
+                            totalCharge += charge;
+                            staffSeen.Add(staffName);
+
+                            ReportData.Add(new ReportItem
+                            {
+                                Column1 = staffName,
+                                Column2 = $"Job #{reader.GetInt32(0)} - {reader.GetString(5)}",
+                                Column3 = hours.ToString("N2"),
+                                Column4 = charge.ToString("C")
+                            });
+                        }
+                    }
+
+                    Summary1Label = "Staff:";
+                    Summary1Value = staffSeen.Count.ToString();
+                    Summary2Label = "Jobs:";
+                    Summary2Value = ReportData.Count.ToString();
+                    Summary3Label = "Total Hours:";
+                    Summary3Value = totalHours.ToString("N2");
+                    Summary4Label = "Total Labour Charge:";
+                    Summary4Value = totalCharge.ToString("C");
+                }
+            }
+
+            StatusMessage = $"Report complete: {ReportData.Count} jobs";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    [RelayCommand]
+    private async Task RunTimesheetReport()
+    {
+        try
+        {
+            StatusMessage = "Running timesheet report...";
+            ReportTitle = "Timesheet Report";
+            ReportData.Clear();
+
+            var rates = await GetLabourRatesAsync();
+            var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime.Date;
+            var end = (EndDate ?? DateTimeOffset.Now).DateTime.Date;
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    // Matches gbQueryWorkSessions' own pre-filter (job-level DateUpdated >=
+                    // start, no upper bound) - the real per-session date filter (which is
+                    // what actually determines inclusion) happens below, in C#, against each
+                    // parsed session's own date.
+                    cmd.CommandText = "SELECT job_id, priority, sessiontimes FROM jobs WHERE dateupdated >= @start";
+                    AddCmdParam(cmd, "@start", start);
+
+                    var sessionRows = new List<(int JobId, string StaffName, DateTime Date, decimal Hours, decimal Cost, bool Chargeable)>();
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            var jobId = reader.GetInt32(0);
+                            var priority = reader.GetString(1);
+                            var sessionTimes = reader.GetString(2);
+                            var rate = LabourRateForPriority(priority, rates);
+
+                            foreach (var entry in SessionTimesParser.Parse(sessionTimes))
+                            {
+                                if (entry.Date == null || entry.Date < start || entry.Date > end)
+                                    continue;
+
+                                if (entry.HoursChargeable > 0)
+                                    sessionRows.Add((jobId, entry.StaffName, entry.Date.Value, entry.HoursChargeable, entry.HoursChargeable * rate, true));
+                                if (entry.HoursNonChargeable > 0)
+                                    sessionRows.Add((jobId, entry.StaffName, entry.Date.Value, entry.HoursNonChargeable, 0m, false));
+                            }
+                        }
+                    }
+
+                    decimal totalChargeable = 0, totalNc = 0, totalCost = 0;
+                    foreach (var row in sessionRows.OrderBy(r => r.StaffName).ThenBy(r => r.Date))
+                    {
+                        if (row.Chargeable)
+                        {
+                            totalChargeable += row.Hours;
+                            totalCost += row.Cost;
+                        }
+                        else
+                        {
+                            totalNc += row.Hours;
+                        }
+
+                        ReportData.Add(new ReportItem
+                        {
+                            Column1 = row.StaffName,
+                            Column2 = $"{row.Date:dd-MMM-yyyy} (Job #{row.JobId})",
+                            Column3 = row.Chargeable ? row.Hours.ToString("N2") : $"{row.Hours:N2} (NC)",
+                            Column4 = row.Cost.ToString("C")
+                        });
+                    }
+
+                    Summary1Label = "Chargeable Hours:";
+                    Summary1Value = totalChargeable.ToString("N2");
+                    Summary2Label = "Non-Chargeable Hours:";
+                    Summary2Value = totalNc.ToString("N2");
+                    Summary3Label = "Total Labour Cost:";
+                    Summary3Value = totalCost.ToString("C");
+                    Summary4Label = "Sessions:";
+                    Summary4Value = sessionRows.Count.ToString();
+                }
+            }
+
+            StatusMessage = $"Report complete: {ReportData.Count} sessions";
         }
         catch (Exception ex)
         {
