@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,6 +17,7 @@ public partial class JobViewModel : ViewModelBase
     private readonly StockService _stockService;
     private readonly SmsService _smsService;
     private readonly EmailService _emailService;
+    private readonly JobDocumentPdfService _pdfService = new();
 
     public ObservableCollection<JobRecord> OpenJobs { get; } = new();
     public ObservableCollection<JobPartLine> Parts { get; } = new();
@@ -228,6 +230,33 @@ public partial class JobViewModel : ViewModelBase
         NewDataDiskReqd = false;
         NewSystemUnderWarranty = false;
         NewStaffBarcode = "";
+    }
+
+    // Job docket/quote printing (ROADMAP.md Phase 2/3) - PDF only for now, by direct
+    // instruction (2026-09-01): real physical printer/cash-drawer hardware is a
+    // separate, deferred feature (see JobDocumentPdfService's own header comment for
+    // why). Opens the rendered PDF with the OS's default viewer so it can actually be
+    // looked at, rather than just silently writing a file nobody sees.
+    [RelayCommand]
+    private async Task PrintDocket()
+    {
+        if (SelectedJob == null)
+        {
+            StatusMessage = "Select a job to print a docket for";
+            return;
+        }
+
+        try
+        {
+            var rates = await _jobService.GetLabourRatesAsync();
+            var path = _pdfService.RenderNewJobDocketToFile(SelectedJob, rates, "JobMatix");
+            StatusMessage = $"Docket saved: {path}";
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error printing docket: {ex.Message}";
+        }
     }
 
     [RelayCommand]

@@ -25,7 +25,8 @@ public class JobService
                    priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
                    databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
                    systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
-                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated
+                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
+                   customercompany, username, userpassword, goodsother
             FROM jobs
             WHERE jobstatus NOT IN ('70-Delivered', '97-Cancelled')
             ORDER BY job_id DESC
@@ -47,7 +48,8 @@ public class JobService
                    priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
                    databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
                    systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
-                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated
+                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
+                   customercompany, username, userpassword, goodsother
             FROM jobs
             WHERE job_id = @jobId";
         AddParam(cmd, "@jobId", jobId);
@@ -307,6 +309,28 @@ public class JobService
             throw new InvalidOperationException($"Job #{jobId} is not in a state that allows this action.");
     }
 
+    // Per-priority labour hourly rates (systeminfo, seeded from real legacy values -
+    // see sql-scripts/seed-labour-rates.sql). Used for the intake docket's terms
+    // section (JobDocumentPdfService) and job reporting (ReportsViewModel).
+    public async Task<Dictionary<string, decimal>> GetLabourRatesAsync()
+    {
+        var rates = new Dictionary<string, decimal>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT info_key, info_value FROM systeminfo
+            WHERE info_key IN ('LabourHourlyRatePriority1', 'LabourHourlyRatePriority2', 'LabourHourlyRatePriority3')";
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            if (decimal.TryParse(reader.GetString(1), System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out var rate))
+                rates[reader.GetString(0)] = rate;
+        }
+        return rates;
+    }
+
     private static JobRecord ReadJob(System.Data.IDataReader reader) => new()
     {
         JobId = reader.GetInt32(0),
@@ -336,7 +360,11 @@ public class JobService
         TechRmStaffId = reader.IsDBNull(24) ? null : reader.GetInt32(24),
         DateDelivered = reader.IsDBNull(25) ? null : reader.GetDateTime(25),
         DeliveredStaffName = reader.GetString(26),
-        DateUpdated = reader.GetDateTime(27)
+        DateUpdated = reader.GetDateTime(27),
+        CustomerCompany = reader.GetString(28),
+        Username = reader.GetString(29),
+        UserPassword = reader.GetString(30),
+        GoodsOther = reader.GetString(31)
     };
 
     private static void AddParam(System.Data.IDbCommand cmd, string name, object? value)

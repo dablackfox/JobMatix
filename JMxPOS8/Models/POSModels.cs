@@ -200,6 +200,7 @@ namespace JMxPOS8.Models
         public string CustomerBarcode { get; set; } = string.Empty;
         public int? RmCustomerId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
+        public string CustomerCompany { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
         public string CustomerMobile { get; set; } = string.Empty;
         public string Priority { get; set; } = "H";
@@ -208,6 +209,13 @@ namespace JMxPOS8.Models
         public string GoodsInCare { get; set; } = string.Empty;
         public string GoodsBrand { get; set; } = string.Empty;
         public string GoodsModel { get; set; } = string.Empty;
+        public string GoodsOther { get; set; } = string.Empty;
+        // The customer's own PC login, collected at intake so a tech can access the
+        // machine being repaired - printed on the intake docket (JobDocumentPdfService)
+        // exactly like the legacy app did. Stored in plaintext (ROADMAP.md Phase 1 -
+        // still-open security fix, tracked separately, not addressed by this feature).
+        public string Username { get; set; } = string.Empty;
+        public string UserPassword { get; set; } = string.Empty;
         public bool DataBackupReqd { get; set; }
         public bool DataDiskReqd { get; set; }
         public string ProblemShort { get; set; } = string.Empty;

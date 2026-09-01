@@ -30,5 +30,6 @@
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageReference Include="Npgsql" Version="10.0.1" />
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
   </ItemGroup>
 </Project>
