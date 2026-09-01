@@ -125,6 +125,55 @@ public partial class JobViewModel : ViewModelBase
     }
     public ObservableCollection<JobPartLine> Parts { get; } = new();
 
+    // Ticket notes (job_notes) - a running log distinct from the single-value legacy
+    // servicenotes/diagnosis fields, with a public/private flag so an internal-only note
+    // can be told apart from a customer-facing one at a glance (color-coded in XAML).
+    public ObservableCollection<JobNote> Notes { get; } = new();
+
+    [ObservableProperty]
+    private string _newNoteText = "";
+
+    // Defaults to private - the more cautious default for an internal tool with no
+    // customer-facing note channel wired up yet (a "public" note today just means
+    // "written as if the customer might read it", not that it's actually sent anywhere).
+    [ObservableProperty]
+    private bool _newNoteIsPrivate = true;
+
+    [RelayCommand]
+    private async Task AddNote()
+    {
+        if (SelectedJob == null) return;
+        if (string.IsNullOrWhiteSpace(NewNoteText))
+        {
+            StatusMessage = "Enter a note before adding it";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(ActionStaffBarcode))
+        {
+            StatusMessage = "Enter your staff barcode to attribute this note";
+            return;
+        }
+
+        var staff = await _staffService.FindStaffByBarcodeAsync(ActionStaffBarcode.Trim());
+        if (staff == null)
+        {
+            StatusMessage = $"Staff not found for '{ActionStaffBarcode}'";
+            return;
+        }
+
+        await _jobService.AddJobNoteAsync(SelectedJob.JobId, NewNoteText.Trim(), NewNoteIsPrivate, staff.DocketName);
+        NewNoteText = "";
+        await LoadNotesAsync(SelectedJob.JobId);
+        StatusMessage = "Note added";
+    }
+
+    private async Task LoadNotesAsync(int jobId)
+    {
+        Notes.Clear();
+        foreach (var note in await _jobService.GetJobNotesAsync(jobId))
+            Notes.Add(note);
+    }
+
     [ObservableProperty]
     private JobRecord? _selectedJob;
 
@@ -230,6 +279,15 @@ public partial class JobViewModel : ViewModelBase
         StatusMessage = $"Viewing job #{jobId}";
     }
 
+    // "Back to list" - there was previously no way to deselect a ticket once opened.
+    // Goes through the normal SelectedJob setter so the existing lock-release logic in
+    // HandleSelectionChangeAsync still runs (it already handles a null newJob correctly).
+    [RelayCommand]
+    private void CloseTicket()
+    {
+        SelectedJob = null;
+    }
+
     // Selecting a job to view it IS "opening it for edit" in the legacy app (there's no
     // separate view-only mode) - flips a locked "InProcess" status variant so anyone else
     // looking at the job list sees it's in use, and releases it when you move away.
@@ -240,9 +298,16 @@ public partial class JobViewModel : ViewModelBase
     // open/close-lock dance for what isn't really a new selection.
     private bool _suppressSelectionSideEffects;
 
+    // Drives the Tickets tab's layout: the intake form + search/grouped list (list mode)
+    // vs. the full-width ticket detail (detail mode) are mutually exclusive - direct
+    // feedback (2026-09-01) that viewing a ticket should use the whole tab, not just the
+    // right-hand column, with the New Ticket form only shown in list mode.
+    public bool IsViewingTicket => SelectedJob != null;
+
     partial void OnSelectedJobChanged(JobRecord? value)
     {
         RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(IsViewingTicket));
         if (_suppressSelectionSideEffects)
             return;
         _ = HandleSelectionChangeAsync(value);
@@ -255,6 +320,7 @@ public partial class JobViewModel : ViewModelBase
         _lockedJobId = null;
 
         Parts.Clear();
+        Notes.Clear();
         if (newJob == null)
             return;
 
@@ -274,6 +340,8 @@ public partial class JobViewModel : ViewModelBase
 
         foreach (var part in await _jobService.GetJobPartsAsync(newJob.JobId))
             Parts.Add(part);
+
+        await LoadNotesAsync(newJob.JobId);
     }
 
     private void RaiseCanExecuteChanged()
@@ -451,9 +519,29 @@ public partial class JobViewModel : ViewModelBase
         if (SelectedJob == null) return;
         if (Parts.Count == 0 && string.IsNullOrWhiteSpace(ActionServiceNotes))
             StatusMessage = "Warning: no parts and no service notes recorded - completing anyway";
+
+        // Attribute the note like historical data already does (real migrated
+        // servicenotes are prefixed "StaffName: dd-MMM-yyyy  HH:mm") - the app itself
+        // never wrote that prefix for a new completion until now, so every ticket
+        // completed through this port showed notes with no author at all.
+        if (string.IsNullOrWhiteSpace(ActionStaffBarcode))
+        {
+            StatusMessage = "Enter your staff barcode to attribute the service notes";
+            return;
+        }
+        var staff = await _staffService.FindStaffByBarcodeAsync(ActionStaffBarcode.Trim());
+        if (staff == null)
+        {
+            StatusMessage = $"Staff not found for '{ActionStaffBarcode}'";
+            return;
+        }
+
         try
         {
-            await _jobService.CompleteAsync(SelectedJob.JobId, ActionServiceNotes.Trim());
+            var attributedNotes = string.IsNullOrWhiteSpace(ActionServiceNotes)
+                ? ""
+                : $"{staff.DocketName}: {System.DateTime.Now:dd-MMM-yyyy  HH:mm}\n{ActionServiceNotes.Trim()}";
+            await _jobService.CompleteAsync(SelectedJob.JobId, attributedNotes);
             StatusMessage = $"Job #{SelectedJob.JobId} completed";
             await RefreshSelectedAsync();
         }
@@ -620,13 +708,18 @@ public partial class JobViewModel : ViewModelBase
 
 // One status bucket in the Tickets tab's grouped view (e.g. "In Progress") - built fresh
 // by JobViewModel.RebuildGroupedOpenJobs() each time, so Count/HeaderText don't need to
-// be independently observable; only IsExpanded (the Expander's own two-way binding) does.
+// be independently observable; only IsExpanded does. Toggled via a plain Button rather
+// than Avalonia's built-in Expander - the Expander's chevron icon resource wasn't
+// resolving in this environment (rendered its internal theme key as literal text,
+// "Avalonia.Controls|Expander:down", with a stray gap above the list) - found by
+// actually running the app, not assumed. A hand-rolled header sidesteps that entirely.
 public partial class JobStatusGroup : ObservableObject
 {
     public string StatusLabel { get; }
     public ObservableCollection<JobRecord> Jobs { get; } = new();
     public int Count => Jobs.Count;
     public string HeaderText => $"{StatusLabel} ({Count})";
+    public string ExpandGlyph => IsExpanded ? "▼" : "▶"; // ▼ / ▶
 
     [ObservableProperty]
     private bool _isExpanded = true;
@@ -635,4 +728,9 @@ public partial class JobStatusGroup : ObservableObject
     {
         StatusLabel = statusLabel;
     }
+
+    partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(ExpandGlyph));
+
+    [RelayCommand]
+    private void ToggleExpanded() => IsExpanded = !IsExpanded;
 }

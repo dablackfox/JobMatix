@@ -32,6 +32,16 @@
         <Style Selector="TabItem.navhidden">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
+        <!-- Ticket notes: private (internal-only) vs public (customer-facing), color-coded
+             so the difference is visible at a glance without reading the badge text. -->
+        <Style Selector="Border.privateNote">
+            <Setter Property="Background" Value="#FFF3E0"/>
+            <Setter Property="BorderBrush" Value="#FFB74D"/>
+        </Style>
+        <Style Selector="Border.publicNote">
+            <Setter Property="Background" Value="#E8F5E9"/>
+            <Setter Property="BorderBrush" Value="#81C784"/>
+        </Style>
     </Window.Styles>
 
     <DockPanel>
@@ -1641,7 +1651,11 @@
 
             <!-- Jobs Tab -->
             <TabItem Header="Tickets">
-                <Grid Margin="10" ColumnDefinitions="1.2*,2*">
+                <Grid Margin="10">
+                <!-- List mode: New Ticket intake + search/grouped list. Hidden entirely
+                     while viewing a ticket, per direct feedback (2026-09-01) - the detail
+                     view should get the whole tab, not just the right-hand column. -->
+                <Grid ColumnDefinitions="1.2*,2*" IsVisible="{Binding !JobViewModel.IsViewingTicket}">
                     <!-- New job intake -->
                     <ScrollViewer Grid.Column="0" Margin="0,0,10,0">
                         <StackPanel Spacing="8">
@@ -1667,7 +1681,7 @@
                     </ScrollViewer>
 
                     <!-- Job list + selected job detail -->
-                    <Grid Grid.Column="1" RowDefinitions="Auto,1.4*,Auto">
+                    <Grid Grid.Column="1" RowDefinitions="Auto,*">
                         <!-- Ticket search - any status, not just the open ones grouped below -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
                             <TextBox Width="260" Watermark="Search ticket #, customer, problem..." Text="{Binding JobViewModel.TicketSearchText}">
@@ -1705,8 +1719,16 @@
                                 <ItemsControl ItemsSource="{Binding JobViewModel.GroupedOpenJobs}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}" Header="{Binding HeaderText}" Margin="2">
-                                                <ListBox ItemsSource="{Binding Jobs}"
+                                            <StackPanel Margin="0,0,0,2">
+                                                <Button Command="{Binding ToggleExpandedCommand}" HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Left" Background="#E8E8E8" BorderThickness="0"
+                                                        Padding="8,6" CornerRadius="0">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="{Binding ExpandGlyph}" FontSize="10" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding HeaderText}" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <ListBox IsVisible="{Binding IsExpanded}" ItemsSource="{Binding Jobs}"
                                                          SelectedItem="{Binding $parent[Window].DataContext.JobViewModel.SelectedJob}">
                                                     <ListBox.ItemTemplate>
                                                         <DataTemplate>
@@ -1720,18 +1742,29 @@
                                                         </DataTemplate>
                                                     </ListBox.ItemTemplate>
                                                 </ListBox>
-                                            </Expander>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
                         </Border>
+                    </Grid>
+                </Grid>
 
-                        <Border Grid.Row="1" Margin="0,10,0,0" Padding="10" Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1"
-                                IsVisible="{Binding JobViewModel.SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <!-- Detail mode: full-width ticket detail, replacing the whole list-mode
+                     layout above (including the New Ticket form) while a ticket is open. -->
+                <Border Margin="0" Padding="10" Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1"
+                        IsVisible="{Binding JobViewModel.IsViewingTicket}">
+                        <ScrollViewer>
                             <StackPanel Spacing="8">
-                                <TextBlock Text="{Binding JobViewModel.SelectedJob.Summary}" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerName}"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding JobViewModel.SelectedJob.Summary}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerName}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="✕ Back to list" VerticalAlignment="Top"
+                                            Command="{Binding JobViewModel.CloseTicketCommand}"/>
+                                </Grid>
 
                                 <!-- Notes - problem details, diagnosis and service notes were being
                                      captured but never shown again once you left the job. -->
@@ -1756,6 +1789,39 @@
                                         <TextBlock Text="{Binding JobViewModel.SelectedJob.ServiceNotes}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
+
+                                <!-- Ticket notes log - a running log (unlike the single-value boxes
+                                     above), color-coded so a private (internal-only) note is
+                                     distinguishable from a public (customer-facing) one at a glance. -->
+                                <TextBlock Text="Notes" FontWeight="Bold" Margin="0,6,0,0"/>
+                                <ItemsControl ItemsSource="{Binding JobViewModel.Notes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Classes.privateNote="{Binding IsPrivate}" Classes.publicNote="{Binding !IsPrivate}"
+                                                    BorderThickness="1" Padding="8" Margin="0,0,0,4" CornerRadius="4">
+                                                <StackPanel Spacing="2">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="🔒 Private" FontWeight="Bold" FontSize="10" IsVisible="{Binding IsPrivate}"/>
+                                                        <TextBlock Text="🌐 Public" FontWeight="Bold" FontSize="10" IsVisible="{Binding !IsPrivate}"/>
+                                                        <TextBlock Text="{Binding StaffName}" FontSize="10" Foreground="Gray"/>
+                                                        <TextBlock Text="{Binding DateCreated, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" FontSize="10" Foreground="Gray"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding NoteText}" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <StackPanel Spacing="6">
+                                    <TextBox Watermark="Add a note... (can be a full paragraph)" Text="{Binding JobViewModel.NewNoteText}"
+                                             AcceptsReturn="True" TextWrapping="Wrap" Height="80" MaxHeight="200"
+                                             VerticalContentAlignment="Top"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <CheckBox Content="Private" IsChecked="{Binding JobViewModel.NewNoteIsPrivate}"
+                                                  ToolTip.Tip="Unchecked = written as if the customer might read it"/>
+                                        <Button Content="Add Note" Command="{Binding JobViewModel.AddNoteCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBox Width="150" Watermark="Staff barcode" Text="{Binding JobViewModel.ActionStaffBarcode}"/>
@@ -1809,8 +1875,8 @@
 
                                 <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic"/>
                             </StackPanel>
+                        </ScrollViewer>
                         </Border>
-                    </Grid>
                 </Grid>
             </TabItem>
 

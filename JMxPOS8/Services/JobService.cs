@@ -359,6 +359,51 @@ public class JobService
         return rates;
     }
 
+    // Ticket notes (job_notes) - a running log, distinct from the single-value legacy
+    // servicenotes/diagnosis columns. See sql-scripts/create-job-notes-table.sql.
+    public async Task<List<JobNote>> GetJobNotesAsync(int jobId)
+    {
+        var results = new List<JobNote>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT note_id, job_id, note_text, is_private, staff_name, date_created
+            FROM job_notes
+            WHERE job_id = @jobId
+            ORDER BY date_created DESC";
+        AddParam(cmd, "@jobId", jobId);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            results.Add(new JobNote
+            {
+                NoteId = reader.GetInt32(0),
+                JobId = reader.GetInt32(1),
+                NoteText = reader.GetString(2),
+                IsPrivate = reader.GetBoolean(3),
+                StaffName = reader.GetString(4),
+                DateCreated = reader.GetDateTime(5)
+            });
+        }
+        return results;
+    }
+
+    public async Task AddJobNoteAsync(int jobId, string noteText, bool isPrivate, string staffName)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO job_notes (job_id, note_text, is_private, staff_name)
+            VALUES (@jobId, @noteText, @isPrivate, @staffName)";
+        AddParam(cmd, "@jobId", jobId);
+        AddParam(cmd, "@noteText", noteText);
+        AddParam(cmd, "@isPrivate", isPrivate);
+        AddParam(cmd, "@staffName", staffName);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
     private static JobRecord ReadJob(System.Data.IDataReader reader) => new()
     {
         JobId = reader.GetInt32(0),

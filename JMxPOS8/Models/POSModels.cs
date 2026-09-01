@@ -256,6 +256,20 @@ namespace JMxPOS8.Models
         public bool HasPriceDrift => CurrentSellPrice.HasValue && CurrentSellPrice.Value != SellPrice;
     }
 
+    // A ticket note (job_notes) - a running log entry, distinct from the single-value
+    // legacy jobs.servicenotes/diagnosis fields. IsPrivate distinguishes an internal-only
+    // note from one meant to be customer-facing (ROADMAP.md - added per direct feedback,
+    // 2026-09-01: there was nowhere to enter new notes, public or private).
+    public class JobNote
+    {
+        public int NoteId { get; set; }
+        public int JobId { get; set; }
+        public string NoteText { get; set; } = string.Empty;
+        public bool IsPrivate { get; set; } = true;
+        public string StaffName { get; set; } = string.Empty;
+        public DateTime DateCreated { get; set; }
+    }
+
     // A physical stock count session - stays open while staff scan items, then gets
     // committed (adjusting stock.quantityinstock to match what was counted) or cancelled.
     public class StocktakeSession
