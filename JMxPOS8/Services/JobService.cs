@@ -9,6 +9,14 @@ public class JobService
 {
     private readonly DatabaseService _db;
 
+    private const string SelectColumns = @"
+        job_id, customerbarcode, rmcustomer_id, customername, customerphone, customermobile,
+        priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
+        databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
+        systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
+        datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
+        customercompany, username, userpassword, goodsother";
+
     public JobService(DatabaseService db)
     {
         _db = db;
@@ -20,13 +28,8 @@ public class JobService
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            SELECT job_id, customerbarcode, rmcustomer_id, customername, customerphone, customermobile,
-                   priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
-                   databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
-                   systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
-                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
-                   customercompany, username, userpassword, goodsother
+        cmd.CommandText = $@"
+            SELECT {SelectColumns}
             FROM jobs
             WHERE jobstatus NOT IN ('70-Delivered', '97-Cancelled')
             ORDER BY job_id DESC
@@ -43,13 +46,8 @@ public class JobService
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            SELECT job_id, customerbarcode, rmcustomer_id, customername, customerphone, customermobile,
-                   priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
-                   databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
-                   systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
-                   datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
-                   customercompany, username, userpassword, goodsother
+        cmd.CommandText = $@"
+            SELECT {SelectColumns}
             FROM jobs
             WHERE job_id = @jobId";
         AddParam(cmd, "@jobId", jobId);
@@ -57,6 +55,36 @@ public class JobService
         if (!await Task.Run(() => reader.Read()))
             return null;
         return ReadJob(reader);
+    }
+
+    // Ticket search (any status, including delivered/cancelled - deliberately broader
+    // than GetOpenJobsAsync) by exact job number, or a partial match on customer/problem
+    // text. Added per direct feedback (2026-09-01): the Tickets tab had no way to find a
+    // job that wasn't already in the open-jobs list.
+    public async Task<List<JobRecord>> SearchJobsAsync(string term, int limit = 100)
+    {
+        var results = new List<JobRecord>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+            SELECT {SelectColumns}
+            FROM jobs
+            WHERE job_id::text = @exactId
+               OR customername ILIKE @pattern
+               OR customercompany ILIKE @pattern
+               OR customerbarcode ILIKE @pattern
+               OR problemshort ILIKE @pattern
+               OR problemsymptoms ILIKE @pattern
+            ORDER BY job_id DESC
+            LIMIT @limit";
+        AddParam(cmd, "@exactId", term);
+        AddParam(cmd, "@pattern", $"%{term}%");
+        AddParam(cmd, "@limit", limit);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+            results.Add(ReadJob(reader));
+        return results;
     }
 
     public async Task<JobRecord> CreateJobAsync(JobRecord job)

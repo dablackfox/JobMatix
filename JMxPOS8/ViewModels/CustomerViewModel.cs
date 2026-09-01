@@ -25,6 +25,18 @@ public partial class CustomerViewModel : ViewModelBase
     public ObservableCollection<CustomerInvoiceSummary> Quotes { get; } = new();
     public ObservableCollection<CustomerJobSummary> Jobs { get; } = new();
 
+    // Raised when a ticket number is clicked on the Tickets sub-tab - MainWindowViewModel
+    // subscribes to switch to the Tickets tab and load that job, since this ViewModel has
+    // no reference to the main tab strip or JobViewModel itself.
+    public event Action<int>? TicketOpened;
+
+    [RelayCommand]
+    private void OpenJob(CustomerJobSummary? job)
+    {
+        if (job != null)
+            TicketOpened?.Invoke(job.JobId);
+    }
+
     partial void OnSelectedCustomerChanged(Customer? value)
     {
         if (value != null && !IsEditing)

@@ -25,6 +25,13 @@
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#2E7D32"/>
         </Style>
+        <!-- Screens reached via a menu item rather than the top tab strip (Staff,
+             Transaction Lookup, Stocktake, Intake, Returns, Reports, Reference Data) -
+             still real TabItems (so SelectedTabIndex-based navigation is unchanged),
+             just not shown as a header button. -->
+        <Style Selector="TabItem.navhidden">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
     </Window.Styles>
 
     <DockPanel>
@@ -38,6 +45,7 @@
                 <MenuItem Header="_Hold Sale" Command="{Binding HoldSaleCommand}" InputGesture="F6"/>
                 <Separator/>
                 <MenuItem Header="_Show Last Invoice" Command="{Binding ShowLastInvoiceCommand}" InputGesture="F8"/>
+                <MenuItem Header="_Transaction Lookup" Command="{Binding TransactionLookupCommand}"/>
             </MenuItem>
             <MenuItem Header="S_tock">
                 <MenuItem Header="_Stock List" Command="{Binding StockListCommand}" InputGesture="Ctrl+O"/>
@@ -46,8 +54,8 @@
                 <MenuItem Header="_New Stock Item" Command="{Binding NewStockItemCommand}" InputGesture="F5"/>
                 <Separator/>
                 <MenuItem Header="Stock_take" Command="{Binding StocktakeCommand}"/>
-                <MenuItem Header="_Goods Received" Command="{Binding GoodsReceivedCommand}"/>
-                <MenuItem Header="_Return Authorisations" Command="{Binding ReturnAuthorizationsCommand}"/>
+                <MenuItem Header="_Intake (Goods Received)" Command="{Binding GoodsReceivedCommand}"/>
+                <MenuItem Header="_Returns" Command="{Binding ReturnAuthorizationsCommand}"/>
             </MenuItem>
             <MenuItem Header="_Customers">
                 <MenuItem Header="_Customer List" Command="{Binding CustomerListCommand}" InputGesture="Ctrl+U"/>
@@ -61,8 +69,8 @@
                 <Separator/>
                 <MenuItem Header="_Lock Staff Admin" Command="{Binding LockStaffAdminCommand}" IsEnabled="{Binding IsStaffAdminUnlocked}"/>
             </MenuItem>
-            <MenuItem Header="_Jobs">
-                <MenuItem Header="Job _List" Command="{Binding JobsCommand}"/>
+            <MenuItem Header="_Tickets">
+                <MenuItem Header="Ticket _List" Command="{Binding JobsCommand}"/>
                 <Separator/>
                 <MenuItem Header="_Reference Data">
                     <MenuItem Header="_Goods Accepted Types" Command="{Binding OpenGoodsTypesCommand}"/>
@@ -706,12 +714,16 @@
                             </ListBox>
                         </TabItem>
 
-                        <TabItem Header="Jobs">
+                        <TabItem Header="Tickets">
                             <ListBox ItemsSource="{Binding CustomerViewModel.Jobs}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="60,110,120,120,*,50" Margin="5,3">
-                                            <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                            <Button Grid.Column="0" Content="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"
+                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
+                                                    Cursor="Hand" HorizontalContentAlignment="Left"
+                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenJobCommand}"
+                                                    CommandParameter="{Binding}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding DateUpdated, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding JobStatus}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding TechStaffName}"/>
@@ -733,7 +745,7 @@
             </TabItem>
 
             <!-- Staff Tab -->
-            <TabItem Header="Staff">
+            <TabItem Header="Staff" Classes="navhidden">
               <Panel>
                 <Grid Margin="10" IsVisible="{Binding IsStaffAdminUnlocked}">
                     <Grid.RowDefinitions>
@@ -1025,7 +1037,7 @@
             </TabItem>
 
             <!-- Reports Tab -->
-            <TabItem Header="Reports">
+            <TabItem Header="Reports" Classes="navhidden">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1233,7 +1245,7 @@
             </TabItem>
 
             <!-- Transactions Tab -->
-            <TabItem Header="Transactions">
+            <TabItem Header="Transactions" Classes="navhidden">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1368,7 +1380,7 @@
             </TabItem>
 
             <!-- Stocktake Tab -->
-            <TabItem Header="Stocktake">
+            <TabItem Header="Stocktake" Classes="navhidden">
                 <Grid Margin="10" ColumnDefinitions="1.3*,2*">
                     <!-- Sessions list -->
                     <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,Auto,*">
@@ -1437,7 +1449,7 @@
             </TabItem>
 
             <!-- Goods Received Tab -->
-            <TabItem Header="Goods In">
+            <TabItem Header="Intake" Classes="navhidden">
                 <Grid Margin="10" ColumnDefinitions="1.4*,2*">
                     <!-- New receipt -->
                     <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,*,Auto">
@@ -1540,7 +1552,7 @@
             </TabItem>
 
             <!-- Return Authorisations Tab -->
-            <TabItem Header="Returns">
+            <TabItem Header="Returns" Classes="navhidden">
                 <Grid Margin="10" ColumnDefinitions="1.3*,2*">
                     <!-- New RA form -->
                     <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,*">
@@ -1628,7 +1640,7 @@
             </TabItem>
 
             <!-- Jobs Tab -->
-            <TabItem Header="Jobs">
+            <TabItem Header="Tickets">
                 <Grid Margin="10" ColumnDefinitions="1.2*,2*">
                     <!-- New job intake -->
                     <ScrollViewer Grid.Column="0" Margin="0,0,10,0">
@@ -1649,15 +1661,27 @@
                             <CheckBox Content="Data disk required" IsChecked="{Binding JobViewModel.NewDataDiskReqd}"/>
                             <CheckBox Content="Under warranty" IsChecked="{Binding JobViewModel.NewSystemUnderWarranty}"/>
                             <TextBox Text="{Binding JobViewModel.NewStaffBarcode}" Watermark="Your staff barcode"/>
-                            <Button Content="Create Job" Command="{Binding JobViewModel.CreateJobCommand}" Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
+                            <Button Content="Create Ticket" Command="{Binding JobViewModel.CreateJobCommand}" Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
                             <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic" TextWrapping="Wrap"/>
                         </StackPanel>
                     </ScrollViewer>
 
                     <!-- Job list + selected job detail -->
-                    <Grid Grid.Column="1" RowDefinitions="1.4*,Auto">
-                        <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
-                            <ListBox ItemsSource="{Binding JobViewModel.OpenJobs}"
+                    <Grid Grid.Column="1" RowDefinitions="Auto,1.4*,Auto">
+                        <!-- Ticket search - any status, not just the open ones grouped below -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                            <TextBox Width="260" Watermark="Search ticket #, customer, problem..." Text="{Binding JobViewModel.TicketSearchText}">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding JobViewModel.SearchTicketsCommand}"/>
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Content="Search" Command="{Binding JobViewModel.SearchTicketsCommand}"/>
+                            <Button Content="Clear" Command="{Binding JobViewModel.ClearTicketSearchCommand}" IsVisible="{Binding JobViewModel.IsSearchActive}"/>
+                        </StackPanel>
+
+                        <!-- Search results - flat, spans every status -->
+                        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding JobViewModel.IsSearchActive}">
+                            <ListBox ItemsSource="{Binding JobViewModel.SearchResults}"
                                      SelectedItem="{Binding JobViewModel.SelectedJob}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -1673,11 +1697,65 @@
                             </ListBox>
                         </Border>
 
+                        <!-- Default view: open tickets grouped by status, with a count per
+                             group - restores the legacy tree-style list (New/In Progress/QA/
+                             etc. with a "+"/count) that this port had flattened away. -->
+                        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding !JobViewModel.IsSearchActive}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding JobViewModel.GroupedOpenJobs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}" Header="{Binding HeaderText}" Margin="2">
+                                                <ListBox ItemsSource="{Binding Jobs}"
+                                                         SelectedItem="{Binding $parent[Window].DataContext.JobViewModel.SelectedJob}">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
+                                                                <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding ProblemShort}"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding CustomerName}"/>
+                                                                <TextBlock Grid.Column="4" Text="🔒" IsVisible="{Binding IsLocked}"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </Expander>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+
                         <Border Grid.Row="1" Margin="0,10,0,0" Padding="10" Background="#F5F5F5" BorderBrush="Gray" BorderThickness="1"
                                 IsVisible="{Binding JobViewModel.SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{Binding JobViewModel.SelectedJob.Summary}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding JobViewModel.SelectedJob.CustomerName}"/>
+
+                                <!-- Notes - problem details, diagnosis and service notes were being
+                                     captured but never shown again once you left the job. -->
+                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8" Margin="0,4,0,0"
+                                        IsVisible="{Binding JobViewModel.SelectedJob.ProblemLong, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Problem Details" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock Text="{Binding JobViewModel.SelectedJob.ProblemLong}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8"
+                                        IsVisible="{Binding JobViewModel.SelectedJob.Diagnosis, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Diagnosis" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock Text="{Binding JobViewModel.SelectedJob.Diagnosis}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8"
+                                        IsVisible="{Binding JobViewModel.SelectedJob.ServiceNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Service Notes" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock Text="{Binding JobViewModel.SelectedJob.ServiceNotes}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
 
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBox Width="150" Watermark="Staff barcode" Text="{Binding JobViewModel.ActionStaffBarcode}"/>
@@ -1736,7 +1814,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Reference Data">
+            <TabItem Header="Reference Data" Classes="navhidden">
                 <TabControl SelectedIndex="{Binding SelectedReferenceSubTabIndex}">
                     <TabItem Header="Goods Types">
                         <views:ReferenceListEditorView DataContext="{Binding GoodsTypesViewModel}"/>

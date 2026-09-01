@@ -19,7 +19,110 @@ public partial class JobViewModel : ViewModelBase
     private readonly EmailService _emailService;
     private readonly JobDocumentPdfService _pdfService = new();
 
+    // Status → display bucket, in the order groups should appear. Mirrors the legacy
+    // tree-style ticket list (New/In Progress/QA/etc. with a count per group) that this
+    // port had dropped in favour of one flat list - restored per direct feedback
+    // (2026-09-01). The "InProcess" locked variants fold into their parent bucket; the
+    // 🔒 icon on each row (JobRecord.IsLocked) still shows which ones are locked.
+    private static readonly (string Label, string[] Statuses)[] StatusBuckets =
+    {
+        ("Waitlisted", new[] { "05-WaitListed" }),
+        ("New", new[] { "10-Created" }),
+        ("Suspended", new[] { "20-Suspended", "23-InProcessSusp" }),
+        ("In Progress", new[] { "30-Started", "33-InProcess" }),
+        ("QA", new[] { "40-QA", "43-InProcessQA" }),
+        ("Completed", new[] { "50-Completed" }),
+    };
+
+    private static string BucketLabelForStatus(string status)
+    {
+        foreach (var bucket in StatusBuckets)
+        {
+            if (bucket.Statuses.Contains(status))
+                return bucket.Label;
+        }
+        return status; // unexpected status - show it under its own literal label rather than hiding it
+    }
+
     public ObservableCollection<JobRecord> OpenJobs { get; } = new();
+
+    // Rebuilt from OpenJobs whenever it changes (load/refresh-in-place/remove all raise
+    // CollectionChanged) - see the subscription in the constructor.
+    public ObservableCollection<JobStatusGroup> GroupedOpenJobs { get; } = new();
+
+    private void RebuildGroupedOpenJobs()
+    {
+        var byLabel = new System.Collections.Generic.Dictionary<string, JobStatusGroup>();
+        foreach (var job in OpenJobs)
+        {
+            var label = BucketLabelForStatus(job.JobStatus);
+            if (!byLabel.TryGetValue(label, out var group))
+            {
+                group = new JobStatusGroup(label);
+                byLabel[label] = group;
+            }
+            group.Jobs.Add(job);
+        }
+
+        GroupedOpenJobs.Clear();
+        foreach (var bucket in StatusBuckets)
+        {
+            if (byLabel.TryGetValue(bucket.Label, out var group) && group.Jobs.Count > 0)
+                GroupedOpenJobs.Add(group);
+        }
+        // Any status that didn't match a known bucket (data drift, or a status added
+        // later without updating StatusBuckets) still shows up, just at the end.
+        foreach (var kvp in byLabel)
+        {
+            if (!StatusBuckets.Any(b => b.Label == kvp.Key))
+                GroupedOpenJobs.Add(kvp.Value);
+        }
+    }
+
+    // Ticket search (ROADMAP.md / direct feedback 2026-09-01) - the Tickets tab had no
+    // way to find a job outside the open-jobs list at all. Search results replace the
+    // grouped tree while active; clearing the search restores it.
+    [ObservableProperty]
+    private string _ticketSearchText = "";
+
+    [ObservableProperty]
+    private bool _isSearchActive;
+
+    public ObservableCollection<JobRecord> SearchResults { get; } = new();
+
+    partial void OnTicketSearchTextChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            IsSearchActive = false;
+            SearchResults.Clear();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SearchTickets()
+    {
+        if (string.IsNullOrWhiteSpace(TicketSearchText))
+        {
+            IsSearchActive = false;
+            return;
+        }
+
+        IsSearchActive = true;
+        var results = await _jobService.SearchJobsAsync(TicketSearchText.Trim());
+        SearchResults.Clear();
+        foreach (var job in results)
+            SearchResults.Add(job);
+        StatusMessage = $"Found {SearchResults.Count} matching ticket(s)";
+    }
+
+    [RelayCommand]
+    private void ClearTicketSearch()
+    {
+        TicketSearchText = "";
+        IsSearchActive = false;
+        SearchResults.Clear();
+    }
     public ObservableCollection<JobPartLine> Parts { get; } = new();
 
     [ObservableProperty]
@@ -98,6 +201,7 @@ public partial class JobViewModel : ViewModelBase
         _stockService = stockService;
         _smsService = smsService;
         _emailService = emailService;
+        OpenJobs.CollectionChanged += (_, _) => RebuildGroupedOpenJobs();
     }
 
     public async Task LoadOpenJobsAsync()
@@ -105,6 +209,25 @@ public partial class JobViewModel : ViewModelBase
         OpenJobs.Clear();
         foreach (var job in await _jobService.GetOpenJobsAsync())
             OpenJobs.Add(job);
+    }
+
+    // Cross-navigation entry point (e.g. clicking a ticket number on the Customer
+    // screen's Tickets sub-tab) - the target job may be closed/delivered/cancelled and
+    // therefore not in OpenJobs at all, so this fetches it directly rather than
+    // requiring a prior list load. Goes through the normal SelectedJob setter so the
+    // usual open/lock bookkeeping (HandleSelectionChangeAsync) still applies - that
+    // logic already no-ops safely for a job that isn't in an editable status.
+    public async Task OpenJobByIdAsync(int jobId)
+    {
+        var job = await _jobService.GetJobByIdAsync(jobId);
+        if (job == null)
+        {
+            StatusMessage = $"Job #{jobId} not found";
+            return;
+        }
+
+        SelectedJob = job;
+        StatusMessage = $"Viewing job #{jobId}";
     }
 
     // Selecting a job to view it IS "opening it for edit" in the legacy app (there's no
@@ -492,5 +615,24 @@ public partial class JobViewModel : ViewModelBase
         _suppressSelectionSideEffects = true;
         SelectedJob = refreshed;
         _suppressSelectionSideEffects = false;
+    }
+}
+
+// One status bucket in the Tickets tab's grouped view (e.g. "In Progress") - built fresh
+// by JobViewModel.RebuildGroupedOpenJobs() each time, so Count/HeaderText don't need to
+// be independently observable; only IsExpanded (the Expander's own two-way binding) does.
+public partial class JobStatusGroup : ObservableObject
+{
+    public string StatusLabel { get; }
+    public ObservableCollection<JobRecord> Jobs { get; } = new();
+    public int Count => Jobs.Count;
+    public string HeaderText => $"{StatusLabel} ({Count})";
+
+    [ObservableProperty]
+    private bool _isExpanded = true;
+
+    public JobStatusGroup(string statusLabel)
+    {
+        StatusLabel = statusLabel;
     }
 }

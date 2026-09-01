@@ -112,6 +112,15 @@ public partial class MainWindowViewModel : ViewModelBase
         SymptomsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Symptoms, "Problem Symptoms");
         TaskTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.TaskTypes, "Task Types");
 
+        // Clicking a ticket number on the Customer screen's Tickets sub-tab jumps to the
+        // Tickets tab and opens that job - CustomerViewModel has no reference to the tab
+        // strip or JobViewModel itself, so it just raises an event for this to handle.
+        CustomerViewModel.TicketOpened += async jobId =>
+        {
+            SelectedTabIndex = 9;
+            await JobViewModel.OpenJobByIdAsync(jobId);
+        };
+
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
 
@@ -324,6 +333,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private void StaffList()
     {
         SelectedTabIndex = 3;
+    }
+
+    [RelayCommand]
+    private void TransactionLookup()
+    {
+        SelectedTabIndex = 5;
     }
 
     [RelayCommand]
