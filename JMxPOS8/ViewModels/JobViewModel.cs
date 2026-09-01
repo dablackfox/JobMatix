@@ -500,6 +500,7 @@ public partial class JobViewModel : ViewModelBase
 
     private void RaiseCanExecuteChanged()
     {
+        OnPropertyChanged(nameof(CanApproveQuote));
         OnPropertyChanged(nameof(CanCheckIn));
         OnPropertyChanged(nameof(CanStartWork));
         OnPropertyChanged(nameof(CanReturnToNew));
@@ -661,6 +662,22 @@ public partial class JobViewModel : ViewModelBase
         {
             StatusMessage = $"Error printing docket: {ex.Message}";
         }
+    }
+
+    // Approve a quote awaiting customer confirmation (direct feedback, 2026-09-01) -
+    // "standard service charge and quote on what it will cost to fix" scenario: the ticket
+    // was created as Quotation Required, the customer calls back to approve, and this
+    // upgrades it to Proceed with Service. Not shown for Proceed to Limit, since that's
+    // already a form of approval.
+    public bool CanApproveQuote => SelectedJob?.IsQuotationRequired == true;
+
+    [RelayCommand]
+    private async Task ApproveQuote()
+    {
+        if (SelectedJob == null) return;
+        await _jobService.ApproveQuoteAsync(SelectedJob.JobId);
+        StatusMessage = $"Job #{SelectedJob.JobId} approved - proceeding with service";
+        await RefreshSelectedAsync();
     }
 
     [RelayCommand]

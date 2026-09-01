@@ -185,6 +185,29 @@ public class JobService
     public async Task ReturnToNewAsync(int jobId)
         => await RequireTransitionAsync(jobId, new[] { "30-Started", "33-InProcess" }, "10-Created");
 
+    // Upgrades "Quotation Required" to "Proceed with Service" once the customer confirms
+    // by phone/callback (direct feedback, 2026-09-01) - the legacy field this was restored
+    // from was fixed at intake with no later edit path, but real workflow needs this: the
+    // standard-service-charge diagnose-then-quote case (as distinct from a build quote,
+    // which is its own separate not-yet-built pipeline - see ROADMAP.md). Rewrites the
+    // marker in-place in problemshort, leaving the rest of the description untouched.
+    public async Task ApproveQuoteAsync(int jobId)
+    {
+        var job = await GetJobByIdAsync(jobId);
+        if (job == null) return;
+
+        var cleaned = ProblemDescriptionHelper.StripCustomerInstructionMarker(job.ProblemShort);
+        var newProblemShort = $"{cleaned} {ProblemDescriptionHelper.MarkerFor(CustomerInstruction.ProceedWithService)}".Trim();
+
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE jobs SET problemshort = @problemShort WHERE job_id = @jobId";
+        AddParam(cmd, "@problemShort", newProblemShort);
+        AddParam(cmd, "@jobId", jobId);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
     public async Task SuspendAsync(int jobId)
         => await RequireTransitionAsync(jobId, new[] { "30-Started", "33-InProcess" }, "20-Suspended");
 

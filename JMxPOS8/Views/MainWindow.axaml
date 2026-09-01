@@ -1887,16 +1887,26 @@
                                 </Grid>
 
                                 <!-- Customer Instruction status (direct feedback, 2026-09-01) -
-                                     read-only here, matching the legacy main job page's own
-                                     labInstructions banner (set once at intake, not editable
-                                     after). Only shows for jobs that actually have one - jobs
-                                     created before this control existed in this port won't. -->
+                                     mostly read-only, matching the legacy main job page's own
+                                     labInstructions banner (set once at intake there, never
+                                     editable after). Only shows for jobs that actually have
+                                     one - jobs created before this control existed won't. The
+                                     one exception: a Quotation Required job can be upgraded to
+                                     Proceed with Service via Approve - the legacy app never
+                                     supported this, but real workflow needs it for the
+                                     standard-service-charge "look at it, quote the fix, wait
+                                     for the customer to call back and approve" case. -->
                                 <Border Classes.instructionQuoteRequired="{Binding JobViewModel.SelectedJob.IsQuotationRequired}"
                                         Classes.instructionProceed="{Binding JobViewModel.SelectedJob.IsProceedWithService}"
                                         Classes.instructionProceedToLimit="{Binding JobViewModel.SelectedJob.IsProceedToLimit}"
                                         BorderThickness="1" CornerRadius="4" Padding="8"
                                         IsVisible="{Binding JobViewModel.SelectedJob.HasInstruction}">
-                                    <TextBlock Text="{Binding JobViewModel.SelectedJob.InstructionLabel}" FontWeight="Bold"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding JobViewModel.SelectedJob.InstructionLabel}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="✓ Approve" Background="#2E7D32" Foreground="White"
+                                                Command="{Binding JobViewModel.ApproveQuoteCommand}"
+                                                IsVisible="{Binding JobViewModel.CanApproveQuote}"/>
+                                    </Grid>
                                 </Border>
 
                                 <!-- Time tracking (direct feedback, 2026-09-01): "a start stop auto add
