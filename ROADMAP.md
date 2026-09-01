@@ -173,6 +173,14 @@ The business owner ran the app and flagged the top tab strip as cluttered and po
 
 Verified by actually running the app and screenshotting each piece against real data, including opening a delivered ticket through the new cross-navigation path to confirm the existing optimistic-lock logic (`HandleSelectionChangeAsync`) degrades safely outside the open-jobs list (it already did — the lock transition only applies to Suspended/Started/QA statuses).
 
+**Follow-up round (2026-09-01, same day)** — feedback after reviewing the round above live:
+- Avalonia's built-in `Expander` wasn't resolving its chevron icon resource in this environment, rendering its literal internal theme key (`Avalonia.Controls|Expander:down`) as visible text with a stray gap. Replaced with a plain `Button` + a hand-drawn glyph (`JobStatusGroup.ExpandGlyph`) — sidesteps the broken resource entirely.
+- No way to close an opened ticket and get back to the list — added a "Back to list" button (`CloseTicketCommand`). Also found in the process: the detail panel's `Grid.Row` was never bumped when the search row was added earlier that session, so it was silently overlapping the list instead of sitting below it.
+- Viewing a ticket now takes over the **full tab width** instead of a cramped side column (`JobViewModel.IsViewingTicket`) — list mode (New Ticket form + search/grouped list) and detail mode are mutually exclusive full-width sections now, not a fixed two-column split, so the New Ticket form no longer eats space while a ticket is open.
+- New `job_notes` table/`JobNote` model — a real running log of notes (unlike the single-value legacy `servicenotes`/`diagnosis` columns), each flagged public or private and color-coded (amber vs. green) so the distinction reads at a glance. There was nowhere to add a new note at all before this.
+- Note entry is a proper multi-line textarea now (real notes can be "a wall of text"), and the whole detail panel is wrapped in a `ScrollViewer` — Parts and everything below it could run off the bottom of the tab with no way to reach it.
+- Service notes completed via "Complete" now carry the same staff-name + timestamp attribution real historical data already has (e.g. "Stewart: 12-Nov-2016  13:00") — the completion flow never wrote that prefix, so every ticket completed through this port so far had unattributed notes while migrated ones didn't.
+
 ---
 
 ## Phase 4: Cross-Store Reporting
