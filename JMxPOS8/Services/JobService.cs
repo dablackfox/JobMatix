@@ -397,16 +397,22 @@ public class JobService
 
     public async Task AddJobNoteAsync(int jobId, string noteText, bool isPrivate, string staffName)
     {
+        // date_created must be stamped with app-local time, not the DB's own
+        // CURRENT_TIMESTAMP - the DB container's clock runs UTC, so letting it default
+        // made every note appear to have been written hours in the future/past relative
+        // to the staff member who just typed it (matches the JobTimeService fix for the
+        // same underlying clock mismatch).
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO job_notes (job_id, note_text, is_private, staff_name)
-            VALUES (@jobId, @noteText, @isPrivate, @staffName)";
+            INSERT INTO job_notes (job_id, note_text, is_private, staff_name, date_created)
+            VALUES (@jobId, @noteText, @isPrivate, @staffName, @dateCreated)";
         AddParam(cmd, "@jobId", jobId);
         AddParam(cmd, "@noteText", noteText);
         AddParam(cmd, "@isPrivate", isPrivate);
         AddParam(cmd, "@staffName", staffName);
+        AddParam(cmd, "@dateCreated", DateTime.Now);
         await Task.Run(() => cmd.ExecuteNonQuery());
     }
 

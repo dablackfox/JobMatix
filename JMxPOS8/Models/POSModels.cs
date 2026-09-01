@@ -306,6 +306,39 @@ namespace JMxPOS8.Models
         public DateTime DateCreated { get; set; }
     }
 
+    // Ticket time tracking (job_time_entries) - concurrent by design: a running timer is
+    // just a row with EndTime == null, so any number of jobs can each have their own
+    // running timer at once (ROADMAP.md - direct feedback, 2026-09-01).
+    public class JobTimeEntry
+    {
+        public int EntryId { get; set; }
+        public int JobId { get; set; }
+        public int? StaffId { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public DateTime? EndTime { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public bool Billable { get; set; } = true;
+
+        public bool IsRunning => EndTime == null;
+        public TimeSpan Elapsed => (EndTime ?? DateTime.Now) - StartTime;
+    }
+
+    // One row in the "jobs with a timer currently running" list - the target of the
+    // status-bar indicator's click-through (direct feedback: "clicking it should take us
+    // to a filtered list of the jobs with timers").
+    public class RunningTimerSummary
+    {
+        public int EntryId { get; set; }
+        public int JobId { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string ProblemSummary { get; set; } = string.Empty;
+
+        public TimeSpan Elapsed => DateTime.Now - StartTime;
+    }
+
     // A physical stock count session - stays open while staff scan items, then gets
     // committed (adjusting stock.quantityinstock to match what was counted) or cancelled.
     public class StocktakeSession

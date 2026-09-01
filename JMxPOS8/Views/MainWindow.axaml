@@ -42,6 +42,23 @@
             <Setter Property="Background" Value="#E8F5E9"/>
             <Setter Property="BorderBrush" Value="#81C784"/>
         </Style>
+        <!-- Reports page: only the report actually on screen is highlighted, so switching
+             reports doesn't leave a stale button (e.g. Cash Up, previously hardcoded green
+             at all times) looking active when it no longer is. -->
+        <Style Selector="Button.reportBtn.active">
+            <Setter Property="Background" Value="#2E7D32"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <!-- Report grid column headers double as sort buttons - flat and left-aligned so
+             they still read as a plain header row, not obviously a button, until hovered. -->
+        <Style Selector="Button.reportColHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
     </Window.Styles>
 
     <DockPanel>
@@ -111,6 +128,12 @@
                 <TextBlock Text="{Binding TillInfo}" Margin="20,0"/>
                 <Rectangle Width="1" Fill="Gray" Margin="0,2"/>
                 <TextBlock Text="{Binding Source={x:Static sys:DateTime.Now}, StringFormat='HH:mm:ss'}" Margin="20,0"/>
+                <Rectangle Width="1" Fill="Gray" Margin="20,2,0,2" IsVisible="{Binding JobViewModel.HasRunningTimers}"/>
+                <Button Margin="20,0,0,0" Padding="6,2" Background="#FFF6E0" BorderBrush="#E0C070" BorderThickness="1"
+                        Command="{Binding ShowRunningTimersCommand}"
+                        IsVisible="{Binding JobViewModel.HasRunningTimers}">
+                    <TextBlock Text="{Binding JobViewModel.RunningTimersCountDisplay}" Foreground="#8A6D3B" FontWeight="Bold"/>
+                </Button>
             </StackPanel>
         </Panel>
 
@@ -1067,33 +1090,41 @@
                     <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
                         <TextBlock Text="Report Type" FontWeight="Bold" Margin="0,0,0,5"/>
                         <WrapPanel Orientation="Horizontal" ItemSpacing="10" LineSpacing="6">
-                            <Button Content="Daily Sales" Command="{Binding ReportsViewModel.RunDailySalesReportCommand}" Width="120"/>
-                            <Button Content="Stock Value" Command="{Binding ReportsViewModel.RunStockValueReportCommand}" Width="120"/>
-                            <Button Content="Low Stock" Command="{Binding ReportsViewModel.RunLowStockReportCommand}" Width="120"/>
-                            <Button Content="Customer Accounts" Command="{Binding ReportsViewModel.RunCustomerAccountsReportCommand}" Width="140"/>
-                            <Button Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
-                            <Button Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
-                            <Button Content="Cost / Margin" Command="{Binding ReportsViewModel.RunCostMarginReportCommand}" Width="120"/>
-                            <Button Content="Jobs" Command="{Binding ReportsViewModel.RunJobsReportCommand}" Width="100"/>
-                            <Button Content="Parts" Command="{Binding ReportsViewModel.RunPartsReportCommand}" Width="100"/>
-                            <Button Content="Staff" Command="{Binding ReportsViewModel.RunStaffReportCommand}" Width="100"/>
-                            <Button Content="Timesheet" Command="{Binding ReportsViewModel.RunTimesheetReportCommand}" Width="110"/>
-                            <Button Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120" Background="#2E7D32" Foreground="White"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsDailySalesSelected}" Content="Daily Sales" Command="{Binding ReportsViewModel.RunDailySalesReportCommand}" Width="120"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsStockValueSelected}" Content="Stock Value" Command="{Binding ReportsViewModel.RunStockValueReportCommand}" Width="120"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsLowStockSelected}" Content="Low Stock" Command="{Binding ReportsViewModel.RunLowStockReportCommand}" Width="120"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCustomerAccountsSelected}" Content="Customer Accounts" Command="{Binding ReportsViewModel.RunCustomerAccountsReportCommand}" Width="140"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsTopCustomersSelected}" Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsTopProductsSelected}" Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCostMarginSelected}" Content="Cost / Margin" Command="{Binding ReportsViewModel.RunCostMarginReportCommand}" Width="120"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsJobsSelected}" Content="Jobs" Command="{Binding ReportsViewModel.RunJobsReportCommand}" Width="100"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsPartsSelected}" Content="Parts" Command="{Binding ReportsViewModel.RunPartsReportCommand}" Width="100"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsStaffSelected}" Content="Staff" Command="{Binding ReportsViewModel.RunStaffReportCommand}" Width="100"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsTimesheetSelected}" Content="Timesheet" Command="{Binding ReportsViewModel.RunTimesheetReportCommand}" Width="110"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCustomerStatementSelected}" Content="Customer Statement" Command="{Binding ReportsViewModel.RunCustomerStatementCommand}" Width="170"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCashupSelected}" Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120"/>
                         </WrapPanel>
 
-                        <!-- Date Range Selection -->
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                        <!-- Date Range Selection - only shown for reports that read it -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" IsVisible="{Binding ReportsViewModel.ShowDateRange}">
                             <TextBlock Text="From:" VerticalAlignment="Center"/>
                             <DatePicker SelectedDate="{Binding ReportsViewModel.StartDate}" Width="150"/>
                             <TextBlock Text="To:" VerticalAlignment="Center" Margin="10,0,0,0"/>
                             <DatePicker SelectedDate="{Binding ReportsViewModel.EndDate}" Width="150"/>
                         </StackPanel>
 
-                        <!-- Customer Statement -->
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                        <!-- Customer Statement barcode entry - only relevant once that
+                             report is selected (via the button above), not on every report
+                             page. Pressing Enter re-runs the same command with the typed
+                             barcode. -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" IsVisible="{Binding ReportsViewModel.ShowCustomerBarcode}">
                             <TextBlock Text="Customer barcode:" VerticalAlignment="Center"/>
-                            <TextBox Text="{Binding ReportsViewModel.StatementCustomerBarcode}" Width="150" Watermark="Barcode/number"/>
-                            <Button Content="Customer Statement" Command="{Binding ReportsViewModel.RunCustomerStatementCommand}" Width="160"/>
+                            <TextBox Text="{Binding ReportsViewModel.StatementCustomerBarcode}" Width="150" Watermark="Barcode/number">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding ReportsViewModel.RunCustomerStatementCommand}"/>
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Content="Generate" Command="{Binding ReportsViewModel.RunCustomerStatementCommand}" Width="100"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -1169,7 +1200,9 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             
-                            <!-- Header Row -->
+                            <!-- Header Row - descriptive per-report labels (direct feedback,
+                                 2026-09-01: "stock value report shows non descript column
+                                 names") and clickable to sort (" arent sortable by column"). -->
                             <Grid Grid.Row="0" Background="LightGray" Margin="0,0,0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1177,10 +1210,30 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Column 1" Margin="5" FontWeight="Bold"/>
-                                <TextBlock Grid.Column="1" Text="Column 2" Margin="5" FontWeight="Bold"/>
-                                <TextBlock Grid.Column="2" Text="Column 3" Margin="5" FontWeight="Bold"/>
-                                <TextBlock Grid.Column="3" Text="Column 4" Margin="5" FontWeight="Bold"/>
+                                <Button Grid.Column="0" Classes="reportColHeader" Command="{Binding ReportsViewModel.SortByColumnCommand}" CommandParameter="1">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{Binding ReportsViewModel.Column1Header}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding ReportsViewModel.SortGlyph}" IsVisible="{Binding ReportsViewModel.IsSortedByColumn1}" FontSize="10"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Classes="reportColHeader" Command="{Binding ReportsViewModel.SortByColumnCommand}" CommandParameter="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{Binding ReportsViewModel.Column2Header}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding ReportsViewModel.SortGlyph}" IsVisible="{Binding ReportsViewModel.IsSortedByColumn2}" FontSize="10"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="2" Classes="reportColHeader" Command="{Binding ReportsViewModel.SortByColumnCommand}" CommandParameter="3">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{Binding ReportsViewModel.Column3Header}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding ReportsViewModel.SortGlyph}" IsVisible="{Binding ReportsViewModel.IsSortedByColumn3}" FontSize="10"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="3" Classes="reportColHeader" Command="{Binding ReportsViewModel.SortByColumnCommand}" CommandParameter="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{Binding ReportsViewModel.Column4Header}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding ReportsViewModel.SortGlyph}" IsVisible="{Binding ReportsViewModel.IsSortedByColumn4}" FontSize="10"/>
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                             
                             <!-- Data ListBox -->
@@ -1705,8 +1758,8 @@
                                      SelectedItem="{Binding JobViewModel.SelectedJob}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
-                                            <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                        <Grid ColumnDefinitions="Auto,*,30,150,30" Margin="5,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold" Margin="0,0,10,0"/>
                                             <TextBlock Grid.Column="1" Text="{Binding DisplaySummary}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding JobStatus}" FontWeight="Bold"/>
@@ -1771,6 +1824,32 @@
                                     <Button Grid.Column="1" Content="✕ Back to list" VerticalAlignment="Top"
                                             Command="{Binding JobViewModel.CloseTicketCommand}"/>
                                 </Grid>
+
+                                <!-- Time tracking (direct feedback, 2026-09-01): "a start stop auto add
+                                     time to notes and billing was a major sore point" of the legacy app.
+                                     Concurrent by design - this ticket's timer is independent of any other
+                                     ticket's, so switching between jobs never forces you to stop one first. -->
+                                <Border Background="#FFF6E0" BorderBrush="#E0C070" BorderThickness="1" CornerRadius="4" Padding="10">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !JobViewModel.HasCurrentJobTimer}">
+                                            <TextBlock Grid.Column="0" Text="No timer running on this ticket" VerticalAlignment="Center" Foreground="Gray"/>
+                                            <Button Grid.Column="1" Content="▶ Start Timer" Background="ForestGreen" Foreground="White"
+                                                    Command="{Binding JobViewModel.StartTimerCommand}"/>
+                                        </Grid>
+                                        <StackPanel IsVisible="{Binding JobViewModel.HasCurrentJobTimer}" Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="⏱" FontSize="16"/>
+                                                    <TextBlock Text="{Binding JobViewModel.CurrentJobTimerElapsedDisplay}" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding JobViewModel.CurrentJobTimer.StaffName, StringFormat='started by {0}'}" Foreground="Gray" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="■ Stop Timer" Background="Firebrick" Foreground="White"
+                                                        Command="{Binding JobViewModel.StopTimerCommand}"/>
+                                            </Grid>
+                                            <TextBox Watermark="What did you do? (added to notes when you stop)" Text="{Binding JobViewModel.TimerNoteText}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
                                 <!-- Notes - problem details, diagnosis and service notes were being
                                      captured but never shown again once you left the job. -->

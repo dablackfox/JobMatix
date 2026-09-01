@@ -105,7 +105,7 @@ public partial class MainWindowViewModel : ViewModelBase
             new GoodsReceivedService(_dbService), supplierService, _stockService, _staffService);
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
-        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService);
+        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService, new JobTimeService(_dbService));
         var referenceDataService = new ReferenceDataService(_dbService);
         GoodsTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.GoodsTypes, "Goods Accepted Types");
         BrandsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Brands, "Brands");
@@ -145,6 +145,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
         OpenSales.Add(doc);
         return doc;
+    }
+
+    // Status-bar "N timers running" indicator's click-through, visible from any tab -
+    // jump to Tickets and show the filtered "jobs with a running timer" list.
+    [RelayCommand]
+    private async Task ShowRunningTimers()
+    {
+        SelectedTabIndex = 9;
+        await JobViewModel.ShowJobsWithRunningTimersCommand.ExecuteAsync(null);
     }
 
     [RelayCommand]

@@ -19,6 +19,8 @@ public partial class JobViewModel : ViewModelBase
     private readonly SmsService _smsService;
     private readonly EmailService _emailService;
     private readonly JobDocumentPdfService _pdfService = new();
+    private readonly JobTimeService _jobTimeService;
+    private readonly Avalonia.Threading.DispatcherTimer _timerDisplayTick;
 
     // Status → display bucket, in the order groups should appear. Mirrors the legacy
     // tree-style ticket list (New/In Progress/QA/etc. with a count per group) that this
@@ -175,6 +177,122 @@ public partial class JobViewModel : ViewModelBase
             Notes.Add(note);
     }
 
+    // Ticket time tracking (direct feedback, 2026-09-01) - concurrent by design, see
+    // JobTimeService's own header comment. CurrentJobTimer is this ticket's own running
+    // entry if one exists (any ticket can have at most one at a time; a whole separate
+    // job can have its own independent one concurrently - see RunningTimers below).
+    [ObservableProperty]
+    private JobTimeEntry? _currentJobTimer;
+
+    [ObservableProperty]
+    private string _timerNoteText = "";
+
+    public string CurrentJobTimerElapsedDisplay => CurrentJobTimer == null ? "" : FormatElapsed(CurrentJobTimer.Elapsed);
+
+    // Avalonia's "!" binding negation only works on bool - binding IsVisible directly to
+    // the nullable CurrentJobTimer (or "!CurrentJobTimer") silently fails the type
+    // conversion and leaves both the "start" and "running" panels visible at once.
+    public bool HasCurrentJobTimer => CurrentJobTimer != null;
+
+    partial void OnCurrentJobTimerChanged(JobTimeEntry? value)
+    {
+        OnPropertyChanged(nameof(CurrentJobTimerElapsedDisplay));
+        OnPropertyChanged(nameof(HasCurrentJobTimer));
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}" : $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+
+    private async Task LoadCurrentJobTimerAsync(int jobId)
+    {
+        CurrentJobTimer = await _jobTimeService.GetRunningTimerForJobAsync(jobId);
+        TimerNoteText = "";
+    }
+
+    [RelayCommand]
+    private async Task StartTimer()
+    {
+        if (SelectedJob == null) return;
+        if (string.IsNullOrWhiteSpace(ActionStaffBarcode))
+        {
+            StatusMessage = "Enter your staff barcode to start a timer";
+            return;
+        }
+        var staff = await _staffService.FindStaffByBarcodeAsync(ActionStaffBarcode.Trim());
+        if (staff == null)
+        {
+            StatusMessage = $"Staff not found for '{ActionStaffBarcode}'";
+            return;
+        }
+
+        CurrentJobTimer = await _jobTimeService.StartTimerAsync(SelectedJob.JobId, staff.StaffId, staff.DocketName);
+        StatusMessage = $"Timer started on job #{SelectedJob.JobId}";
+        await RefreshRunningTimersAsync();
+    }
+
+    [RelayCommand]
+    private async Task StopTimer()
+    {
+        if (SelectedJob == null || CurrentJobTimer == null) return;
+
+        await _jobTimeService.StopTimerAsync(CurrentJobTimer.EntryId, TimerNoteText.Trim(), billable: true);
+
+        // Auto-log a note summarizing the session, per direct feedback ("auto add time to
+        // notes") - private by default, matching the same reasoning as every other
+        // internal-only note default in this app.
+        var elapsed = CurrentJobTimer.Elapsed;
+        var summary = $"Tracked {FormatElapsed(elapsed)} ({CurrentJobTimer.StaffName})" +
+                      (string.IsNullOrWhiteSpace(TimerNoteText) ? "" : $": {TimerNoteText.Trim()}");
+        await _jobService.AddJobNoteAsync(SelectedJob.JobId, summary, isPrivate: true, CurrentJobTimer.StaffName);
+
+        StatusMessage = $"Timer stopped - {FormatElapsed(elapsed)} logged";
+        CurrentJobTimer = null;
+        TimerNoteText = "";
+        await LoadNotesAsync(SelectedJob.JobId);
+        await RefreshRunningTimersAsync();
+    }
+
+    // Backs the status-bar "N running" indicator, refreshed after every start/stop plus
+    // whenever the Tickets tab loads (MainWindowViewModel).
+    public ObservableCollection<RunningTimerSummary> RunningTimers { get; } = new();
+
+    public string RunningTimersCountDisplay => RunningTimers.Count switch
+    {
+        0 => "",
+        1 => "⏱ 1 timer running",
+        var n => $"⏱ {n} timers running"
+    };
+
+    public bool HasRunningTimers => RunningTimers.Count > 0;
+
+    public async Task RefreshRunningTimersAsync()
+    {
+        var timers = await _jobTimeService.GetRunningTimersAsync();
+        RunningTimers.Clear();
+        foreach (var t in timers)
+            RunningTimers.Add(t);
+        OnPropertyChanged(nameof(RunningTimersCountDisplay));
+        OnPropertyChanged(nameof(HasRunningTimers));
+    }
+
+    // The status-bar indicator's click-through - "a filtered list of the jobs with
+    // timers". Reuses the existing search-results overlay rather than a new UI surface.
+    [RelayCommand]
+    public async Task ShowJobsWithRunningTimers()
+    {
+        SelectedJob = null;
+        await RefreshRunningTimersAsync();
+        IsSearchActive = true;
+        TicketSearchText = "";
+        SearchResults.Clear();
+        foreach (var timer in RunningTimers)
+        {
+            var job = await _jobService.GetJobByIdAsync(timer.JobId);
+            if (job != null) SearchResults.Add(job);
+        }
+        StatusMessage = $"Showing {SearchResults.Count} ticket(s) with a running timer";
+    }
+
     [ObservableProperty]
     private JobRecord? _selectedJob;
 
@@ -243,7 +361,7 @@ public partial class JobViewModel : ViewModelBase
     public bool CanCancel => SelectedJob != null && SelectedJob.JobStatus is not ("50-Completed" or "70-Delivered" or "97-Cancelled");
     public bool CanAddParts => SelectedJob != null && !SelectedJob.JobStatus.StartsWith("70") && !SelectedJob.JobStatus.StartsWith("97");
 
-    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService, EmailService emailService)
+    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService, EmailService emailService, JobTimeService jobTimeService)
     {
         _jobService = jobService;
         _customerService = customerService;
@@ -251,7 +369,20 @@ public partial class JobViewModel : ViewModelBase
         _stockService = stockService;
         _smsService = smsService;
         _emailService = emailService;
+        _jobTimeService = jobTimeService;
         OpenJobs.CollectionChanged += (_, _) => RebuildGroupedOpenJobs();
+
+        // Ticks the live "elapsed" displays (the per-ticket running timer and every entry
+        // in the global running-timers list) once a second - nothing here re-queries the
+        // database, it just nudges bound properties that compute elapsed time from an
+        // already-fetched StartTime against DateTime.Now.
+        _timerDisplayTick = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timerDisplayTick.Tick += (_, _) =>
+        {
+            if (CurrentJobTimer != null) OnPropertyChanged(nameof(CurrentJobTimerElapsedDisplay));
+            OnPropertyChanged(nameof(RunningTimersCountDisplay));
+        };
+        _timerDisplayTick.Start();
     }
 
     public async Task LoadOpenJobsAsync()
@@ -343,6 +474,7 @@ public partial class JobViewModel : ViewModelBase
             Parts.Add(part);
 
         await LoadNotesAsync(newJob.JobId);
+        await LoadCurrentJobTimerAsync(newJob.JobId);
     }
 
     private void RaiseCanExecuteChanged()

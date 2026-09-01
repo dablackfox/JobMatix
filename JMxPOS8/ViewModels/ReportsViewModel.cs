@@ -29,9 +29,115 @@ public partial class ReportsViewModel : ViewModelBase
     // report grid, so it gets its own panel instead of populating ReportData.
     public bool IsCashupView => ReportTitle == "Cash Up";
 
+    // Direct feedback, 2026-09-01: the date range and customer-barcode controls used to
+    // show unconditionally above every report, doing nothing for the reports that ignore
+    // them. Only show each control for the reports that actually read it (see the
+    // StartDate/EndDate and StatementCustomerBarcode usages in the Run*Report methods
+    // below), and only highlight whichever report button is actually active (ReportTitle
+    // doubles as a unique key per report, so no separate "selected index" bookkeeping).
+    public bool ShowDateRange => ReportTitle is not ("Stock Value Report" or "Low Stock Report"
+        or "Customer Accounts Report" or "Cash Up" or "Select a report to run");
+    public bool ShowCustomerBarcode => ReportTitle == "Customer Statement";
+
+    public bool IsDailySalesSelected => ReportTitle == "Daily Sales Report";
+    public bool IsStockValueSelected => ReportTitle == "Stock Value Report";
+    public bool IsLowStockSelected => ReportTitle == "Low Stock Report";
+    public bool IsCustomerAccountsSelected => ReportTitle == "Customer Accounts Report";
+    public bool IsTopCustomersSelected => ReportTitle == "Top Customers by Sales";
+    public bool IsTopProductsSelected => ReportTitle == "Top Products by Sales";
+    public bool IsCostMarginSelected => ReportTitle == "Cost / Margin Report (serialized items with known cost)";
+    public bool IsJobsSelected => ReportTitle == "Jobs Report";
+    public bool IsPartsSelected => ReportTitle == "Parts Report";
+    public bool IsStaffSelected => ReportTitle == "Staff Report";
+    public bool IsTimesheetSelected => ReportTitle == "Timesheet Report";
+    public bool IsCustomerStatementSelected => ReportTitle == "Customer Statement";
+    public bool IsCashupSelected => ReportTitle == "Cash Up";
+
+    // Descriptive per-report column headers, replacing the generic "Column 1..4" labels -
+    // set alongside ReportTitle at the top of each Run*Report method.
+    [ObservableProperty]
+    private string _column1Header = "Column 1";
+
+    [ObservableProperty]
+    private string _column2Header = "Column 2";
+
+    [ObservableProperty]
+    private string _column3Header = "Column 3";
+
+    [ObservableProperty]
+    private string _column4Header = "Column 4";
+
+    // Column sorting (direct feedback, 2026-09-01: "stock value report shows non descript
+    // column names and arent sortable by column") - generic across every report, since
+    // ReportItem's four columns are shared by all of them. 0 = unsorted.
+    [ObservableProperty]
+    private int _sortColumn = 0;
+
+    [ObservableProperty]
+    private bool _sortAscending = true;
+
+    public string SortGlyph => SortAscending ? "▲" : "▼";
+    public bool IsSortedByColumn1 => SortColumn == 1;
+    public bool IsSortedByColumn2 => SortColumn == 2;
+    public bool IsSortedByColumn3 => SortColumn == 3;
+    public bool IsSortedByColumn4 => SortColumn == 4;
+
+    partial void OnSortColumnChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsSortedByColumn1));
+        OnPropertyChanged(nameof(IsSortedByColumn2));
+        OnPropertyChanged(nameof(IsSortedByColumn3));
+        OnPropertyChanged(nameof(IsSortedByColumn4));
+    }
+
+    partial void OnSortAscendingChanged(bool value) => OnPropertyChanged(nameof(SortGlyph));
+
+    [RelayCommand]
+    private void SortByColumn(string columnParam)
+    {
+        if (!int.TryParse(columnParam, out var col) || ReportData.Count == 0)
+            return;
+
+        SortAscending = SortColumn == col ? !SortAscending : true;
+        SortColumn = col;
+
+        Func<ReportItem, string> selector = col switch
+        {
+            1 => r => r.Column1,
+            2 => r => r.Column2,
+            3 => r => r.Column3,
+            4 => r => r.Column4,
+            _ => r => r.Column1
+        };
+
+        var sorted = SortAscending
+            ? ReportData.OrderBy(selector, ReportColumnComparer.Instance).ToList()
+            : ReportData.OrderByDescending(selector, ReportColumnComparer.Instance).ToList();
+
+        ReportData.Clear();
+        foreach (var item in sorted)
+            ReportData.Add(item);
+    }
+
     partial void OnReportTitleChanged(string value)
     {
+        SortColumn = 0;
         OnPropertyChanged(nameof(IsCashupView));
+        OnPropertyChanged(nameof(ShowDateRange));
+        OnPropertyChanged(nameof(ShowCustomerBarcode));
+        OnPropertyChanged(nameof(IsDailySalesSelected));
+        OnPropertyChanged(nameof(IsStockValueSelected));
+        OnPropertyChanged(nameof(IsLowStockSelected));
+        OnPropertyChanged(nameof(IsCustomerAccountsSelected));
+        OnPropertyChanged(nameof(IsTopCustomersSelected));
+        OnPropertyChanged(nameof(IsTopProductsSelected));
+        OnPropertyChanged(nameof(IsCostMarginSelected));
+        OnPropertyChanged(nameof(IsJobsSelected));
+        OnPropertyChanged(nameof(IsPartsSelected));
+        OnPropertyChanged(nameof(IsStaffSelected));
+        OnPropertyChanged(nameof(IsTimesheetSelected));
+        OnPropertyChanged(nameof(IsCustomerStatementSelected));
+        OnPropertyChanged(nameof(IsCashupSelected));
     }
 
     [ObservableProperty]
@@ -109,6 +215,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running daily sales report...";
             ReportTitle = "Daily Sales Report";
+            Column1Header = "Date"; Column2Header = "Invoices"; Column3Header = "Total Sales"; Column4Header = "Avg Sale";
             ReportData.Clear();
 
             using (var conn = _dbService.GetConnection())
@@ -190,6 +297,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running stock value report...";
             ReportTitle = "Stock Value Report";
+            Column1Header = "Code"; Column2Header = "Description"; Column3Header = "Qty"; Column4Header = "Cost Value";
             ReportData.Clear();
 
             var stocks = await _stockService.GetAllStockAsync(1000);
@@ -243,6 +351,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running low stock report...";
             ReportTitle = "Low Stock Report";
+            Column1Header = "Code"; Column2Header = "Description"; Column3Header = "Qty on Hand"; Column4Header = "Reorder Level";
             ReportData.Clear();
 
             var stocks = await _stockService.GetAllStockAsync(1000);
@@ -287,6 +396,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running customer accounts report...";
             ReportTitle = "Customer Accounts Report";
+            Column1Header = "Barcode"; Column2Header = "Customer"; Column3Header = "Balance"; Column4Header = "Credit Limit";
             ReportData.Clear();
 
             var customers = await _customerService.GetAllCustomersAsync(1000);
@@ -333,6 +443,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running top customers report...";
             ReportTitle = "Top Customers by Sales";
+            Column1Header = "Barcode"; Column2Header = "Customer"; Column3Header = "Purchases"; Column4Header = "Spent";
             ReportData.Clear();
 
             using (var conn = _dbService.GetConnection())
@@ -416,6 +527,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running top products report...";
             ReportTitle = "Top Products by Sales";
+            Column1Header = "Code"; Column2Header = "Description"; Column3Header = "Qty Sold"; Column4Header = "Sales";
             ReportData.Clear();
 
             using (var conn = _dbService.GetConnection())
@@ -543,6 +655,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running jobs report...";
             ReportTitle = "Jobs Report";
+            Column1Header = "Ticket"; Column2Header = "Customer (Status)"; Column3Header = "Hours"; Column4Header = "Charge";
             ReportData.Clear();
 
             var rates = await GetLabourRatesAsync();
@@ -614,6 +727,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running parts report...";
             ReportTitle = "Parts Report";
+            Column1Header = "Part Code"; Column2Header = "Description"; Column3Header = "Ticket"; Column4Header = "Line Total";
             ReportData.Clear();
 
             var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
@@ -685,6 +799,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running staff report...";
             ReportTitle = "Staff Report";
+            Column1Header = "Staff"; Column2Header = "Ticket"; Column3Header = "Hours"; Column4Header = "Charge";
             ReportData.Clear();
 
             var rates = await GetLabourRatesAsync();
@@ -760,6 +875,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running timesheet report...";
             ReportTitle = "Timesheet Report";
+            Column1Header = "Staff"; Column2Header = "Date (Ticket)"; Column3Header = "Hours"; Column4Header = "Cost";
             ReportData.Clear();
 
             var rates = await GetLabourRatesAsync();
@@ -855,6 +971,13 @@ public partial class ReportsViewModel : ViewModelBase
     {
         try
         {
+            // Set title/headers first (not after the barcode check below) so clicking this
+            // button always reveals the customer-barcode field, even the first time before
+            // any barcode has been entered - otherwise the field, which only shows for this
+            // report, would never appear for someone who hasn't run it yet.
+            ReportTitle = "Customer Statement";
+            Column1Header = "Date"; Column2Header = "Description"; Column3Header = "Amount"; Column4Header = "Balance";
+
             if (string.IsNullOrWhiteSpace(StatementCustomerBarcode))
             {
                 StatusMessage = "Enter a customer barcode first";
@@ -869,7 +992,6 @@ public partial class ReportsViewModel : ViewModelBase
             }
 
             StatusMessage = "Generating customer statement...";
-            ReportTitle = "Customer Statement";
             ReportData.Clear();
 
             var start = (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime;
@@ -976,6 +1098,7 @@ public partial class ReportsViewModel : ViewModelBase
         {
             StatusMessage = "Running cost/margin report...";
             ReportTitle = "Cost / Margin Report (serialized items with known cost)";
+            Column1Header = "Code"; Column2Header = "Description (units sold)"; Column3Header = "Cost"; Column4Header = "Profit";
             ReportData.Clear();
 
             using (var conn = _dbService.GetConnection())
@@ -1283,4 +1406,29 @@ public class ReportItem
     public string Column2 { get; set; } = string.Empty;
     public string Column3 { get; set; } = string.Empty;
     public string Column4 { get; set; } = string.Empty;
+}
+
+// Report columns are pre-formatted display strings ("$1,234.56", "12-Sep-2026", "#32363"),
+// not raw values, so a plain string sort would put "$100" before "$20". Parses each side as
+// a number or date first (stripping currency/thousands formatting) and only falls back to
+// text comparison for genuinely text columns (descriptions, statuses).
+public class ReportColumnComparer : IComparer<string>
+{
+    public static readonly ReportColumnComparer Instance = new();
+
+    public int Compare(string? x, string? y)
+    {
+        x ??= ""; y ??= "";
+        var xNumeric = x.Replace("$", "").Replace(",", "").Trim();
+        var yNumeric = y.Replace("$", "").Replace(",", "").Trim();
+        if (decimal.TryParse(xNumeric, NumberStyles.Any, CultureInfo.InvariantCulture, out var xNum) &&
+            decimal.TryParse(yNumeric, NumberStyles.Any, CultureInfo.InvariantCulture, out var yNum))
+            return xNum.CompareTo(yNum);
+
+        if (DateTime.TryParse(x, CultureInfo.InvariantCulture, DateTimeStyles.None, out var xDate) &&
+            DateTime.TryParse(y, CultureInfo.InvariantCulture, DateTimeStyles.None, out var yDate))
+            return xDate.CompareTo(yDate);
+
+        return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
+    }
 }
