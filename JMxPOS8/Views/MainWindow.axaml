@@ -1735,14 +1735,42 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="New Job" FontWeight="Bold" FontSize="16" Margin="0,0,0,5"/>
                             <TextBox Text="{Binding JobViewModel.NewCustomerBarcode}" Watermark="Customer barcode (optional)"/>
-                            <TextBox Text="{Binding JobViewModel.NewGoodsInCare}" Watermark="Goods in care"/>
-                            <TextBox Text="{Binding JobViewModel.NewGoodsBrand}" Watermark="Brand"/>
+                            <!-- Goods type / Brand / Symptoms - dropdowns against the Reference Data
+                                 tab's GoodsTypes/Brands/Symptoms tables (ROADMAP.md line 164's deferred
+                                 follow-up, wired 2026-09-02). Model has no matching reference table,
+                                 stays free text. -->
+                            <ComboBox ItemsSource="{Binding JobViewModel.GoodsTypeOptions}"
+                                      SelectedItem="{Binding JobViewModel.SelectedGoodsType}"
+                                      PlaceholderText="Goods type..." HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Description}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ComboBox ItemsSource="{Binding JobViewModel.BrandOptions}"
+                                      SelectedItem="{Binding JobViewModel.SelectedBrand}"
+                                      PlaceholderText="Brand..." HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Description}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <TextBox Text="{Binding JobViewModel.NewGoodsModel}" Watermark="Model"/>
                             <ComboBox ItemsSource="{x:Static vm:JobViewModel.PriorityOptions}"
                                       SelectedItem="{Binding JobViewModel.NewPriority}" HorizontalAlignment="Stretch"/>
                             <TextBox Text="{Binding JobViewModel.NewProblemShort}" Watermark="Problem (short)"/>
                             <TextBox Text="{Binding JobViewModel.NewProblemLong}" Watermark="Problem (details)" AcceptsReturn="True" Height="60"/>
-                            <TextBox Text="{Binding JobViewModel.NewSymptoms}" Watermark="Symptoms"/>
+                            <ComboBox ItemsSource="{Binding JobViewModel.SymptomOptions}"
+                                      SelectedItem="{Binding JobViewModel.SelectedSymptom}"
+                                      PlaceholderText="Symptoms..." HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Description}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <!-- Customer Instruction (direct feedback, 2026-09-01) - required,
                                  matching the legacy form's own "Customer Instruction must be
                                  selected" rule. Records whether the customer approved the work

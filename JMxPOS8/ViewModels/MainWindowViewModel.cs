@@ -105,8 +105,8 @@ public partial class MainWindowViewModel : ViewModelBase
             new GoodsReceivedService(_dbService), supplierService, _stockService, _staffService);
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
-        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService, new JobTimeService(_dbService));
         var referenceDataService = new ReferenceDataService(_dbService);
+        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService, new JobTimeService(_dbService), referenceDataService);
         GoodsTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.GoodsTypes, "Goods Accepted Types");
         BrandsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Brands, "Brands");
         SymptomsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Symptoms, "Problem Symptoms");
@@ -134,6 +134,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ActiveSaleDocument = CreateSaleDocument();
 
         StatusText = "Ready";
+
     }
 
     private SaleViewModel CreateSaleDocument()
@@ -400,6 +401,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedTabIndex = 9;
         StatusText = "Loading open jobs...";
         await JobViewModel.LoadOpenJobsAsync();
+        await JobViewModel.LoadIntakeReferenceDataAsync();
         StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
     }
 
@@ -537,6 +539,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 case 9: // Jobs tab
                     StatusText = "Loading open jobs...";
                     await JobViewModel.LoadOpenJobsAsync();
+                    await JobViewModel.LoadIntakeReferenceDataAsync();
                     StatusText = $"Jobs loaded: {JobViewModel.OpenJobs.Count} open";
                     break;
                 case 10: // Reference Data tab

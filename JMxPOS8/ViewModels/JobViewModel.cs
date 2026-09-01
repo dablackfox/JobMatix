@@ -20,6 +20,7 @@ public partial class JobViewModel : ViewModelBase
     private readonly EmailService _emailService;
     private readonly JobDocumentPdfService _pdfService = new();
     private readonly JobTimeService _jobTimeService;
+    private readonly ReferenceDataService _referenceDataService;
     private readonly Avalonia.Threading.DispatcherTimer _timerDisplayTick;
 
     // Status → display bucket, in the order groups should appear. Mirrors the legacy
@@ -348,12 +349,6 @@ public partial class JobViewModel : ViewModelBase
     private string _newCustomerBarcode = "";
 
     [ObservableProperty]
-    private string _newGoodsInCare = "";
-
-    [ObservableProperty]
-    private string _newGoodsBrand = "";
-
-    [ObservableProperty]
     private string _newGoodsModel = "";
 
     [ObservableProperty]
@@ -362,8 +357,25 @@ public partial class JobViewModel : ViewModelBase
     [ObservableProperty]
     private string _newProblemLong = "";
 
+    // Goods type / Brand / Symptoms at intake - retired as free text 2026-09-02 in favour
+    // of the GoodsTypes/Brands/Symptoms reference-data tables (ROADMAP.md line 164's
+    // deferred follow-up). Options are loaded from the DB (LoadIntakeReferenceDataAsync),
+    // not static/hardcoded like PriorityOptions/CustomerInstructionOptions above, since
+    // they're user-maintained via the Reference Data tab. No FK on the jobs table for any
+    // of these - CreateJob() just takes the selected item's Description into the existing
+    // varchar column, same as before.
+    public ObservableCollection<ReferenceItem> GoodsTypeOptions { get; } = new();
+    public ObservableCollection<ReferenceItem> BrandOptions { get; } = new();
+    public ObservableCollection<ReferenceItem> SymptomOptions { get; } = new();
+
     [ObservableProperty]
-    private string _newSymptoms = "";
+    private ReferenceItem? _selectedGoodsType;
+
+    [ObservableProperty]
+    private ReferenceItem? _selectedBrand;
+
+    [ObservableProperty]
+    private ReferenceItem? _selectedSymptom;
 
     // ComboBox.SelectedItem bound directly to a plain string only works against a real
     // ItemsSource of the same type - same fix as TransactionLookupViewModel's
@@ -434,7 +446,7 @@ public partial class JobViewModel : ViewModelBase
     public bool CanCancel => SelectedJob != null && SelectedJob.JobStatus is not ("50-Completed" or "70-Delivered" or "97-Cancelled");
     public bool CanAddParts => SelectedJob != null && !SelectedJob.JobStatus.StartsWith("70") && !SelectedJob.JobStatus.StartsWith("97");
 
-    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService, EmailService emailService, JobTimeService jobTimeService)
+    public JobViewModel(JobService jobService, CustomerService customerService, StaffService staffService, StockService stockService, SmsService smsService, EmailService emailService, JobTimeService jobTimeService, ReferenceDataService referenceDataService)
     {
         _jobService = jobService;
         _customerService = customerService;
@@ -443,6 +455,7 @@ public partial class JobViewModel : ViewModelBase
         _smsService = smsService;
         _emailService = emailService;
         _jobTimeService = jobTimeService;
+        _referenceDataService = referenceDataService;
         OpenJobs.CollectionChanged += (_, _) => RebuildGroupedOpenJobs();
         QuoteParts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowQuotePartsSection));
 
@@ -464,6 +477,21 @@ public partial class JobViewModel : ViewModelBase
         OpenJobs.Clear();
         foreach (var job in await _jobService.GetOpenJobsAsync())
             OpenJobs.Add(job);
+    }
+
+    public async Task LoadIntakeReferenceDataAsync()
+    {
+        GoodsTypeOptions.Clear();
+        foreach (var item in await _referenceDataService.GetAllAsync(ReferenceTables.GoodsTypes))
+            GoodsTypeOptions.Add(item);
+
+        BrandOptions.Clear();
+        foreach (var item in await _referenceDataService.GetAllAsync(ReferenceTables.Brands))
+            BrandOptions.Add(item);
+
+        SymptomOptions.Clear();
+        foreach (var item in await _referenceDataService.GetAllAsync(ReferenceTables.Symptoms))
+            SymptomOptions.Add(item);
     }
 
     // Cross-navigation entry point (e.g. clicking a ticket number on the Customer
@@ -646,8 +674,8 @@ public partial class JobViewModel : ViewModelBase
         var job = new JobRecord
         {
             Priority = NewPriority,
-            GoodsInCare = NewGoodsInCare.Trim(),
-            GoodsBrand = NewGoodsBrand.Trim(),
+            GoodsInCare = SelectedGoodsType?.Description ?? "",
+            GoodsBrand = SelectedBrand?.Description ?? "",
             GoodsModel = NewGoodsModel.Trim(),
             // Marker appended at the end, matching ucChildNewJob.vb's own convention
             // exactly - existing detection/stripping logic checks for the marker anywhere
@@ -655,7 +683,7 @@ public partial class JobViewModel : ViewModelBase
             // any doubt about it.
             ProblemShort = $"{NewProblemShort.Trim()} {ProblemDescriptionHelper.MarkerFor(NewCustomerInstruction.Instruction)}".Trim(),
             ProblemLong = NewProblemLong.Trim(),
-            ProblemSymptoms = NewSymptoms.Trim(),
+            ProblemSymptoms = SelectedSymptom?.Description ?? "",
             DataBackupReqd = NewDataBackupReqd,
             DataDiskReqd = NewDataDiskReqd,
             SystemUnderWarranty = NewSystemUnderWarranty,
@@ -681,12 +709,12 @@ public partial class JobViewModel : ViewModelBase
         StatusMessage = $"Job #{created.JobId} created";
 
         NewCustomerBarcode = "";
-        NewGoodsInCare = "";
-        NewGoodsBrand = "";
+        SelectedGoodsType = null;
+        SelectedBrand = null;
         NewGoodsModel = "";
         NewProblemShort = "";
         NewProblemLong = "";
-        NewSymptoms = "";
+        SelectedSymptom = null;
         NewDataBackupReqd = false;
         NewDataDiskReqd = false;
         NewSystemUnderWarranty = false;
