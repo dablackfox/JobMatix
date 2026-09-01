@@ -778,6 +778,17 @@ public partial class JobViewModel : ViewModelBase
     private async Task Complete()
     {
         if (SelectedJob == null) return;
+
+        // Direct feedback, 2026-09-01: serials are "not required for the quote but are
+        // required before job is completed" - real, blocking validation (not a warning),
+        // checked first so it takes priority over the softer "no parts" warning below.
+        var missingSerial = Parts.FirstOrDefault(p => p.MissingRequiredSerial);
+        if (missingSerial != null)
+        {
+            StatusMessage = $"'{missingSerial.PartDescr}' needs a serial number before this job can be completed";
+            return;
+        }
+
         if (Parts.Count == 0 && string.IsNullOrWhiteSpace(ActionServiceNotes))
             StatusMessage = "Warning: no parts and no service notes recorded - completing anyway";
 
@@ -848,16 +859,38 @@ public partial class JobViewModel : ViewModelBase
         catch (System.Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
     }
 
+    // Two-step serial capture (direct feedback, 2026-09-01: serials "required before job is
+    // completed") mirrors SaleViewModel's ItemRequiresSerial pattern - the common
+    // non-serialized case still adds in one scan, same as before; a serialized item stops
+    // and shows a serial field, then the same barcode is re-submitted with the serial filled
+    // in (AddPartByBarcodeAsync's SerialRequired check runs before any INSERT, so re-calling
+    // it after filling in the serial is safe - nothing was written on the first attempt).
+    [ObservableProperty]
+    private bool _partRequiresSerial;
+
+    [ObservableProperty]
+    private string _partSerialNumber = "";
+
     [RelayCommand]
     private async Task AddPart()
     {
         if (SelectedJob == null || string.IsNullOrWhiteSpace(ScanPartBarcode))
             return;
 
-        var result = await _jobService.AddPartByBarcodeAsync(SelectedJob.JobId, ScanPartBarcode.Trim(), _stockService, null, "");
+        var result = await _jobService.AddPartByBarcodeAsync(
+            SelectedJob.JobId, ScanPartBarcode.Trim(), _stockService, null, "",
+            PartRequiresSerial ? PartSerialNumber.Trim() : null);
+
         if (result == JobService.AddPartResult.NotFound)
         {
             StatusMessage = $"No stock item found for barcode '{ScanPartBarcode}'";
+            PartRequiresSerial = false;
+            PartSerialNumber = "";
+        }
+        else if (result == JobService.AddPartResult.SerialRequired)
+        {
+            PartRequiresSerial = true;
+            StatusMessage = "This item needs a serial number - enter it and add again";
         }
         else
         {
@@ -865,8 +898,10 @@ public partial class JobViewModel : ViewModelBase
             Parts.Clear();
             foreach (var part in await _jobService.GetJobPartsAsync(SelectedJob.JobId))
                 Parts.Add(part);
+            ScanPartBarcode = "";
+            PartRequiresSerial = false;
+            PartSerialNumber = "";
         }
-        ScanPartBarcode = "";
     }
 
     [RelayCommand]

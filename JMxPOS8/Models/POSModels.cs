@@ -369,6 +369,13 @@ namespace JMxPOS8.Models
         public decimal SellPrice { get; set; }
         public bool IsWarrantyPart { get; set; }
 
+        // Wired up 2026-09-01 - the `parts.serial_number` column existed in the schema
+        // untouched by any C# code until now. Required before a job can be Completed for
+        // any part whose stock item has RequiresSerial (see JobViewModel.Complete()).
+        public string SerialNumber { get; set; } = "";
+        public bool RequiresSerial { get; set; }
+        public bool MissingRequiredSerial => RequiresSerial && string.IsNullOrWhiteSpace(SerialNumber);
+
         // Populated at read-time by comparing against the live stock sell price - flags
         // drift since the part was added to the job (the legacy app's gbShowAllParts
         // repricing feature, ROADMAP.md Phase 3).

@@ -248,7 +248,8 @@ public class JobService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
             SELECT p.part_id, p.job_id, p.stock_id, p.partcode, p.partdescr, p.quantity,
-                   p.costprice, p.sellprice, p.is_warranty_part, st.sellprice
+                   p.costprice, p.sellprice, p.is_warranty_part, st.sellprice, p.serial_number,
+                   COALESCE(st.requiresserial, false)
             FROM parts p
             LEFT JOIN stock st ON st.stock_id = p.stock_id
             WHERE p.job_id = @jobId
@@ -268,19 +269,28 @@ public class JobService
                 CostPrice = reader.GetDecimal(6),
                 SellPrice = reader.GetDecimal(7),
                 IsWarrantyPart = reader.GetBoolean(8),
-                CurrentSellPrice = reader.IsDBNull(9) ? null : reader.GetDecimal(9)
+                CurrentSellPrice = reader.IsDBNull(9) ? null : reader.GetDecimal(9),
+                SerialNumber = reader.GetString(10),
+                RequiresSerial = reader.GetBoolean(11)
             });
         }
         return results;
     }
 
-    public enum AddPartResult { Added, NotFound }
+    // SerialRequired mirrors SaleService.AddItemResult.SerialRequired exactly - same
+    // enforcement pattern (stock.RequiresSerial blocks the add until a serial is given),
+    // just ported to the Job/Parts path, which never had it (direct feedback, 2026-09-01:
+    // serials should be "required before job is completed" - this is the entry point that
+    // makes that possible to check for in Complete()).
+    public enum AddPartResult { Added, NotFound, SerialRequired }
 
-    public async Task<AddPartResult> AddPartByBarcodeAsync(int jobId, string barcode, StockService stockService, int? staffId, string staffName)
+    public async Task<AddPartResult> AddPartByBarcodeAsync(int jobId, string barcode, StockService stockService, int? staffId, string staffName, string? serialNumber = null)
     {
         var stock = await stockService.FindStockByBarcodeAsync(barcode);
         if (stock == null)
             return AddPartResult.NotFound;
+        if (stock.RequiresSerial && string.IsNullOrWhiteSpace(serialNumber))
+            return AddPartResult.SerialRequired;
 
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
@@ -288,10 +298,10 @@ public class JobService
         cmd.CommandText = @"
             INSERT INTO parts (
                 job_id, stock_id, partcode, partdescr, quantity, costprice, sellprice,
-                serviced_by_staff_id, serviced_by_staff_name
+                serviced_by_staff_id, serviced_by_staff_name, serial_number
             ) VALUES (
                 @jobId, @stockId, @partCode, @partDescr, 1, @costPrice, @sellPrice,
-                @staffId, @staffName
+                @staffId, @staffName, @serialNumber
             )";
         AddParam(cmd, "@jobId", jobId);
         AddParam(cmd, "@stockId", stock.StockId);
@@ -301,6 +311,7 @@ public class JobService
         AddParam(cmd, "@sellPrice", stock.SellPrice);
         AddParam(cmd, "@staffId", staffId);
         AddParam(cmd, "@staffName", staffName);
+        AddParam(cmd, "@serialNumber", serialNumber ?? "");
         await Task.Run(() => cmd.ExecuteNonQuery());
         return AddPartResult.Added;
     }
