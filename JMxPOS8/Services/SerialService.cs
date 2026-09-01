@@ -75,6 +75,29 @@ namespace JMxPOS8.Services
             return latest != null && string.Equals(latest.TransactionType, "SALE", StringComparison.OrdinalIgnoreCase);
         }
 
+        // Scanning a serial number (instead of the product's own barcode) into the Sale
+        // tab's item-search box should still find the right product - direct feedback
+        // (2026-09-01): "since we're setting up serial numbers for everything, scanning a
+        // serial number into the barcode/product search section should auto select the
+        // product and fill in the serial field." Only matches a serial still on hand
+        // (is_in_stock = true), same as GetAvailableSerialsAsync - a serial already sold
+        // shouldn't silently resolve to "sell this product" again.
+        public async Task<int?> FindStockIdBySerialAsync(string serialNumber)
+        {
+            using var conn = _db.GetConnection();
+            await Task.Run(() => conn.Open());
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT stock_id FROM serial_audit WHERE serial_number = @serial AND is_in_stock = true LIMIT 1";
+
+            var param = cmd.CreateParameter();
+            param.ParameterName = "@serial";
+            param.Value = serialNumber;
+            cmd.Parameters.Add(param);
+
+            var result = await Task.Run(() => cmd.ExecuteScalar());
+            return result == null || result is DBNull ? null : Convert.ToInt32(result);
+        }
+
         // Serial numbers physically on hand for a given stock item, for the "pick from what's
         // actually in stock" autofill on the Sale tab - mirrors what the old POS's serial
         // picker modal showed, backed by the imported serial_audit table.

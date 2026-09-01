@@ -39,6 +39,7 @@ public partial class CustomerViewModel : ViewModelBase
 
     partial void OnSelectedCustomerChanged(Customer? value)
     {
+        IsDeleteArmed = false; // switching records disarms any pending delete confirmation
         if (value != null && !IsEditing)
         {
             LoadCustomerToForm(value);
@@ -314,6 +315,25 @@ public partial class CustomerViewModel : ViewModelBase
         StatusMessage = "Edit cancelled";
     }
 
+    // A misclick here was a real risk - one click, no confirmation, straight to
+    // DeleteCustomerAsync (direct feedback, 2026-09-01). First click just arms it and
+    // swaps the button for a "Confirm Delete?" one; only a second, deliberate click
+    // actually deletes. Switching the selected customer disarms it again.
+    [ObservableProperty]
+    private bool _isDeleteArmed;
+
+    [RelayCommand]
+    private void ArmDeleteCustomer()
+    {
+        if (SelectedCustomer == null)
+        {
+            StatusMessage = "Please select a customer to delete";
+            return;
+        }
+        IsDeleteArmed = true;
+        StatusMessage = $"Click 'Confirm Delete?' to deactivate {SelectedCustomer.CustomerName} - click elsewhere to cancel";
+    }
+
     [RelayCommand]
     private async Task DeleteCustomerAsync()
     {
@@ -325,9 +345,9 @@ public partial class CustomerViewModel : ViewModelBase
 
         try
         {
-            // Note: You may want to add a confirmation dialog here
             await _customerService.DeleteCustomerAsync(SelectedCustomer.CustomerId);
             StatusMessage = "Customer deleted successfully";
+            IsDeleteArmed = false;
             await LoadCustomersAsync();
         }
         catch (Exception ex)

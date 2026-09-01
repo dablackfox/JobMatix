@@ -100,6 +100,50 @@ namespace JMxPOS8.Services
             return null;
         }
 
+        public async Task<StockItem?> GetStockByIdAsync(int stockId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT stock_id, barcode, stockcode, description, category,
+                               quantityinstock, costprice, sellprice, inactive, requiresserial
+                        FROM stock
+                        WHERE stock_id = @stockId
+                        LIMIT 1";
+
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = "@stockId";
+                    param.Value = stockId;
+                    cmd.Parameters.Add(param);
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        if (await Task.Run(() => reader.Read()))
+                        {
+                            return new StockItem
+                            {
+                                StockId = Convert.ToInt32(reader["stock_id"]),
+                                Barcode = reader["barcode"].ToString() ?? "",
+                                StockCode = reader["stockcode"].ToString() ?? "",
+                                Description = reader["description"].ToString() ?? "",
+                                Category = reader["category"].ToString() ?? "",
+                                QuantityInStock = Convert.ToDecimal(reader["quantityinstock"]),
+                                CostPrice = Convert.ToDecimal(reader["costprice"]),
+                                SellPrice = Convert.ToDecimal(reader["sellprice"]),
+                                Inactive = Convert.ToBoolean(reader["inactive"]),
+                                RequiresSerial = Convert.ToBoolean(reader["requiresserial"])
+                            };
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
         public async Task<List<StockItem>> SearchStockAsync(string searchTerm, int limit = 50)
         {
             var items = new List<StockItem>();

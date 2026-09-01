@@ -21,6 +21,7 @@ public partial class StockViewModel : ViewModelBase
 
     partial void OnSelectedStockChanged(StockItem? value)
     {
+        IsDeleteArmed = false; // switching records disarms any pending delete confirmation
         if (value != null && !IsEditing)
         {
             LoadStockToForm(value);
@@ -239,6 +240,23 @@ public partial class StockViewModel : ViewModelBase
         StatusMessage = "Edit cancelled";
     }
 
+    // A misclick here was a real risk - one click, no confirmation (direct feedback,
+    // 2026-09-01), same fix as CustomerViewModel: arm first, confirm second.
+    [ObservableProperty]
+    private bool _isDeleteArmed;
+
+    [RelayCommand]
+    private void ArmDeleteStock()
+    {
+        if (SelectedStock == null)
+        {
+            StatusMessage = "Please select a stock item to delete";
+            return;
+        }
+        IsDeleteArmed = true;
+        StatusMessage = $"Click 'Confirm Delete?' to deactivate {SelectedStock.Description} - click elsewhere to cancel";
+    }
+
     [RelayCommand]
     private async Task DeleteStockAsync()
     {
@@ -250,9 +268,9 @@ public partial class StockViewModel : ViewModelBase
 
         try
         {
-            // Note: You may want to add a confirmation dialog here
             await _stockService.DeleteStockAsync(SelectedStock.StockId);
             StatusMessage = "Stock item deleted successfully";
+            IsDeleteArmed = false;
             await LoadStockAsync();
         }
         catch (Exception ex)

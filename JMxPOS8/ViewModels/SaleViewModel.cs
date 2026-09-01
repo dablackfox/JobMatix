@@ -230,16 +230,36 @@ namespace JMxPOS8.ViewModels
             Console.WriteLine($"[SALE] Processing item barcode: {ItemBarcode}");
             try
             {
-                var stock = await _stockService.FindStockByBarcodeAsync(ItemBarcode.Trim());
+                var scanned = ItemBarcode.Trim();
+                var stock = await _stockService.FindStockByBarcodeAsync(scanned);
                 if (stock != null)
                 {
                     await ApplyFoundStock(stock);
+                    return;
                 }
-                else
+
+                // Not a product barcode - try it as a serial number instead. With serials
+                // now being tracked for most items, scanning the unit's own serial (rather
+                // than a separate product barcode) is a real, common path, not a fallback
+                // for a mistake.
+                var stockId = await SerialService.FindStockIdBySerialAsync(scanned);
+                if (stockId != null)
                 {
-                    StatusMessage = $"Item not found for barcode '{ItemBarcode}' - try typing part of the description instead";
-                    Console.WriteLine($"[SALE] ❌ Item not found for barcode: {ItemBarcode}");
+                    var stockBySerial = await _stockService.GetStockByIdAsync(stockId.Value);
+                    if (stockBySerial != null)
+                    {
+                        // Set the serial before ApplyFoundStock, which auto-adds
+                        // immediately for a non-serial item - the serial must already be
+                        // in place for that call if it's ever needed.
+                        ItemSerialNumber = scanned;
+                        await ApplyFoundStock(stockBySerial);
+                        StatusMessage = $"Item found via serial {scanned}: {stockBySerial.Description}";
+                        return;
+                    }
                 }
+
+                StatusMessage = $"Item not found for barcode/serial '{ItemBarcode}' - try typing part of the description instead";
+                Console.WriteLine($"[SALE] ❌ Item not found for barcode/serial: {ItemBarcode}");
             }
             catch (Exception ex)
             {

@@ -184,7 +184,10 @@
                         <Button Content="🔍" Width="30" Margin="5,0" Command="{Binding StockViewModel.SearchStockCommand}"/>
                         <Button Content="New" Width="80" Margin="10,0,5,0" Command="{Binding StockViewModel.NewStockCommand}"/>
                         <Button Content="Edit" Width="80" Margin="5,0" Command="{Binding StockViewModel.EditStockCommand}"/>
-                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding StockViewModel.DeleteStockCommand}"/>
+                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding StockViewModel.ArmDeleteStockCommand}"
+                                IsVisible="{Binding !StockViewModel.IsDeleteArmed}"/>
+                        <Button Content="Confirm Delete?" Width="120" Margin="5,0" Command="{Binding StockViewModel.DeleteStockCommand}"
+                                IsVisible="{Binding StockViewModel.IsDeleteArmed}" Background="Crimson" Foreground="White"/>
                         <Button Content="Adjust Qty" Width="90" Margin="5,0" Command="{Binding StockViewModel.AdjustQuantityCommand}"/>
                         <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding StockViewModel.RefreshCommand}"/>
                     </StackPanel>
@@ -394,7 +397,10 @@
                         <Button Content="🔍" Width="30" Margin="5,0" Command="{Binding CustomerViewModel.SearchCustomersCommand}"/>
                         <Button Content="New" Width="80" Margin="10,0,5,0" Command="{Binding CustomerViewModel.NewCustomerCommand}"/>
                         <Button Content="Edit" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.EditCustomerCommand}"/>
-                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.DeleteCustomerCommand}"/>
+                        <Button Content="Delete" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.ArmDeleteCustomerCommand}"
+                                IsVisible="{Binding !CustomerViewModel.IsDeleteArmed}"/>
+                        <Button Content="Confirm Delete?" Width="120" Margin="5,0" Command="{Binding CustomerViewModel.DeleteCustomerCommand}"
+                                IsVisible="{Binding CustomerViewModel.IsDeleteArmed}" Background="Crimson" Foreground="White"/>
                         <Button Content="Refresh" Width="80" Margin="5,0" Command="{Binding CustomerViewModel.RefreshCommand}"/>
                     </StackPanel>
 
