@@ -368,7 +368,12 @@ public partial class JobViewModel : ViewModelBase
     [ObservableProperty]
     private string _statusMessage = "";
 
+    // Waitlisted -> New (direct feedback, 2026-09-01): the item hasn't physically arrived
+    // yet while waitlisted, so nothing else should be actionable until it's checked in.
+    public bool CanCheckIn => SelectedJob?.JobStatus == "05-WaitListed";
     public bool CanStartWork => SelectedJob != null && SelectedJob.JobStatus is "10-Created" or "20-Suspended" or "23-InProcessSusp";
+    // Undo an accidental Start Work (direct feedback, 2026-09-01).
+    public bool CanReturnToNew => SelectedJob != null && SelectedJob.JobStatus is "30-Started" or "33-InProcess";
     public bool CanSuspend => SelectedJob != null && SelectedJob.JobStatus is "30-Started" or "33-InProcess";
     public bool CanSendToQa => CanSuspend;
     public bool CanReopenFromQa => SelectedJob != null && SelectedJob.JobStatus is "40-QA" or "43-InProcessQA";
@@ -495,7 +500,9 @@ public partial class JobViewModel : ViewModelBase
 
     private void RaiseCanExecuteChanged()
     {
+        OnPropertyChanged(nameof(CanCheckIn));
         OnPropertyChanged(nameof(CanStartWork));
+        OnPropertyChanged(nameof(CanReturnToNew));
         OnPropertyChanged(nameof(CanSuspend));
         OnPropertyChanged(nameof(CanSendToQa));
         OnPropertyChanged(nameof(CanReopenFromQa));
@@ -529,7 +536,9 @@ public partial class JobViewModel : ViewModelBase
         SelectedStatusOption = null;
         if (SelectedJob == null) return;
 
+        if (CanCheckIn) AvailableStatusOptions.Add(new("Check In (arrived - move to New)", CheckIn));
         if (CanStartWork) AvailableStatusOptions.Add(new("Start Work", StartWork));
+        if (CanReturnToNew) AvailableStatusOptions.Add(new("Move Back to New (undo Start)", ReturnToNew));
         if (CanSuspend) AvailableStatusOptions.Add(new("Suspend", Suspend));
         if (CanSendToQa) AvailableStatusOptions.Add(new("Send to QA", SendToQa));
         if (CanReopenFromQa) AvailableStatusOptions.Add(new("Back to Work (from QA)", ReopenFromQa));
@@ -652,6 +661,32 @@ public partial class JobViewModel : ViewModelBase
         {
             StatusMessage = $"Error printing docket: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task CheckIn()
+    {
+        if (SelectedJob == null) return;
+        try
+        {
+            await _jobService.CheckInAsync(SelectedJob.JobId);
+            StatusMessage = $"Job #{SelectedJob.JobId} checked in";
+            await RefreshSelectedAsync();
+        }
+        catch (System.Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
+    }
+
+    [RelayCommand]
+    private async Task ReturnToNew()
+    {
+        if (SelectedJob == null) return;
+        try
+        {
+            await _jobService.ReturnToNewAsync(SelectedJob.JobId);
+            StatusMessage = $"Job #{SelectedJob.JobId} moved back to New";
+            await RefreshSelectedAsync();
+        }
+        catch (System.Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
     }
 
     [RelayCommand]

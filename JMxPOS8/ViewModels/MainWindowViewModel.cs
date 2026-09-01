@@ -121,6 +121,15 @@ public partial class MainWindowViewModel : ViewModelBase
             await JobViewModel.OpenJobByIdAsync(jobId);
         };
 
+        // Same pattern for invoice links (Invoices/Item Sales/Payments sub-tabs) - jump to
+        // Transactions and load that exact invoice via the same lookup "Show Last Invoice"
+        // already uses.
+        CustomerViewModel.InvoiceOpened += async invoiceId =>
+        {
+            SelectedTabIndex = 5;
+            await TransactionLookupViewModel.SelectInvoiceByIdAsync(invoiceId);
+        };
+
         OpenSales.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasMultipleSaleTabs));
         ActiveSaleDocument = CreateSaleDocument();
 

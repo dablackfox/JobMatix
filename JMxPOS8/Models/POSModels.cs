@@ -160,6 +160,7 @@ namespace JMxPOS8.Models
 
     public class CustomerItemSaleSummary
     {
+        public int InvoiceId { get; set; }
         public DateTime InvoiceDate { get; set; }
         public string Description { get; set; } = string.Empty;
         public decimal Quantity { get; set; }
@@ -169,6 +170,11 @@ namespace JMxPOS8.Models
 
     public class CustomerPaymentSummary
     {
+        public int InvoiceId { get; set; }
+        // Avalonia's IsVisible binding needs an actual bool - binding straight to InvoiceId
+        // (0 = no invoice) risks the same silent-conversion-failure class of bug already
+        // found once this session with a nullable-object binding.
+        public bool HasInvoiceId => InvoiceId > 0;
         public DateTime PaymentDate { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public decimal Amount { get; set; }

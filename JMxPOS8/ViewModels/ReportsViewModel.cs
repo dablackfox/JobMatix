@@ -119,6 +119,28 @@ public partial class ReportsViewModel : ViewModelBase
             ReportData.Add(item);
     }
 
+    // Direct feedback, 2026-09-01: "daily sails report shows from and to but there is no
+    // button or trigger to load the report data" - changing the date range after a report
+    // is already selected didn't re-run it (only re-clicking the same report-type button
+    // did, which isn't an obvious "reload" action once it's already highlighted active).
+    // Re-dispatches to whichever report is currently showing.
+    [RelayCommand]
+    private async Task RefreshCurrentReport()
+    {
+        switch (ReportTitle)
+        {
+            case "Daily Sales Report": await RunDailySalesReport(); break;
+            case "Top Customers by Sales": await RunTopCustomersReport(); break;
+            case "Top Products by Sales": await RunTopProductsReport(); break;
+            case "Jobs Report": await RunJobsReport(); break;
+            case "Parts Report": await RunPartsReport(); break;
+            case "Staff Report": await RunStaffReport(); break;
+            case "Timesheet Report": await RunTimesheetReport(); break;
+            case "Customer Statement": await RunCustomerStatement(); break;
+            case "Cost / Margin Report (serialized items with known cost)": await RunCostMarginReport(); break;
+        }
+    }
+
     partial void OnReportTitleChanged(string value)
     {
         SortColumn = 0;
@@ -300,8 +322,14 @@ public partial class ReportsViewModel : ViewModelBase
             Column1Header = "Code"; Column2Header = "Description"; Column3Header = "Qty"; Column4Header = "Cost Value";
             ReportData.Clear();
 
-            var stocks = await _stockService.GetAllStockAsync(1000);
-            
+            // The QuantityInStock > 0 filter below runs client-side, so the fetch limit
+            // must cover every active stock row (~14,750), not an arbitrary page size -
+            // capping at 1000 (ordered by stockcode) silently dropped most in-stock items
+            // whose code sorted past the cutoff, understating this report by over 90%
+            // (direct feedback, 2026-09-01: "the reports only show 106 items for stock
+            // value... i assume its 0 per page or something").
+            var stocks = await _stockService.GetAllStockAsync(20000);
+
             decimal totalCostValue = 0;
             decimal totalSellValue = 0;
             decimal totalQuantity = 0;
@@ -354,8 +382,8 @@ public partial class ReportsViewModel : ViewModelBase
             Column1Header = "Code"; Column2Header = "Description"; Column3Header = "Qty on Hand"; Column4Header = "Reorder Level";
             ReportData.Clear();
 
-            var stocks = await _stockService.GetAllStockAsync(1000);
-            
+            var stocks = await _stockService.GetAllStockAsync(20000);
+
             int lowStockCount = 0;
 
             foreach (var stock in stocks.Where(s => !s.Inactive && s.QuantityInStock <= s.ReorderLevel && s.ReorderLevel > 0))

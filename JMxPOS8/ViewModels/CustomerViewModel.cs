@@ -30,11 +30,26 @@ public partial class CustomerViewModel : ViewModelBase
     // no reference to the main tab strip or JobViewModel itself.
     public event Action<int>? TicketOpened;
 
+    // Same cross-nav pattern for invoices (direct feedback, 2026-09-01: "on the customer
+    // tab the invoices should link to an invoice like the tickets... item sales should also
+    // link to the corresponding invoice, payments should reference which invoice it was
+    // made against for reconciliation") - MainWindowViewModel subscribes to switch to the
+    // Transactions tab and load that invoice there, since this ViewModel has no reference
+    // to the main tab strip or TransactionLookupViewModel itself.
+    public event Action<int>? InvoiceOpened;
+
     [RelayCommand]
     private void OpenJob(CustomerJobSummary? job)
     {
         if (job != null)
             TicketOpened?.Invoke(job.JobId);
+    }
+
+    [RelayCommand]
+    private void OpenInvoice(int invoiceId)
+    {
+        if (invoiceId > 0)
+            InvoiceOpened?.Invoke(invoiceId);
     }
 
     partial void OnSelectedCustomerChanged(Customer? value)

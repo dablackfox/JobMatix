@@ -710,13 +710,22 @@
                         </ScrollViewer>
                         </TabItem>
 
+                        <!-- Invoice # links to the actual invoice in Transaction Lookup, same
+                             pattern as the Tickets sub-tab's ticket-number link (direct
+                             feedback, 2026-09-01: "the invoices should link to an invoice
+                             like the tickets"). Shared by Invoices and Quotes below - both
+                             are the same underlying invoice table, just filtered by type. -->
                         <TabItem Header="Invoices">
                             <ListBox ItemsSource="{Binding CustomerViewModel.Invoices}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
                                             <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding InvoiceNumber}"/>
+                                            <Button Grid.Column="1" Content="{Binding InvoiceNumber}"
+                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
+                                                    Cursor="Hand" HorizontalContentAlignment="Left"
+                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenInvoiceCommand}"
+                                                    CommandParameter="{Binding InvoiceId}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" HorizontalAlignment="Right"/>
                                         </Grid>
@@ -729,12 +738,17 @@
                             <ListBox ItemsSource="{Binding CustomerViewModel.ItemSales}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="140,*,70,90,100" Margin="5,3">
+                                        <Grid ColumnDefinitions="140,*,70,90,100,70" Margin="5,3">
                                             <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Description}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat=N2}" HorizontalAlignment="Right"/>
                                             <TextBlock Grid.Column="3" Text="{Binding UnitPrice, StringFormat=C}" HorizontalAlignment="Right"/>
                                             <TextBlock Grid.Column="4" Text="{Binding LineTotal, StringFormat=C}" HorizontalAlignment="Right"/>
+                                            <Button Grid.Column="5" Content="{Binding InvoiceId, StringFormat='Inv #{0}'}"
+                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
+                                                    Cursor="Hand" HorizontalContentAlignment="Right" FontSize="11"
+                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenInvoiceCommand}"
+                                                    CommandParameter="{Binding InvoiceId}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -745,11 +759,21 @@
                             <ListBox ItemsSource="{Binding CustomerViewModel.Payments}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
+                                        <Grid ColumnDefinitions="140,*,90,100,70" Margin="5,3">
                                             <TextBlock Grid.Column="0" Text="{Binding PaymentDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding PaymentMethod}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding Amount, StringFormat=C}" HorizontalAlignment="Right"/>
+                                            <!-- For reconciliation - which invoice this payment was made against
+                                                 (direct feedback: "payments should reference which invoice it
+                                                 was made against"). Not every payment is tied to one (e.g. an
+                                                 account deposit), so this is blank rather than a broken link then. -->
+                                            <Button Grid.Column="4" Content="{Binding InvoiceId, StringFormat='Inv #{0}'}"
+                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
+                                                    Cursor="Hand" HorizontalContentAlignment="Right" FontSize="11"
+                                                    IsVisible="{Binding HasInvoiceId}"
+                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenInvoiceCommand}"
+                                                    CommandParameter="{Binding InvoiceId}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -762,7 +786,11 @@
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
                                             <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding InvoiceNumber}"/>
+                                            <Button Grid.Column="1" Content="{Binding InvoiceNumber}"
+                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
+                                                    Cursor="Hand" HorizontalContentAlignment="Left"
+                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenInvoiceCommand}"
+                                                    CommandParameter="{Binding InvoiceId}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" HorizontalAlignment="Right"/>
                                         </Grid>
@@ -1129,6 +1157,7 @@
                             <DatePicker SelectedDate="{Binding ReportsViewModel.StartDate}" Width="150"/>
                             <TextBlock Text="To:" VerticalAlignment="Center" Margin="10,0,0,0"/>
                             <DatePicker SelectedDate="{Binding ReportsViewModel.EndDate}" Width="150"/>
+                            <Button Content="Refresh" Command="{Binding ReportsViewModel.RefreshCurrentReportCommand}" Margin="10,0,0,0"/>
                         </StackPanel>
 
                         <!-- Customer Statement barcode entry - only relevant once that
@@ -1876,9 +1905,14 @@
                                      ticket's, so switching between jobs never forces you to stop one first. -->
                                 <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" CornerRadius="4" Padding="10">
                                     <StackPanel Spacing="6">
-                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !JobViewModel.HasCurrentJobTimer}">
+                                        <Grid ColumnDefinitions="*,150,Auto" IsVisible="{Binding !JobViewModel.HasCurrentJobTimer}">
                                             <TextBlock Grid.Column="0" Text="No timer running on this ticket" VerticalAlignment="Center" Foreground="Gray"/>
-                                            <Button Grid.Column="1" Content="▶ Start Timer" Background="ForestGreen" Foreground="White"
+                                            <!-- Own staff-barcode field, not just the shared one further down the
+                                                 page (direct feedback, 2026-09-01: "start timer button click does
+                                                 nothing" - it wasn't nothing, it needed a staff barcode that had
+                                                 no visible field anywhere near this button). -->
+                                            <TextBox Grid.Column="1" Margin="0,0,8,0" Watermark="Staff barcode" Text="{Binding JobViewModel.ActionStaffBarcode}"/>
+                                            <Button Grid.Column="2" Content="▶ Start Timer" Background="ForestGreen" Foreground="White"
                                                     Command="{Binding JobViewModel.StartTimerCommand}"/>
                                         </Grid>
                                         <StackPanel IsVisible="{Binding JobViewModel.HasCurrentJobTimer}" Spacing="6">
@@ -1893,6 +1927,7 @@
                                             </Grid>
                                             <TextBox Watermark="What did you do? (added to notes when you stop)" Text="{Binding JobViewModel.TimerNoteText}"/>
                                         </StackPanel>
+                                        <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic" FontSize="11" Foreground="#1565C0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
 

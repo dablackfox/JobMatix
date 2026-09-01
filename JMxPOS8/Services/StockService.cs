@@ -24,12 +24,19 @@ namespace JMxPOS8.Services
                 await Task.Run(() => conn.Open());
                 using (var cmd = conn.CreateCommand())
                 {
+                    // minstocklevel/reorderquantity (StockItem.ReorderLevel/ReorderQuantity)
+                    // added 2026-09-01 - the Low Stock report filters on ReorderLevel, which
+                    // silently stayed 0 for every item because this query never selected the
+                    // column that backs it, even though the real migrated data has it
+                    // populated for ~2,100 items (direct feedback: "low stock says 0 low
+                    // stock items. i assume thats wrong").
                     cmd.CommandText = $@"
-                        SELECT stock_id, barcode, stockcode, description, category, 
-                               quantityinstock, costprice, sellprice, inactive
-                        FROM stock 
+                        SELECT stock_id, barcode, stockcode, description, category,
+                               quantityinstock, costprice, sellprice, inactive,
+                               minstocklevel, reorderquantity
+                        FROM stock
                         WHERE inactive = false
-                        ORDER BY stockcode 
+                        ORDER BY stockcode
                         LIMIT {limit}";
 
                     using (var reader = await Task.Run(() => cmd.ExecuteReader()))
@@ -46,7 +53,9 @@ namespace JMxPOS8.Services
                                 QuantityInStock = Convert.ToDecimal(reader["quantityinstock"]),
                                 CostPrice = Convert.ToDecimal(reader["costprice"]),
                                 SellPrice = Convert.ToDecimal(reader["sellprice"]),
-                                Inactive = Convert.ToBoolean(reader["inactive"])
+                                Inactive = Convert.ToBoolean(reader["inactive"]),
+                                ReorderLevel = Convert.ToDecimal(reader["minstocklevel"]),
+                                ReorderQuantity = Convert.ToDecimal(reader["reorderquantity"])
                             });
                         }
                     }

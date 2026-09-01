@@ -107,7 +107,7 @@ namespace JMxPOS8.Services
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = $@"
-                        SELECT inv.invoicedate, il.description, il.quantity, il.unitprice, il.linetotal
+                        SELECT il.invoice_id, inv.invoicedate, il.description, il.quantity, il.unitprice, il.linetotal
                         FROM invoice_lines il
                         JOIN invoice inv ON inv.invoice_id = il.invoice_id
                         WHERE inv.customer_id = @customerId
@@ -125,6 +125,7 @@ namespace JMxPOS8.Services
                         {
                             items.Add(new CustomerItemSaleSummary
                             {
+                                InvoiceId = Convert.ToInt32(reader["invoice_id"]),
                                 InvoiceDate = Convert.ToDateTime(reader["invoicedate"]),
                                 Description = reader["description"].ToString() ?? "",
                                 Quantity = Convert.ToDecimal(reader["quantity"]),
@@ -149,7 +150,7 @@ namespace JMxPOS8.Services
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = $@"
-                        SELECT paymentdate, paymentmethod, amount, transactiontype
+                        SELECT invoice_id, paymentdate, paymentmethod, amount, transactiontype
                         FROM payments
                         WHERE customer_id = @customerId
                         ORDER BY paymentdate DESC
@@ -166,6 +167,7 @@ namespace JMxPOS8.Services
                         {
                             items.Add(new CustomerPaymentSummary
                             {
+                                InvoiceId = reader["invoice_id"] == DBNull.Value ? 0 : Convert.ToInt32(reader["invoice_id"]),
                                 PaymentDate = Convert.ToDateTime(reader["paymentdate"]),
                                 PaymentMethod = reader["paymentmethod"].ToString() ?? "",
                                 Amount = Convert.ToDecimal(reader["amount"]),

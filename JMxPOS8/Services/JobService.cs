@@ -173,6 +173,18 @@ public class JobService
             });
     }
 
+    // Waitlisted means the goods haven't physically arrived yet (a reservation, e.g. "bring
+    // it in Thursday") - direct feedback, 2026-09-01: "waitlisted doesnt give the option to
+    // move to new. which means the job has arrived at the store and is waiting to be
+    // started." Mirrors the legacy app's "Check-in Job" action.
+    public async Task CheckInAsync(int jobId)
+        => await RequireTransitionAsync(jobId, new[] { "05-WaitListed" }, "10-Created");
+
+    // Undo an accidental Start Work - direct feedback: "in progress seems fine but doesnt
+    // let you move back to new if was mistakenly started."
+    public async Task ReturnToNewAsync(int jobId)
+        => await RequireTransitionAsync(jobId, new[] { "30-Started", "33-InProcess" }, "10-Created");
+
     public async Task SuspendAsync(int jobId)
         => await RequireTransitionAsync(jobId, new[] { "30-Started", "33-InProcess" }, "20-Suspended");
 
