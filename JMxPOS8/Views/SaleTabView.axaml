@@ -179,10 +179,13 @@
                                         <TextBlock Grid.Column="4" Text="{Binding Quantity}" Margin="5,0" HorizontalAlignment="Right"/>
                                         <TextBlock Grid.Column="5" Text="{Binding UnitPrice, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
                                         <TextBlock Grid.Column="6" Text="{Binding Extension, StringFormat=C}" Margin="5,0" HorizontalAlignment="Right"/>
-                                        <Button Grid.Column="7" Content="Remove"
+                                        <Button Grid.Column="7" Content="−" FontWeight="Bold" FontSize="16"
                                                Command="{Binding $parent[UserControl].DataContext.RemoveItemCommand}"
                                                CommandParameter="{Binding}"
-                                               Width="55" Height="25" Margin="5,0"/>
+                                               Width="28" Height="28" Padding="0" Margin="5,0"
+                                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                               Background="#FFEBEE" Foreground="Crimson"
+                                               ToolTip.Tip="Remove item"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

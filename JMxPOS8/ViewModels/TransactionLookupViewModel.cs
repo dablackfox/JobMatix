@@ -16,6 +16,16 @@ namespace JMxPOS8.ViewModels
         private readonly CustomerService _customerService;
         private readonly StaffService _staffService;
 
+        // ComboBox.SelectedItem bound directly to a plain string only works when the box's
+        // items come from a real ItemsSource of the same type - the previous XAML declared
+        // inline <ComboBoxItem> children instead, whose actual items are ComboBoxItem
+        // container objects, so SelectedItem could never match the bound string in either
+        // direction (the box always rendered blank, and picking an option couldn't write
+        // back). Direct feedback, 2026-09-01: "if i try to search invoices, payments or
+        // quotes, nothing populates." Same fix pattern as JobViewModel.CustomerInstructionOptions.
+        public static readonly string[] LookupTypeOptions = { "Invoice", "Payment", "Quote" };
+        public static readonly string[] DatePeriodOptions = { "Today", "ThisMonth", "12Months", "Any", "Custom" };
+
         [ObservableProperty]
         private string _lookupType = "Invoice"; // Invoice, Quote, Payment
 
@@ -531,5 +541,12 @@ namespace JMxPOS8.ViewModels
         public string DisplayDate => TransactionDate.ToString("dd-MMM-yyyy HH:mm");
         public string DisplayAmount => TotalAmount.ToString("C");
         public string DisplayType => IsOnAccount ? $"{TransactionType} (Account)" : TransactionType;
+
+        // The VOIDED badge used to bind IsVisible to "Status is non-empty" instead of
+        // "Status equals VOIDED" - since real data has status='Completed' for nearly every
+        // row, every transaction looked voided (direct feedback, 2026-09-01: "clicking on
+        // an invoice... loads a bunch of voided invoices"). Same class of Avalonia binding
+        // gotcha as HasCurrentJobTimer/HasRunningTimers/HasInvoiceId this session.
+        public bool IsVoided => Status == "VOIDED";
     }
 }

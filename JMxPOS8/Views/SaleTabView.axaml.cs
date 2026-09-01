@@ -14,11 +14,35 @@ namespace JMxPOS8.Views;
 // AutoCompleteBox lookups, key handling, etc. - nothing here is shared across tabs.
 public partial class SaleTabView : UserControl
 {
+    private bool _staffNumberLostFocusWired;
+
     public SaleTabView()
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
-        DataContextChanged += (_, _) => WireAutoCompleteSearch();
+        DataContextChanged += (_, _) => { WireAutoCompleteSearch(); WireStaffNumberLostFocus(); };
+    }
+
+    // A real barcode scanner sends a trailing Enter, which OnPreviewKeyDown below already
+    // handles - but someone typing the staff number by hand and tabbing/clicking away
+    // (rather than pressing Enter) previously left CurrentStaff unset with no visible sign
+    // anything was wrong, since the field still showed whatever they'd typed. Direct
+    // feedback, 2026-09-01: "commit sale does nothing even when i click the sale and cash
+    // buttons" - traced to exactly this: CommitSale() silently no-ops without a resolved
+    // staff member.
+    private void WireStaffNumberLostFocus()
+    {
+        if (_staffNumberLostFocusWired)
+            return;
+        var staffBox = this.FindControl<TextBox>("txtStaffNumber");
+        if (staffBox == null)
+            return;
+        _staffNumberLostFocusWired = true;
+        staffBox.LostFocus += async (_, _) =>
+        {
+            if (DataContext is SaleViewModel saleVm && !string.IsNullOrWhiteSpace(saleVm.StaffNumber))
+                await saleVm.ProcessStaffNumberCommand.ExecuteAsync(null);
+        };
     }
 
     private void WireAutoCompleteSearch()

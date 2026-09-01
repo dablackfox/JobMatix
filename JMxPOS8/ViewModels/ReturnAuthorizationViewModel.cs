@@ -20,6 +20,13 @@ public partial class ReturnAuthorizationViewModel : ViewModelBase
     [ObservableProperty]
     private ReturnAuthorization? _selectedRa;
 
+    // ComboBox.SelectedItem bound directly to a plain string only works against a real
+    // ItemsSource of the same type - inline <ComboBoxItem> children (the previous XAML)
+    // have ComboBoxItem as their actual item type, so SelectedItem could never match the
+    // bound string either way. Same fix as TransactionLookupViewModel's LookupType/DatePeriod.
+    public static readonly string[] OriginOptions = { "Counter", "Stock", "Job" };
+    public static readonly string[] ReturnResultOptions = { "Replaced", "Repaired", "Returned", "Credited", "Other" };
+
     // New RA form fields
     [ObservableProperty]
     private string _newOrigin = "Counter";

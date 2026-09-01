@@ -318,6 +318,11 @@ public partial class JobViewModel : ViewModelBase
     [ObservableProperty]
     private string _newSymptoms = "";
 
+    // ComboBox.SelectedItem bound directly to a plain string only works against a real
+    // ItemsSource of the same type - same fix as TransactionLookupViewModel's
+    // LookupType/DatePeriod and ReturnAuthorizationViewModel's Origin/ReturnResult.
+    public static readonly string[] PriorityOptions = { "H", "B" };
+
     [ObservableProperty]
     private string _newPriority = "H";
 

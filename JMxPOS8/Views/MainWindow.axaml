@@ -1393,20 +1393,15 @@
 
                                 <!-- Type Selection -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Type:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding TransactionLookupViewModel.LookupType}">
-                                    <ComboBoxItem Content="Invoice"/>
-                                    <ComboBoxItem Content="Payment"/>
-                                    <ComboBoxItem Content="Quote"/>
-                                </ComboBox>
+                                <ComboBox Grid.Row="0" Grid.Column="1"
+                                          ItemsSource="{x:Static vm:TransactionLookupViewModel.LookupTypeOptions}"
+                                          SelectedItem="{Binding TransactionLookupViewModel.LookupType}"/>
 
                                 <TextBlock Grid.Row="0" Grid.Column="3" Text="Period:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <ComboBox Grid.Row="0" Grid.Column="4" SelectedItem="{Binding TransactionLookupViewModel.DatePeriod}" HorizontalAlignment="Left" Width="150">
-                                    <ComboBoxItem Content="Today"/>
-                                    <ComboBoxItem Content="ThisMonth"/>
-                                    <ComboBoxItem Content="12Months"/>
-                                    <ComboBoxItem Content="Any" IsSelected="True"/>
-                                    <ComboBoxItem Content="Custom"/>
-                                </ComboBox>
+                                <ComboBox Grid.Row="0" Grid.Column="4"
+                                          ItemsSource="{x:Static vm:TransactionLookupViewModel.DatePeriodOptions}"
+                                          SelectedItem="{Binding TransactionLookupViewModel.DatePeriod}"
+                                          HorizontalAlignment="Left" Width="150"/>
 
                                 <!-- Staff Filter -->
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Staff:" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -1460,7 +1455,7 @@
                                             <TextBlock Grid.Column="5" Text="{Binding DisplayAmount}" Margin="5,0" HorizontalAlignment="Right" FontWeight="Bold"/>
                                             <TextBlock Grid.Column="6" Text="{Binding StaffName}" Margin="5,0"/>
                                             <TextBlock Grid.Column="7" Text="VOIDED" Margin="5,0" FontWeight="Bold" Foreground="Crimson"
-                                                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                       IsVisible="{Binding IsVoided}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -1674,11 +1669,8 @@
                     <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="Auto,*">
                         <TextBlock Grid.Row="0" Text="New Return Authorisation" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
                         <StackPanel Grid.Row="1" Spacing="8">
-                            <ComboBox SelectedItem="{Binding ReturnAuthorizationViewModel.NewOrigin}" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="Counter"/>
-                                <ComboBoxItem Content="Stock"/>
-                                <ComboBoxItem Content="Job"/>
-                            </ComboBox>
+                            <ComboBox ItemsSource="{x:Static vm:ReturnAuthorizationViewModel.OriginOptions}"
+                                      SelectedItem="{Binding ReturnAuthorizationViewModel.NewOrigin}" HorizontalAlignment="Stretch"/>
                             <TextBox Text="{Binding ReturnAuthorizationViewModel.NewCustomerBarcode}" Watermark="Customer barcode (optional)"/>
                             <TextBox Text="{Binding ReturnAuthorizationViewModel.NewSupplierBarcode}" Watermark="Supplier barcode"/>
                             <TextBox Text="{Binding ReturnAuthorizationViewModel.NewItemBarcode}" Watermark="Item barcode (optional - links to stock)"/>
@@ -1733,13 +1725,8 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ReturnAuthorizationViewModel.CanComplete}">
-                                    <ComboBox SelectedItem="{Binding ReturnAuthorizationViewModel.ActionReturnResult}" Width="130">
-                                        <ComboBoxItem Content="Replaced"/>
-                                        <ComboBoxItem Content="Repaired"/>
-                                        <ComboBoxItem Content="Returned"/>
-                                        <ComboBoxItem Content="Credited"/>
-                                        <ComboBoxItem Content="Other"/>
-                                    </ComboBox>
+                                    <ComboBox ItemsSource="{x:Static vm:ReturnAuthorizationViewModel.ReturnResultOptions}"
+                                              SelectedItem="{Binding ReturnAuthorizationViewModel.ActionReturnResult}" Width="130"/>
                                     <TextBox Width="220" Watermark="Comment" Text="{Binding ReturnAuthorizationViewModel.ActionNotes}"/>
                                     <CheckBox Content="Goods received back" IsChecked="{Binding ReturnAuthorizationViewModel.ActionGoodsReceivedBack}"/>
                                     <Button Content="Complete" Command="{Binding ReturnAuthorizationViewModel.CompleteRaCommand}" Background="ForestGreen" Foreground="White"/>
@@ -1770,10 +1757,8 @@
                             <TextBox Text="{Binding JobViewModel.NewGoodsInCare}" Watermark="Goods in care"/>
                             <TextBox Text="{Binding JobViewModel.NewGoodsBrand}" Watermark="Brand"/>
                             <TextBox Text="{Binding JobViewModel.NewGoodsModel}" Watermark="Model"/>
-                            <ComboBox SelectedItem="{Binding JobViewModel.NewPriority}" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="H"/>
-                                <ComboBoxItem Content="B"/>
-                            </ComboBox>
+                            <ComboBox ItemsSource="{x:Static vm:JobViewModel.PriorityOptions}"
+                                      SelectedItem="{Binding JobViewModel.NewPriority}" HorizontalAlignment="Stretch"/>
                             <TextBox Text="{Binding JobViewModel.NewProblemShort}" Watermark="Problem (short)"/>
                             <TextBox Text="{Binding JobViewModel.NewProblemLong}" Watermark="Problem (details)" AcceptsReturn="True" Height="60"/>
                             <TextBox Text="{Binding JobViewModel.NewSymptoms}" Watermark="Symptoms"/>
