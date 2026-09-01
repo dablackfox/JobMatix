@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using JMxPOS8.Models;
 
@@ -270,6 +271,307 @@ public class JobService
         await RequireTransitionAsync(jobId, new[] { "40-QA", "43-InProcessQA" }, "50-Completed",
             extraSql: "datecompleted = CURRENT_TIMESTAMP, servicenotes = @notes",
             extraParams: cmd => AddParam(cmd, "@notes", serviceNotes));
+    }
+
+    // Phase 4, 2026-09-01: reuses SaleService.CommitSaleAsync's proven transaction shape
+    // (same tax/serial/stock-movement logic) rather than reinventing it - see ROADMAP.md
+    // for the full design discussion. One transaction covers the status flip AND the
+    // invoice/stock/serial writes; any failure rolls back everything including the status
+    // change, so the job stays exactly where it was and Complete can just be retried - no
+    // partial "completed but not invoiced" limbo state to design UI for.
+    private const decimal GstRate = 10.0m;
+
+    public async Task<int> CompleteJobAndInvoiceAsync(int jobId, int? completingStaffId, string completingStaffName, string serviceNotes)
+    {
+        var job = await GetJobByIdAsync(jobId);
+        if (job == null)
+            throw new InvalidOperationException($"Job #{jobId} not found.");
+
+        var parts = await GetJobPartsAsync(jobId);
+        var labourRates = await GetLabourRatesAsync();
+
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var transaction = conn.BeginTransaction();
+        try
+        {
+            // Idempotency - the only protection available (see create-job-invoice-
+            // extensions.sql for why a DB-level unique constraint on job_number isn't
+            // possible against real historical data).
+            using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.Transaction = transaction;
+                checkCmd.CommandText = "SELECT invoice_id FROM invoice WHERE job_number = @jobId LIMIT 1";
+                AddParam(checkCmd, "@jobId", jobId);
+                var existing = await Task.Run(() => checkCmd.ExecuteScalar());
+                if (existing != null && existing != DBNull.Value)
+                    throw new InvalidOperationException($"Job #{jobId} has already been invoiced (invoice #{existing}).");
+            }
+
+            // Status flip - inline rather than RequireTransitionAsync (which opens its own
+            // connection) so it shares this transaction. Same optimistic-lock guard.
+            using (var statusCmd = conn.CreateCommand())
+            {
+                statusCmd.Transaction = transaction;
+                statusCmd.CommandText = @"
+                    UPDATE jobs
+                    SET jobstatus = '50-Completed', datecompleted = CURRENT_TIMESTAMP, servicenotes = @notes
+                    WHERE job_id = @jobId AND jobstatus IN ('40-QA', '43-InProcessQA')";
+                AddParam(statusCmd, "@notes", serviceNotes);
+                AddParam(statusCmd, "@jobId", jobId);
+                if (await Task.Run(() => statusCmd.ExecuteNonQuery()) == 0)
+                    throw new InvalidOperationException($"Job #{jobId} is not in a state that allows completion.");
+            }
+
+            // Build every line's figures in memory first - the invoice header needs the
+            // aggregated totals before it can be inserted, and lines need the header's
+            // invoiceId before they can be inserted, so this has to happen in this order.
+            var lines = new List<InvoiceLineData>();
+
+            foreach (var part in parts)
+            {
+                int? serialAuditId = null;
+                decimal unitCost = part.CostPrice;
+                if (part.StockId.HasValue && !string.IsNullOrWhiteSpace(part.SerialNumber))
+                {
+                    using var lookupCmd = conn.CreateCommand();
+                    lookupCmd.Transaction = transaction;
+                    lookupCmd.CommandText = @"
+                        SELECT serial_id, unit_cost FROM serial_audit
+                        WHERE stock_id = @stockId AND serial_number = @serial
+                        LIMIT 1";
+                    AddParam(lookupCmd, "@stockId", part.StockId.Value);
+                    AddParam(lookupCmd, "@serial", part.SerialNumber);
+                    using var reader = await Task.Run(() => lookupCmd.ExecuteReader());
+                    if (await Task.Run(() => reader.Read()))
+                    {
+                        serialAuditId = reader.GetInt32(0);
+                        unitCost = reader.GetDecimal(1);
+                    }
+                }
+
+                decimal lineTotalInc = part.SellPrice * part.Quantity;
+                decimal costEx = Math.Round(unitCost * part.Quantity, 2);
+                lines.Add(BuildLine(
+                    stockId: part.StockId, // null routed to the Non-Stock placeholder below
+                    description: part.PartDescr,
+                    quantity: part.Quantity,
+                    unitPriceInc: part.SellPrice,
+                    lineTotalInc: lineTotalInc,
+                    serialNumber: part.SerialNumber,
+                    serialAuditId: serialAuditId,
+                    costEx: costEx,
+                    movesRealStock: part.StockId.HasValue));
+            }
+
+            decimal billableSeconds;
+            using (var timeCmd = conn.CreateCommand())
+            {
+                timeCmd.Transaction = transaction;
+                timeCmd.CommandText = @"
+                    SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))), 0)
+                    FROM job_time_entries
+                    WHERE job_id = @jobId AND billable = true AND end_time IS NOT NULL";
+                AddParam(timeCmd, "@jobId", jobId);
+                billableSeconds = Convert.ToDecimal(await Task.Run(() => timeCmd.ExecuteScalar()));
+            }
+            decimal billableHours = Math.Round(billableSeconds / 3600m, 2);
+
+            if (billableHours > 0)
+            {
+                var rate = JobDocumentPdfService.RateForPriority(job.Priority, labourRates);
+                var labourLineTotal = Math.Round(billableHours * rate, 2);
+                if (labourLineTotal > 0)
+                {
+                    var labourStockId = await GetStockIdByBarcodeAsync(conn, transaction, "LABOUR-SVC");
+                    lines.Add(BuildLine(
+                        stockId: labourStockId,
+                        description: $"Labour ({billableHours:0.##} hrs)",
+                        quantity: 1,
+                        unitPriceInc: labourLineTotal,
+                        lineTotalInc: labourLineTotal,
+                        serialNumber: null,
+                        serialAuditId: null,
+                        costEx: 0,
+                        movesRealStock: false));
+                }
+            }
+
+            var nonStockPlaceholderId = lines.Any(l => l.StockId == null)
+                ? await GetStockIdByBarcodeAsync(conn, transaction, "NONSTOCK-MISC")
+                : (int?)null;
+
+            decimal subtotalEx = lines.Sum(l => l.SellEx);
+            decimal taxAmount = lines.Sum(l => l.SellInc - l.SellEx);
+            decimal totalInc = subtotalEx + taxAmount;
+            var transDate = DateTime.Now; // app clock, matching CommitSaleAsync's own convention
+
+            int invoiceId;
+            using (var headerCmd = conn.CreateCommand())
+            {
+                headerCmd.Transaction = transaction;
+                headerCmd.CommandText = @"
+                    WITH next_id AS (SELECT nextval('invoice_invoice_id_seq') AS id)
+                    INSERT INTO invoice (
+                        invoice_id, customer_id, staff_id, transactiontype, invoicedate, invoicenumber,
+                        subtotal, taxamount, total_inc, notes, job_number
+                    )
+                    SELECT id, @customerId, @staffId, 'SALE', @transDate,
+                           'INV-' || to_char(@transDate, 'YYYYMMDD') || '-' || id::text,
+                           @subtotalEx, @taxAmount, @totalInc, @notes, @jobId
+                    FROM next_id
+                    RETURNING invoice_id";
+                AddParam(headerCmd, "@customerId", job.RmCustomerId ?? 1);
+                AddParam(headerCmd, "@staffId", completingStaffId);
+                AddParam(headerCmd, "@transDate", transDate);
+                AddParam(headerCmd, "@subtotalEx", subtotalEx);
+                AddParam(headerCmd, "@taxAmount", taxAmount);
+                AddParam(headerCmd, "@totalInc", totalInc);
+                AddParam(headerCmd, "@notes", $"Job #{jobId} completion - {completingStaffName}");
+                AddParam(headerCmd, "@jobId", jobId);
+                invoiceId = Convert.ToInt32(await Task.Run(() => headerCmd.ExecuteScalar()));
+            }
+
+            foreach (var line in lines)
+            {
+                int lineId;
+                using (var lineCmd = conn.CreateCommand())
+                {
+                    lineCmd.Transaction = transaction;
+                    lineCmd.CommandText = @"
+                        INSERT INTO invoice_lines (
+                            invoice_id, stock_id, description,
+                            quantity, unitprice, linetotal, taxcode, serialnumber,
+                            serial_audit_id, cost_ex, cost_inc, sell_ex, sell_inc, gross_profit
+                        ) VALUES (
+                            @invoiceId, @stockId, @description,
+                            @quantity, @unitPrice, @lineTotal, @taxCode, @serialNumber,
+                            @serialAuditId, @costEx, @costInc, @sellEx, @sellInc, @grossProfit
+                        )
+                        RETURNING line_id";
+                    AddParam(lineCmd, "@invoiceId", invoiceId);
+                    AddParam(lineCmd, "@stockId", line.StockId ?? nonStockPlaceholderId);
+                    AddParam(lineCmd, "@description", line.Description);
+                    AddParam(lineCmd, "@quantity", line.Quantity);
+                    AddParam(lineCmd, "@unitPrice", line.UnitPriceInc);
+                    AddParam(lineCmd, "@lineTotal", line.LineTotalInc);
+                    AddParam(lineCmd, "@taxCode", "GST");
+                    AddParam(lineCmd, "@serialNumber", (object?)line.SerialNumber ?? DBNull.Value);
+                    AddParam(lineCmd, "@serialAuditId", (object?)line.SerialAuditId ?? DBNull.Value);
+                    AddParam(lineCmd, "@costEx", line.CostEx);
+                    AddParam(lineCmd, "@costInc", line.CostInc);
+                    AddParam(lineCmd, "@sellEx", line.SellEx);
+                    AddParam(lineCmd, "@sellInc", line.SellInc);
+                    AddParam(lineCmd, "@grossProfit", line.GrossProfit);
+                    lineId = Convert.ToInt32(await Task.Run(() => lineCmd.ExecuteScalar()));
+                }
+
+                // A part physically leaving the shelf reduces stock on hand, exactly like a
+                // Sale - not the Labour or Non-Stock placeholder lines, which aren't real
+                // inventory. Same serial_audit/serial_audit_trail sync as CommitSaleAsync.
+                if (line.MovesRealStock && line.StockId.HasValue)
+                {
+                    using (var stockCmd = conn.CreateCommand())
+                    {
+                        stockCmd.Transaction = transaction;
+                        stockCmd.CommandText = @"
+                            UPDATE stock
+                            SET quantityinstock = quantityinstock - @quantity,
+                                date_modified = CURRENT_TIMESTAMP
+                            WHERE stock_id = @stockId";
+                        AddParam(stockCmd, "@quantity", line.Quantity);
+                        AddParam(stockCmd, "@stockId", line.StockId.Value);
+                        await Task.Run(() => stockCmd.ExecuteNonQuery());
+                    }
+
+                    if (line.SerialAuditId.HasValue)
+                    {
+                        using (var serialCmd = conn.CreateCommand())
+                        {
+                            serialCmd.Transaction = transaction;
+                            serialCmd.CommandText = @"
+                                UPDATE serial_audit
+                                SET is_in_stock = false, status = 'SOLD', date_modified = CURRENT_TIMESTAMP
+                                WHERE serial_id = @serialId";
+                            AddParam(serialCmd, "@serialId", line.SerialAuditId.Value);
+                            await Task.Run(() => serialCmd.ExecuteNonQuery());
+                        }
+                        using (var trailCmd = conn.CreateCommand())
+                        {
+                            trailCmd.Transaction = transaction;
+                            trailCmd.CommandText = @"
+                                INSERT INTO serial_audit_trail (stock_id, serial_audit_id, tran_type, type_id, type_line_id, movement, rm_tr_detail)
+                                VALUES (@stockId, @serialId, 'SALE', @invoiceId, @lineId, -1, @detail)";
+                            AddParam(trailCmd, "@stockId", line.StockId.Value);
+                            AddParam(trailCmd, "@serialId", line.SerialAuditId.Value);
+                            AddParam(trailCmd, "@invoiceId", invoiceId);
+                            AddParam(trailCmd, "@lineId", lineId);
+                            AddParam(trailCmd, "@detail", $"Job #{jobId} completion - invoice {invoiceId}");
+                            await Task.Run(() => trailCmd.ExecuteNonQuery());
+                        }
+                    }
+                }
+            }
+
+            transaction.Commit();
+            return invoiceId;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    private static async Task<int?> GetStockIdByBarcodeAsync(System.Data.IDbConnection conn, System.Data.IDbTransaction transaction, string barcode)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "SELECT stock_id FROM stock WHERE barcode = @barcode LIMIT 1";
+        AddParam(cmd, "@barcode", barcode);
+        var result = await Task.Run(() => cmd.ExecuteScalar());
+        return result == null || result == DBNull.Value ? null : Convert.ToInt32(result);
+    }
+
+    private static InvoiceLineData BuildLine(int? stockId, string description, decimal quantity, decimal unitPriceInc,
+        decimal lineTotalInc, string? serialNumber, int? serialAuditId, decimal costEx, bool movesRealStock)
+    {
+        decimal costInc = Math.Round(costEx * (1 + (GstRate / 100m)), 2);
+        decimal sellInc = lineTotalInc;
+        decimal sellEx = Math.Round(sellInc / (1 + (GstRate / 100m)), 2);
+        return new InvoiceLineData
+        {
+            StockId = stockId,
+            Description = description,
+            Quantity = quantity,
+            UnitPriceInc = unitPriceInc,
+            LineTotalInc = lineTotalInc,
+            SerialNumber = string.IsNullOrWhiteSpace(serialNumber) ? null : serialNumber,
+            SerialAuditId = serialAuditId,
+            CostEx = costEx,
+            CostInc = costInc,
+            SellEx = sellEx,
+            SellInc = sellInc,
+            GrossProfit = sellEx - costEx,
+            MovesRealStock = movesRealStock
+        };
+    }
+
+    private class InvoiceLineData
+    {
+        public int? StockId { get; set; }
+        public string Description { get; set; } = "";
+        public decimal Quantity { get; set; }
+        public decimal UnitPriceInc { get; set; }
+        public decimal LineTotalInc { get; set; }
+        public string? SerialNumber { get; set; }
+        public int? SerialAuditId { get; set; }
+        public decimal CostEx { get; set; }
+        public decimal CostInc { get; set; }
+        public decimal SellEx { get; set; }
+        public decimal SellInc { get; set; }
+        public decimal GrossProfit { get; set; }
+        public bool MovesRealStock { get; set; }
     }
 
     public async Task DeliverAsync(int jobId, string deliveredStaffName, int? deliveredStaffId)

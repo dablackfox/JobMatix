@@ -259,7 +259,9 @@ public class JobDocumentPdfService
         _ => priority,
     };
 
-    private static decimal RateForPriority(string priority, IReadOnlyDictionary<string, decimal> rates)
+    // internal (not private) so JobService.CompleteJobAndInvoiceAsync can reuse the exact
+    // same priority->rate mapping for the labour invoice line, rather than duplicating it.
+    internal static decimal RateForPriority(string priority, IReadOnlyDictionary<string, decimal> rates)
     {
         var key = priority switch
         {

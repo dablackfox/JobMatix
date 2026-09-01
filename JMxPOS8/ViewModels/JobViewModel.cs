@@ -876,8 +876,12 @@ public partial class JobViewModel : ViewModelBase
             var attributedNotes = string.IsNullOrWhiteSpace(ActionServiceNotes)
                 ? ""
                 : $"{staff.DocketName}: {System.DateTime.Now:dd-MMM-yyyy  HH:mm}\n{ActionServiceNotes.Trim()}";
-            await _jobService.CompleteAsync(SelectedJob.JobId, attributedNotes);
-            StatusMessage = $"Job #{SelectedJob.JobId} completed";
+
+            // Completion now also generates a real invoice from the job's parts + billable
+            // time (Phase 4, 2026-09-01) - see JobService.CompleteJobAndInvoiceAsync for the
+            // full design (mirrors SaleService.CommitSaleAsync's transaction shape).
+            var invoiceId = await _jobService.CompleteJobAndInvoiceAsync(SelectedJob.JobId, staff.StaffId, staff.DocketName, attributedNotes);
+            StatusMessage = $"Job #{SelectedJob.JobId} completed - invoice #{invoiceId}";
             await RefreshSelectedAsync();
         }
         catch (System.Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
