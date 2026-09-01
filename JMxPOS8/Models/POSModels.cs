@@ -198,17 +198,85 @@ namespace JMxPOS8.Models
     // marker), not anything a person would recognize as "what's wrong with this machine".
     // Shared between JobRecord and CustomerJobSummary so ticket lists show something
     // actually useful instead of "*PROCEED-WITH-SERVICE*;" (direct feedback, 2026-09-01).
+    // The legacy "Customer Instruction" 3-way approval flag (ucChildNewJob.vb's
+    // optQuotation radio group - "Customer Instruction must be selected" was a hard
+    // requirement on the legacy New Job form). Never a real column - it's baked directly
+    // into problemshort as one of three boilerplate marker strings, which is also why that
+    // field so often shows nothing BUT the marker (direct feedback, 2026-09-01: "there is a
+    // proceed with service note on all jobs which was supposed to indicate someone selected
+    // proceed with service... to indicate the work was approved"). This port had no control
+    // for it at all - restoring it as an explicit selection at intake, kept in the same
+    // field/marker format for compatibility with ~26k already-migrated jobs.
+    public enum CustomerInstruction
+    {
+        None,
+        QuotationRequired,
+        ProceedWithService,
+        ProceedToLimit
+    }
+
     public static class ProblemDescriptionHelper
     {
-        private static readonly HashSet<string> Boilerplate = new(StringComparer.OrdinalIgnoreCase)
+        // Order matters for detection when a job predates the trailing-semicolon format
+        // (ucChildNewJob.vb clears both "*X*;" and the older "*X*" on every save) - check
+        // the more specific proceed-to-limit marker before proceed-with-service since
+        // neither is a prefix of the other, but keep both checked as plain Contains so
+        // position within the field (start, end, or mixed with real description text)
+        // never matters.
+        private static readonly (string Marker, CustomerInstruction Instruction)[] InstructionMarkers =
         {
-            "*PROCEED-WITH-SERVICE*;", "*QUOTATION-REQUIRED*;", "*PROCEED-TO-LIMIT*;", "N/A"
+            ("*PROCEED-TO-LIMIT*", CustomerInstruction.ProceedToLimit),
+            ("*PROCEED-WITH-SERVICE*", CustomerInstruction.ProceedWithService),
+            ("*QUOTATION-REQUIRED*", CustomerInstruction.QuotationRequired),
         };
+
+        public static CustomerInstruction ExtractCustomerInstruction(string? problemShort)
+        {
+            if (string.IsNullOrWhiteSpace(problemShort))
+                return CustomerInstruction.None;
+            foreach (var (marker, instruction) in InstructionMarkers)
+                if (problemShort.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                    return instruction;
+            return CustomerInstruction.None;
+        }
+
+        public static string MarkerFor(CustomerInstruction instruction) => instruction switch
+        {
+            CustomerInstruction.QuotationRequired => "*QUOTATION-REQUIRED*;",
+            CustomerInstruction.ProceedWithService => "*PROCEED-WITH-SERVICE*;",
+            CustomerInstruction.ProceedToLimit => "*PROCEED-TO-LIMIT*;",
+            _ => ""
+        };
+
+        public static string LabelFor(CustomerInstruction instruction) => instruction switch
+        {
+            CustomerInstruction.QuotationRequired => "Quotation Required",
+            CustomerInstruction.ProceedWithService => "Approved - Proceed with Service",
+            CustomerInstruction.ProceedToLimit => "Approved - Proceed only to Cost Limit",
+            _ => ""
+        };
+
+        // Strips the marker wherever it sits in the string (start, end, or mixed with real
+        // description text - the legacy form appended it to whatever was already typed) so
+        // callers see the actual customer-facing description, not internal bookkeeping.
+        public static string StripCustomerInstructionMarker(string? problemShort)
+        {
+            if (string.IsNullOrWhiteSpace(problemShort))
+                return string.Empty;
+            var result = problemShort;
+            foreach (var (marker, _) in InstructionMarkers)
+            {
+                result = result.Replace(marker + ";", "", StringComparison.OrdinalIgnoreCase);
+                result = result.Replace(marker, "", StringComparison.OrdinalIgnoreCase);
+            }
+            return result.Trim();
+        }
 
         public static string Summarize(string? problemShort, string? problemLong, string? problemSymptoms, int maxLength = 60)
         {
-            if (!string.IsNullOrWhiteSpace(problemShort) && !Boilerplate.Contains(problemShort.Trim()))
-                return Truncate(problemShort, maxLength);
+            var cleanedShort = StripCustomerInstructionMarker(problemShort);
+            if (!string.IsNullOrWhiteSpace(cleanedShort) && !string.Equals(cleanedShort, "N/A", StringComparison.OrdinalIgnoreCase))
+                return Truncate(cleanedShort, maxLength);
             if (!string.IsNullOrWhiteSpace(problemLong))
                 return Truncate(problemLong.Replace("\r\n", " ").Replace('\n', ' '), maxLength);
             if (!string.IsNullOrWhiteSpace(problemSymptoms) && !string.Equals(problemSymptoms.Trim(), "N/A", StringComparison.OrdinalIgnoreCase))
@@ -268,9 +336,19 @@ namespace JMxPOS8.Models
         public string DeliveredStaffName { get; set; } = string.Empty;
         public DateTime DateUpdated { get; set; }
 
-        public string Summary => $"#{JobId} - {CustomerName} - {ProblemShort} - {JobStatus}";
+        // Uses DisplaySummary rather than the raw ProblemShort - that field is where the
+        // Customer Instruction marker lives (see ProblemDescriptionHelper), so showing it
+        // raw here used to put "*PROCEED-WITH-SERVICE*;" literally in the ticket header
+        // instead of the actual problem description.
+        public string Summary => $"#{JobId} - {CustomerName} - {DisplaySummary} - {JobStatus}";
         public bool IsLocked => JobStatus is "23-InProcessSusp" or "33-InProcess" or "43-InProcessQA";
         public string DisplaySummary => ProblemDescriptionHelper.Summarize(ProblemShort, ProblemLong, ProblemSymptoms);
+        public CustomerInstruction Instruction => ProblemDescriptionHelper.ExtractCustomerInstruction(ProblemShort);
+        public string InstructionLabel => ProblemDescriptionHelper.LabelFor(Instruction);
+        public bool HasInstruction => Instruction != CustomerInstruction.None;
+        public bool IsQuotationRequired => Instruction == CustomerInstruction.QuotationRequired;
+        public bool IsProceedWithService => Instruction == CustomerInstruction.ProceedWithService;
+        public bool IsProceedToLimit => Instruction == CustomerInstruction.ProceedToLimit;
     }
 
     public class JobPartLine

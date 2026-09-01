@@ -33,14 +33,32 @@
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <!-- Ticket notes: private (internal-only) vs public (customer-facing), color-coded
-             so the difference is visible at a glance without reading the badge text. -->
+             so the difference is visible at a glance without reading the badge text. Direct
+             feedback (2026-09-01): the original amber/orange read as dated - private now
+             uses a darker blue against public's green, dropping yellow/orange from the
+             palette entirely (see the matching change to the timer/info boxes below). -->
         <Style Selector="Border.privateNote">
-            <Setter Property="Background" Value="#FFF3E0"/>
-            <Setter Property="BorderBrush" Value="#FFB74D"/>
+            <Setter Property="Background" Value="#BBDEFB"/>
+            <Setter Property="BorderBrush" Value="#1976D2"/>
         </Style>
         <Style Selector="Border.publicNote">
             <Setter Property="Background" Value="#E8F5E9"/>
             <Setter Property="BorderBrush" Value="#81C784"/>
+        </Style>
+        <!-- Customer Instruction status (Quotation Required / Proceed with Service / Proceed
+             to Cost Limit) - a traffic-light-style approval indicator, direct feedback
+             2026-09-01 restoring a legacy field that had no UI control in this port. -->
+        <Style Selector="Border.instructionQuoteRequired">
+            <Setter Property="Background" Value="#FFEBEE"/>
+            <Setter Property="BorderBrush" Value="#EF5350"/>
+        </Style>
+        <Style Selector="Border.instructionProceed">
+            <Setter Property="Background" Value="#E8F5E9"/>
+            <Setter Property="BorderBrush" Value="#66BB6A"/>
+        </Style>
+        <Style Selector="Border.instructionProceedToLimit">
+            <Setter Property="Background" Value="#E3F2FD"/>
+            <Setter Property="BorderBrush" Value="#42A5F5"/>
         </Style>
         <!-- Reports page: only the report actually on screen is highlighted, so switching
              reports doesn't leave a stale button (e.g. Cash Up, previously hardcoded green
@@ -129,10 +147,10 @@
                 <Rectangle Width="1" Fill="Gray" Margin="0,2"/>
                 <TextBlock Text="{Binding Source={x:Static sys:DateTime.Now}, StringFormat='HH:mm:ss'}" Margin="20,0"/>
                 <Rectangle Width="1" Fill="Gray" Margin="20,2,0,2" IsVisible="{Binding JobViewModel.HasRunningTimers}"/>
-                <Button Margin="20,0,0,0" Padding="6,2" Background="#FFF6E0" BorderBrush="#E0C070" BorderThickness="1"
+                <Button Margin="20,0,0,0" Padding="6,2" Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1"
                         Command="{Binding ShowRunningTimersCommand}"
                         IsVisible="{Binding JobViewModel.HasRunningTimers}">
-                    <TextBlock Text="{Binding JobViewModel.RunningTimersCountDisplay}" Foreground="#8A6D3B" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding JobViewModel.RunningTimersCountDisplay}" Foreground="#1565C0" FontWeight="Bold"/>
                 </Button>
             </StackPanel>
         </Panel>
@@ -1730,6 +1748,20 @@
                             <TextBox Text="{Binding JobViewModel.NewProblemShort}" Watermark="Problem (short)"/>
                             <TextBox Text="{Binding JobViewModel.NewProblemLong}" Watermark="Problem (details)" AcceptsReturn="True" Height="60"/>
                             <TextBox Text="{Binding JobViewModel.NewSymptoms}" Watermark="Symptoms"/>
+                            <!-- Customer Instruction (direct feedback, 2026-09-01) - required,
+                                 matching the legacy form's own "Customer Instruction must be
+                                 selected" rule. Records whether the customer approved the work
+                                 to proceed, needs a quote first, or approved only up to a limit. -->
+                            <TextBlock Text="Customer Instruction *" FontWeight="Bold" Margin="0,4,0,0"/>
+                            <ComboBox ItemsSource="{Binding JobViewModel.CustomerInstructionOptions}"
+                                      SelectedItem="{Binding JobViewModel.NewCustomerInstruction}"
+                                      PlaceholderText="Select..." HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <CheckBox Content="Data backup required" IsChecked="{Binding JobViewModel.NewDataBackupReqd}"/>
                             <CheckBox Content="Data disk required" IsChecked="{Binding JobViewModel.NewDataDiskReqd}"/>
                             <CheckBox Content="Under warranty" IsChecked="{Binding JobViewModel.NewSystemUnderWarranty}"/>
@@ -1791,8 +1823,8 @@
                                                          SelectedItem="{Binding $parent[Window].DataContext.JobViewModel.SelectedJob}">
                                                     <ListBox.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
-                                                                <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
+                                                            <Grid ColumnDefinitions="Auto,*,30,150,30" Margin="5,3">
+                                                                <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold" Margin="0,0,10,0"/>
                                                                 <TextBlock Grid.Column="1" Text="{Binding DisplaySummary}"/>
                                                                 <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
                                                                 <TextBlock Grid.Column="3" Text="{Binding CustomerName}"/>
@@ -1825,11 +1857,24 @@
                                             Command="{Binding JobViewModel.CloseTicketCommand}"/>
                                 </Grid>
 
+                                <!-- Customer Instruction status (direct feedback, 2026-09-01) -
+                                     read-only here, matching the legacy main job page's own
+                                     labInstructions banner (set once at intake, not editable
+                                     after). Only shows for jobs that actually have one - jobs
+                                     created before this control existed in this port won't. -->
+                                <Border Classes.instructionQuoteRequired="{Binding JobViewModel.SelectedJob.IsQuotationRequired}"
+                                        Classes.instructionProceed="{Binding JobViewModel.SelectedJob.IsProceedWithService}"
+                                        Classes.instructionProceedToLimit="{Binding JobViewModel.SelectedJob.IsProceedToLimit}"
+                                        BorderThickness="1" CornerRadius="4" Padding="8"
+                                        IsVisible="{Binding JobViewModel.SelectedJob.HasInstruction}">
+                                    <TextBlock Text="{Binding JobViewModel.SelectedJob.InstructionLabel}" FontWeight="Bold"/>
+                                </Border>
+
                                 <!-- Time tracking (direct feedback, 2026-09-01): "a start stop auto add
                                      time to notes and billing was a major sore point" of the legacy app.
                                      Concurrent by design - this ticket's timer is independent of any other
                                      ticket's, so switching between jobs never forces you to stop one first. -->
-                                <Border Background="#FFF6E0" BorderBrush="#E0C070" BorderThickness="1" CornerRadius="4" Padding="10">
+                                <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" CornerRadius="4" Padding="10">
                                     <StackPanel Spacing="6">
                                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !JobViewModel.HasCurrentJobTimer}">
                                             <TextBlock Grid.Column="0" Text="No timer running on this ticket" VerticalAlignment="Center" Foreground="Gray"/>
@@ -1853,21 +1898,21 @@
 
                                 <!-- Notes - problem details, diagnosis and service notes were being
                                      captured but never shown again once you left the job. -->
-                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8" Margin="0,4,0,0"
+                                <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" Padding="8" Margin="0,4,0,0"
                                         IsVisible="{Binding JobViewModel.SelectedJob.ProblemLong, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="Problem Details" FontWeight="Bold" FontSize="11"/>
                                         <TextBlock Text="{Binding JobViewModel.SelectedJob.ProblemLong}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8"
+                                <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" Padding="8"
                                         IsVisible="{Binding JobViewModel.SelectedJob.Diagnosis, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="Diagnosis" FontWeight="Bold" FontSize="11"/>
                                         <TextBlock Text="{Binding JobViewModel.SelectedJob.Diagnosis}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Background="#FAFAF0" BorderBrush="#DDD" BorderThickness="1" Padding="8"
+                                <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" Padding="8"
                                         IsVisible="{Binding JobViewModel.SelectedJob.ServiceNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="Service Notes" FontWeight="Bold" FontSize="11"/>

@@ -333,6 +333,22 @@ public partial class JobViewModel : ViewModelBase
     [ObservableProperty]
     private string _newStaffBarcode = "";
 
+    // Customer Instruction (direct feedback, 2026-09-01) - restores a legacy field this
+    // port dropped: a required 3-way approval flag ("Quotation Required" / "Proceed with
+    // Service" / "Proceed only to Cost Limit") baked into ProblemShort as a marker string.
+    // See ProblemDescriptionHelper for the marker format shared with ~26k migrated jobs.
+    public record CustomerInstructionOption(string Label, CustomerInstruction Instruction);
+
+    public static ObservableCollection<CustomerInstructionOption> CustomerInstructionOptions { get; } = new()
+    {
+        new("Quotation Required", CustomerInstruction.QuotationRequired),
+        new("Proceed with Service", CustomerInstruction.ProceedWithService),
+        new("Proceed only to Cost Limit", CustomerInstruction.ProceedToLimit),
+    };
+
+    [ObservableProperty]
+    private CustomerInstructionOption? _newCustomerInstruction;
+
     // Action-panel fields, reused across whichever action the selected job's status allows
     [ObservableProperty]
     private string _actionStaffBarcode = "";
@@ -542,6 +558,11 @@ public partial class JobViewModel : ViewModelBase
             StatusMessage = "Enter a problem description";
             return;
         }
+        if (NewCustomerInstruction == null)
+        {
+            StatusMessage = "Select a Customer Instruction (Quotation Required / Proceed with Service / Proceed to Cost Limit)";
+            return;
+        }
         if (string.IsNullOrWhiteSpace(NewStaffBarcode))
         {
             StatusMessage = "Enter your staff barcode";
@@ -561,7 +582,11 @@ public partial class JobViewModel : ViewModelBase
             GoodsInCare = NewGoodsInCare.Trim(),
             GoodsBrand = NewGoodsBrand.Trim(),
             GoodsModel = NewGoodsModel.Trim(),
-            ProblemShort = NewProblemShort.Trim(),
+            // Marker appended at the end, matching ucChildNewJob.vb's own convention
+            // exactly - existing detection/stripping logic checks for the marker anywhere
+            // in the string, but keeping the same shape as the ~26k migrated jobs avoids
+            // any doubt about it.
+            ProblemShort = $"{NewProblemShort.Trim()} {ProblemDescriptionHelper.MarkerFor(NewCustomerInstruction.Instruction)}".Trim(),
             ProblemLong = NewProblemLong.Trim(),
             ProblemSymptoms = NewSymptoms.Trim(),
             DataBackupReqd = NewDataBackupReqd,
@@ -599,6 +624,7 @@ public partial class JobViewModel : ViewModelBase
         NewDataDiskReqd = false;
         NewSystemUnderWarranty = false;
         NewStaffBarcode = "";
+        NewCustomerInstruction = null;
     }
 
     // Job docket/quote printing (ROADMAP.md Phase 2/3) - PDF only for now, by direct
