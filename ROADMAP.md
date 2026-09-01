@@ -1,6 +1,6 @@
 # JobMatix Revival Roadmap v3
 
-**Last Updated**: August 31, 2026
+**Last Updated**: September 1, 2026
 **Supersedes**: `ROADMAP-ARCHIVE-2026-08.md` (v2 — Phase 2 was accurate and is now complete; Phase 3 was a thin, partly-wrong placeholder, corrected below after a real code audit)
 **Project**: Martin Fenwick, solo maintainer, AI-assisted (Claude Code)
 **Status of the software**: JobMatix/JMxPOS was last live in production ~2020–2021 at Precise PCs. It is **not currently running anywhere**. This is a revival for a fresh multi-store IBG rollout, not a live cutover.
@@ -171,6 +171,37 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation were **
 
 ---
 
+## Phase 6: Serial-Level Costing (COGS/FIFO) & Central Multi-Store Catalog — proposed, not started
+
+Raised by the business owner 2026-09-01. Two related asks: real cost-of-goods-sold reporting (per-unit, not per-SKU), and a central place to control stock/pricing across stores, similar to how Fieldpine/Neto work today. Both were investigated against the live schema and code before writing anything here — findings and a recommended approach below, not yet scoped into a session.
+
+### 6.1 Per-unit cost tracking (the "COGS/FIFO" ask)
+
+**The actual problem, confirmed in code**: `stock.costprice` is one field per SKU, overwritten on every goods-received transaction (`GoodsReceivedService.cs` — "latest cost wins"). So a product that came in at two different prices over time can only ever report the most recent one; there's no way to know what a specific unit actually cost when it sold. The real per-receipt cost already exists (`goods_received_line.cost_ex`, tied to a specific `goods_received` batch and `stock_id`), it's just never linked to an individual unit.
+
+**The business's proposed fix** — print a special barcode per incoming unit encoding order number + SKU + serial, for 3 new printers being installed for stock processing — was evaluated and **not recommended**. It requires whoever applies the label to correctly match the right barcode to the right physical unit, which is exactly the failure mode the business itself flagged as likely. It also duplicates data that's already derivable from the database.
+
+**Recommended approach instead** — do it at the database layer, not the label layer:
+- Serial numbers already exist in the schema (`serial_audit`, keyed to `stock_id`), but a real gap was found: **no code anywhere in the app currently creates a `serial_audit` row** — receiving a serialized item was never wired up in this port. This needs building regardless of the costing question.
+- When goods are received, capture the serial number(s) for that line (for `requiresserial` stock items) and stamp each new `serial_audit` row with the cost from that specific `goods_received_line`, e.g. a new `serial_audit.unit_cost` column (or a FK to `goods_received_line`).
+- At sale, when a specific serial is picked, use *that unit's* stored cost for COGS reporting — `stock.costprice` stops being the source of truth for margin/COGS, only for defaulting the sell price on new sales.
+- New report: cost/margin by product using real per-unit cost, alongside the existing `ReportsViewModel` reports.
+- Ordinary product barcodes on the shelf don't change — still scan-to-sell by SKU exactly as today. The only new physical step is printing a serial label at receiving time if the manufacturer doesn't already supply a scannable serial, which is a normal receiving step, not a new decoding scheme for staff to get wrong.
+
+**Effort**: additive, not a rewrite — a Goods Received intake extension (serial capture per line), a small schema addition, a small Sale-flow change (read cost from the serial instead of the SKU), and a new report. Sizes similarly to the other Phase 2/3 features already shipped.
+
+### 6.2 Central multi-store stock/pricing control (Fieldpine/Neto-style)
+
+This matches the architecture already recommended back in Phase 0.1/Phase 4 — separate Postgres per store, plus a central reporting/control API layered on top later — so it doesn't need new architectural work to accommodate, just needs Phase 4 built out further than "reporting" into "control" (push pricing/stock changes out to stores, not just read them in).
+
+Worth investigating before designing that API from scratch: `franky-forge` (sibling project in the IBG_HUB monorepo, a product-data-enrichment platform that syndicates supplier price sheets to Neto/Shopify) already has a multi-tenant product/pricing data model built for a similar purpose. It's not yet clear whether JobMatix should plug into it as a central catalog or whether they should stay separate — needs a closer look at franky-forge's actual schema/API before committing either way.
+
+The business also floated a fully API-controlled hybrid cloud/local model (local operation continues offline, reports back centrally when connected). That's achievable on top of the current per-store-database design without a full rewrite — it's the same Phase 4 central API, just with the store's local app pushing state changes both ways instead of only reporting up.
+
+**Status**: not scoped into a session yet. Next step when picked up: (1) decide the `serial_audit` cost-tracking schema addition (own column vs. FK to `goods_received_line`), (2) build the Goods Received serial-capture step, (3) revisit Phase 4's central API scope once 6.1 is done and there's real per-store data worth centralizing.
+
+---
+
 ## Risk Register (updated)
 
 | Risk | Notes |
@@ -188,6 +219,8 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation were **
 | ~~Printer/EFTPOS integration complexity~~ | Unchanged from v2 — lower risk than originally feared, well-understood CUPS/ESC-POS work. |
 | ~~Zero FKs in Jobs database~~ | Resolved — was already fixed before this session, confirmed live. |
 | ~~RA tightly coupled to Job Tracking~~ | Resolved by audit — RA is mostly independent (90.5% of real RAs have no job link), can ship on its own schedule. |
+| Serial-receiving pipeline doesn't exist yet (Phase 6.1) | No code anywhere creates a `serial_audit` row — found while investigating the COGS ask. Blocks per-unit costing regardless of the barcode question, needs building either way. |
+| Central catalog: build vs. reuse `franky-forge` (Phase 6.2) | Undecided — franky-forge already has a multi-tenant product/pricing model for a related purpose (Neto/Shopify syndication). Needs its schema/API reviewed before Phase 4's central API is designed, to avoid building a second version of the same thing. |
 
 ---
 
