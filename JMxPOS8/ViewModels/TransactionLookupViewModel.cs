@@ -23,7 +23,13 @@ namespace JMxPOS8.ViewModels
         // direction (the box always rendered blank, and picking an option couldn't write
         // back). Direct feedback, 2026-09-01: "if i try to search invoices, payments or
         // quotes, nothing populates." Same fix pattern as JobViewModel.CustomerInstructionOptions.
-        public static readonly string[] LookupTypeOptions = { "Invoice", "Payment", "Quote" };
+        //
+        // "Quote" was retired 2026-09-02: it searched invoice.transactiontype='QUOTE', a value
+        // nothing in the app ever writes - the real Quote -> Job -> Invoice pipeline is job-
+        // centric (quote_job_parts/jobs.customerinstruction), not invoice-based, so this always
+        // returned zero rows. Build quotes are already surfaced on the ticket itself (Quoted
+        // Components section); Transaction Lookup is for financial transactions.
+        public static readonly string[] LookupTypeOptions = { "Invoice", "Payment" };
         public static readonly string[] DatePeriodOptions = { "Today", "ThisMonth", "12Months", "Any", "Custom" };
 
         [ObservableProperty]
@@ -77,16 +83,29 @@ namespace JMxPOS8.ViewModels
             Transactions = new ObservableCollection<TransactionSummary>();
         }
 
+        // Search() is called both via SearchCommand (the button) and directly by
+        // SelectInvoiceByIdAsync/ConfirmVoid, so CommunityToolkit's built-in AsyncRelayCommand
+        // re-entrancy guard doesn't cover every path - two overlapping calls (e.g. a customer-
+        // filtered search still awaiting the DB while F8 "Show Last Invoice" fires an unfiltered
+        // one) used to interleave their results into the same Transactions collection, showing
+        // mixed customers in a supposedly single-customer list. Fixed with a generation token:
+        // only the most recently started call is allowed to touch Transactions.
+        private int _searchToken;
+
         [RelayCommand]
         private async Task Search()
         {
+            int token = ++_searchToken;
             try
             {
                 StatusMessage = "Searching...";
-                Transactions.Clear();
 
                 var results = await SearchTransactionsAsync();
-                
+
+                if (token != _searchToken)
+                    return; // a newer search started while this one was awaiting the DB
+
+                Transactions.Clear();
                 foreach (var item in results)
                 {
                     Transactions.Add(item);
@@ -96,6 +115,9 @@ namespace JMxPOS8.ViewModels
             }
             catch (Exception ex)
             {
+                if (token != _searchToken)
+                    return;
+
                 StatusMessage = $"Error: {ex.Message}";
                 Console.WriteLine($"[LOOKUP] Error searching: {ex.Message}");
             }
@@ -386,7 +408,38 @@ namespace JMxPOS8.ViewModels
         {
             string sql;
 
-            if (LookupType == "Invoice")
+            if (LookupType == "Payment")
+            {
+                sql = @"
+                    SELECT p.payment_id, p.paymentdate, p.transactiontype,
+                           p.amount,
+                           COALESCE(c.companyname, c.customername) as customer_name,
+                           c.barcode as customer_barcode,
+                           s.docket_name as staff_name,
+                           false as isonaccount,
+                           '' as invoicenumber,
+                           '' as status
+                    FROM payments p
+                    LEFT JOIN customer c ON p.customer_id = c.customer_id
+                    LEFT JOIN staff s ON p.staff_id = s.staff_id
+                    WHERE 1=1";
+
+                if (!string.IsNullOrWhiteSpace(StaffBarcode))
+                {
+                    sql += " AND s.barcode = @staffBarcode";
+                }
+                if (!string.IsNullOrWhiteSpace(CustomerBarcode))
+                {
+                    sql += " AND c.barcode = @customerBarcode";
+                }
+                if (DatePeriod != "Any")
+                {
+                    sql += " AND p.paymentdate >= @dateFrom AND p.paymentdate < @dateTo";
+                }
+
+                sql += " ORDER BY p.paymentdate DESC, p.payment_id DESC";
+            }
+            else // Invoice
             {
                 if (!string.IsNullOrWhiteSpace(ItemBarcode) || !string.IsNullOrWhiteSpace(SerialNumber))
                 {
@@ -452,62 +505,6 @@ namespace JMxPOS8.ViewModels
                 {
                     sql += " AND inv.invoicedate >= @dateFrom AND inv.invoicedate < @dateTo";
                 }
-
-                sql += " ORDER BY inv.invoicedate DESC, inv.invoice_id DESC";
-            }
-            else if (LookupType == "Payment")
-            {
-                sql = @"
-                    SELECT p.payment_id, p.paymentdate, p.transactiontype,
-                           p.amount,
-                           COALESCE(c.companyname, c.customername) as customer_name,
-                           c.barcode as customer_barcode,
-                           s.docket_name as staff_name,
-                           false as isonaccount,
-                           '' as invoicenumber,
-                           '' as status
-                    FROM payments p
-                    LEFT JOIN customer c ON p.customer_id = c.customer_id
-                    LEFT JOIN staff s ON p.staff_id = s.staff_id
-                    WHERE 1=1";
-
-                if (!string.IsNullOrWhiteSpace(StaffBarcode))
-                {
-                    sql += " AND s.barcode = @staffBarcode";
-                }
-                if (!string.IsNullOrWhiteSpace(CustomerBarcode))
-                {
-                    sql += " AND c.barcode = @customerBarcode";
-                }
-                if (DatePeriod != "Any")
-                {
-                    sql += " AND p.paymentdate >= @dateFrom AND p.paymentdate < @dateTo";
-                }
-
-                sql += " ORDER BY p.paymentdate DESC, p.payment_id DESC";
-            }
-            else // Quote
-            {
-                sql = @"
-                    SELECT inv.invoice_id, inv.invoicedate, inv.transactiontype,
-                           inv.total_inc,
-                           COALESCE(c.companyname, c.customername) as customer_name,
-                           c.barcode as customer_barcode,
-                           s.docket_name as staff_name,
-                           false as isonaccount,
-                           inv.invoicenumber,
-                               inv.status
-                    FROM invoice inv
-                    LEFT JOIN customer c ON inv.customer_id = c.customer_id
-                    LEFT JOIN staff s ON inv.staff_id = s.staff_id
-                    WHERE inv.transactiontype = 'QUOTE'";
-
-                if (!string.IsNullOrWhiteSpace(StaffBarcode))
-                    sql += " AND s.barcode = @staffBarcode";
-                if (!string.IsNullOrWhiteSpace(CustomerBarcode))
-                    sql += " AND c.barcode = @customerBarcode";
-                if (DatePeriod != "Any")
-                    sql += " AND inv.invoicedate >= @dateFrom AND inv.invoicedate < @dateTo";
 
                 sql += " ORDER BY inv.invoicedate DESC, inv.invoice_id DESC";
             }

@@ -780,25 +780,6 @@
                             </ListBox>
                         </TabItem>
 
-                        <TabItem Header="Quotes">
-                            <ListBox ItemsSource="{Binding CustomerViewModel.Quotes}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid ColumnDefinitions="140,*,90,100" Margin="5,3">
-                                            <TextBlock Grid.Column="0" Text="{Binding InvoiceDate, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
-                                            <Button Grid.Column="1" Content="{Binding InvoiceNumber}"
-                                                    Padding="0" Background="Transparent" BorderThickness="0" Foreground="#1565C0"
-                                                    Cursor="Hand" HorizontalContentAlignment="Left"
-                                                    Command="{Binding $parent[Window].DataContext.CustomerViewModel.OpenInvoiceCommand}"
-                                                    CommandParameter="{Binding InvoiceId}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding TransactionType}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding TotalInc, StringFormat=C}" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </TabItem>
-
                         <TabItem Header="Tickets">
                             <ListBox ItemsSource="{Binding CustomerViewModel.Jobs}">
                                 <ListBox.ItemTemplate>
