@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace JMxPOS8.Models
@@ -311,6 +312,21 @@ namespace JMxPOS8.Models
 
         partial void OnQuantityChanged(decimal value) => OnPropertyChanged(nameof(LineTotalEx));
         partial void OnCostExChanged(decimal value) => OnPropertyChanged(nameof(LineTotalEx));
+
+        // Phase 6.1 (ROADMAP.md): when the scanned item requires serials, the operator
+        // enters them here (one per line, comma/newline separated) so each unit's
+        // serial_audit row can be stamped with this line's actual cost at receiving time.
+        public bool RequiresSerial { get; set; }
+
+        [ObservableProperty]
+        private string _serialNumbersText = string.Empty;
+
+        public List<string> ParseSerialNumbers() =>
+            SerialNumbersText
+                .Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .ToList();
     }
 
     public class GoodsReceivedSummary

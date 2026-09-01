@@ -341,17 +341,54 @@ namespace JMxPOS8.Services
                         // 2. Insert invoice lines
                         foreach (var item in SaleItems)
                         {
+                            // Phase 6.1 (ROADMAP.md): a serialized item's cost comes from the
+                            // specific unit sold (stamped at receiving time, see
+                            // GoodsReceivedService), not from stock.costprice's "latest cost
+                            // wins" value - this is the actual per-unit COGS lineage. A
+                            // serial with no matching serial_audit row (never received through
+                            // the new Goods Received flow, e.g. legacy stock) just leaves the
+                            // cost fields at zero rather than blocking the sale.
+                            int? serialAuditId = null;
+                            decimal unitCost = 0m;
+                            if (!string.IsNullOrWhiteSpace(item.SerialNumber))
+                            {
+                                using var lookupCmd = conn.CreateCommand();
+                                lookupCmd.Transaction = transaction;
+                                lookupCmd.CommandText = @"
+                                    SELECT serial_id, unit_cost FROM serial_audit
+                                    WHERE stock_id = @stockId AND serial_number = @serial
+                                    LIMIT 1";
+                                AddParameter(lookupCmd, "@stockId", item.StockId);
+                                AddParameter(lookupCmd, "@serial", item.SerialNumber);
+                                using var reader = lookupCmd.ExecuteReader();
+                                if (reader.Read())
+                                {
+                                    serialAuditId = reader.GetInt32(0);
+                                    unitCost = reader.GetDecimal(1);
+                                }
+                            }
+
+                            decimal costEx = Math.Round(unitCost * item.Quantity, 2);
+                            decimal costInc = Math.Round(costEx * (1 + (_gstRate / 100m)), 2);
+                            decimal sellInc = item.Extension;
+                            decimal sellEx = Math.Round(sellInc / (1 + (_gstRate / 100m)), 2);
+                            decimal grossProfit = sellEx - costEx;
+
+                            int lineId;
                             using (var cmd = conn.CreateCommand())
                             {
                                 cmd.Transaction = transaction;
                                 cmd.CommandText = @"
                                     INSERT INTO invoice_lines (
                                         invoice_id, stock_id, description,
-                                        quantity, unitprice, linetotal, taxcode, serialnumber
+                                        quantity, unitprice, linetotal, taxcode, serialnumber,
+                                        serial_audit_id, cost_ex, cost_inc, sell_ex, sell_inc, gross_profit
                                     ) VALUES (
                                         @invoiceId, @stockId, @description,
-                                        @quantity, @unitPrice, @lineTotal, @taxCode, @serialNumber
-                                    )";
+                                        @quantity, @unitPrice, @lineTotal, @taxCode, @serialNumber,
+                                        @serialAuditId, @costEx, @costInc, @sellEx, @sellInc, @grossProfit
+                                    )
+                                    RETURNING line_id";
 
                                 AddParameter(cmd, "@invoiceId", invoiceId);
                                 AddParameter(cmd, "@stockId", item.StockId);
@@ -361,11 +398,17 @@ namespace JMxPOS8.Services
                                 AddParameter(cmd, "@lineTotal", item.Extension);
                                 AddParameter(cmd, "@taxCode", item.TaxCode);
                                 AddParameter(cmd, "@serialNumber", (object?)item.SerialNumber ?? DBNull.Value);
+                                AddParameter(cmd, "@serialAuditId", (object?)serialAuditId ?? DBNull.Value);
+                                AddParameter(cmd, "@costEx", costEx);
+                                AddParameter(cmd, "@costInc", costInc);
+                                AddParameter(cmd, "@sellEx", sellEx);
+                                AddParameter(cmd, "@sellInc", sellInc);
+                                AddParameter(cmd, "@grossProfit", grossProfit);
 
                                 Console.WriteLine($"[SQL LINE] {cmd.CommandText}");
                                 Console.WriteLine($"[PARAMS] invoice={invoiceId}, stock={item.StockId}, qty={item.Quantity}, price={item.UnitPrice}, total={item.Extension}");
 
-                                cmd.ExecuteNonQuery();
+                                lineId = Convert.ToInt32(cmd.ExecuteScalar());
                             }
 
                             // Sales reduce stock on hand; refunds put it back. Quotes and
@@ -387,6 +430,43 @@ namespace JMxPOS8.Services
                                     AddParameter(cmd, "@quantityDelta", quantityDelta);
                                     AddParameter(cmd, "@stockId", item.StockId);
                                     cmd.ExecuteNonQuery();
+                                }
+
+                                // Keep serial_audit.is_in_stock in sync with the sale/refund so
+                                // the Sale tab's available-serials picker (SerialService.
+                                // GetAvailableSerialsAsync) stays accurate - a Sale takes the
+                                // unit off the shelf, a Refund puts it back.
+                                if (serialAuditId.HasValue)
+                                {
+                                    bool nowInStock = TransactionType == "Refund";
+                                    using (var serialCmd = conn.CreateCommand())
+                                    {
+                                        serialCmd.Transaction = transaction;
+                                        serialCmd.CommandText = @"
+                                            UPDATE serial_audit
+                                            SET is_in_stock = @inStock, status = @status, date_modified = CURRENT_TIMESTAMP
+                                            WHERE serial_id = @serialId";
+                                        AddParameter(serialCmd, "@inStock", nowInStock);
+                                        AddParameter(serialCmd, "@status", nowInStock ? "IN_STOCK" : "SOLD");
+                                        AddParameter(serialCmd, "@serialId", serialAuditId.Value);
+                                        serialCmd.ExecuteNonQuery();
+                                    }
+
+                                    using (var trailCmd = conn.CreateCommand())
+                                    {
+                                        trailCmd.Transaction = transaction;
+                                        trailCmd.CommandText = @"
+                                            INSERT INTO serial_audit_trail (stock_id, serial_audit_id, tran_type, type_id, type_line_id, movement, rm_tr_detail)
+                                            VALUES (@stockId, @serialId, @tranType, @invoiceId, @lineId, @movement, @detail)";
+                                        AddParameter(trailCmd, "@stockId", item.StockId);
+                                        AddParameter(trailCmd, "@serialId", serialAuditId.Value);
+                                        AddParameter(trailCmd, "@tranType", TransactionType.ToUpperInvariant());
+                                        AddParameter(trailCmd, "@invoiceId", invoiceId);
+                                        AddParameter(trailCmd, "@lineId", lineId);
+                                        AddParameter(trailCmd, "@movement", nowInStock ? 1 : -1);
+                                        AddParameter(trailCmd, "@detail", $"{TransactionType} - invoice {invoiceId}");
+                                        trailCmd.ExecuteNonQuery();
+                                    }
                                 }
                             }
                         }

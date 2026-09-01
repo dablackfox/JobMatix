@@ -30,6 +30,9 @@ namespace JMxPOS8.Services
             using var conn = _db.GetConnection();
             await Task.Run(() => conn.Open());
             using var cmd = conn.CreateCommand();
+            // Historical (migrated) rows populate serial_number, not serialnumber - the new
+            // app writes the latter (see SaleService.CommitSaleAsync). Check both so a serial
+            // sold before this port existed is still found (ROADMAP.md Phase 6.1).
             cmd.CommandText = @"
                 SELECT inv.invoice_id, inv.invoicenumber, inv.invoicedate, inv.transactiontype,
                        st.description,
@@ -38,7 +41,7 @@ namespace JMxPOS8.Services
                 JOIN invoice inv ON inv.invoice_id = il.invoice_id
                 JOIN stock st ON st.stock_id = il.stock_id
                 LEFT JOIN customer c ON c.customer_id = inv.customer_id
-                WHERE il.serialnumber = @serial
+                WHERE il.serialnumber = @serial OR il.serial_number = @serial
                 ORDER BY inv.invoicedate DESC, inv.invoice_id DESC
                 LIMIT 1";
 

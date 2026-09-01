@@ -611,6 +611,93 @@ public partial class ReportsViewModel : ViewModelBase
         }
     }
 
+    // Phase 6.1 (ROADMAP.md): real per-unit COGS/margin, using invoice_lines.cost_ex (the
+    // specific serial's actual landed cost, stamped at receiving time) rather than
+    // stock.costprice's "latest cost wins" value. Only lines with a resolved cost
+    // (cost_ex > 0) are counted - a serial sold before Phase 6.1 shipped, or one never
+    // received through the new Goods Received flow, has no per-unit cost lineage yet.
+    [RelayCommand]
+    private async Task RunCostMarginReport()
+    {
+        try
+        {
+            StatusMessage = "Running cost/margin report...";
+            ReportTitle = "Cost / Margin Report (serialized items with known cost)";
+            ReportData.Clear();
+
+            using (var conn = _dbService.GetConnection())
+            {
+                await Task.Run(() => conn.Open());
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT
+                            s.stockcode,
+                            s.description,
+                            COUNT(*) as units_sold,
+                            SUM(il.cost_ex) as total_cost,
+                            SUM(il.sell_ex) as total_revenue,
+                            SUM(il.gross_profit) as total_profit
+                        FROM invoice_lines il
+                        JOIN invoice i ON i.invoice_id = il.invoice_id
+                        JOIN stock s ON s.stock_id = il.stock_id
+                        WHERE i.date_created BETWEEN @start_date AND @end_date
+                          AND i.transactiontype = 'SALE'
+                          AND il.cost_ex > 0
+                        GROUP BY s.stock_id, s.stockcode, s.description
+                        ORDER BY total_profit DESC
+                        LIMIT 50";
+
+                    AddCmdParam(cmd, "@start_date", (StartDate ?? DateTimeOffset.Now.AddDays(-30)).DateTime);
+                    AddCmdParam(cmd, "@end_date", (EndDate ?? DateTimeOffset.Now).DateTime.AddDays(1));
+
+                    decimal totalCost = 0, totalRevenue = 0, totalProfit = 0;
+                    int totalUnits = 0;
+
+                    using (var reader = await Task.Run(() => cmd.ExecuteReader()))
+                    {
+                        while (await Task.Run(() => reader.Read()))
+                        {
+                            var units = Convert.ToInt32(reader["units_sold"]);
+                            var cost = Convert.ToDecimal(reader["total_cost"]);
+                            var revenue = Convert.ToDecimal(reader["total_revenue"]);
+                            var profit = Convert.ToDecimal(reader["total_profit"]);
+
+                            totalUnits += units;
+                            totalCost += cost;
+                            totalRevenue += revenue;
+                            totalProfit += profit;
+
+                            ReportData.Add(new ReportItem
+                            {
+                                Column1 = reader["stockcode"]?.ToString() ?? "",
+                                Column2 = $"{reader["description"]} ({units} sold)",
+                                Column3 = cost.ToString("C"),
+                                Column4 = profit.ToString("C")
+                            });
+                        }
+                    }
+
+                    Summary1Label = "Units Sold:";
+                    Summary1Value = totalUnits.ToString();
+                    Summary2Label = "Total Cost:";
+                    Summary2Value = totalCost.ToString("C");
+                    Summary3Label = "Total Profit:";
+                    Summary3Value = totalProfit.ToString("C");
+                    Summary4Label = "Margin %:";
+                    Summary4Value = totalRevenue > 0 ? (totalProfit / totalRevenue).ToString("P1") : "n/a";
+                }
+            }
+
+            StatusMessage = $"Report complete: {ReportData.Count} product(s) with known unit cost";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
     [RelayCommand]
     private void ExportReport()
     {

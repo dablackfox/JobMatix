@@ -104,7 +104,8 @@ public partial class GoodsReceivedViewModel : ViewModelBase
                 Barcode = stock.Barcode,
                 Description = stock.Description,
                 Quantity = 1,
-                CostEx = stock.CostPrice
+                CostEx = stock.CostPrice,
+                RequiresSerial = stock.RequiresSerial
             };
             line.PropertyChanged += (_, _) => RaiseTotalsChanged();
             Lines.Add(line);
@@ -153,11 +154,13 @@ public partial class GoodsReceivedViewModel : ViewModelBase
             return;
         }
 
-        int goodsId = await _goodsReceivedService.ReceiveGoodsAsync(
+        var (goodsId, warnings) = await _goodsReceivedService.ReceiveGoodsAsync(
             SelectedSupplier.SupplierId, staff.StaffId, InvoiceNo.Trim(),
             (InvoiceDate ?? DateTimeOffset.Now).DateTime, Lines.ToList(), Comments);
 
         StatusMessage = $"Goods received #{goodsId} recorded - stock and cost prices updated";
+        if (warnings.Count > 0)
+            StatusMessage += " | " + string.Join(" | ", warnings);
 
         SelectedSupplier = null;
         SupplierBarcode = "";

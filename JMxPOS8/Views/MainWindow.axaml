@@ -1045,6 +1045,7 @@
                             <Button Content="Customer Accounts" Command="{Binding ReportsViewModel.RunCustomerAccountsReportCommand}" Width="140"/>
                             <Button Content="Top Customers" Command="{Binding ReportsViewModel.RunTopCustomersReportCommand}" Width="130"/>
                             <Button Content="Top Products" Command="{Binding ReportsViewModel.RunTopProductsReportCommand}" Width="120"/>
+                            <Button Content="Cost / Margin" Command="{Binding ReportsViewModel.RunCostMarginReportCommand}" Width="120"/>
                             <Button Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120" Background="#2E7D32" Foreground="White"/>
                         </StackPanel>
 
@@ -1492,15 +1493,23 @@
                                 <ListBox ItemsSource="{Binding GoodsReceivedViewModel.Lines}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                                                <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center"/>
-                                                <NumericUpDown Grid.Column="1" Value="{Binding Quantity}" Width="90" Minimum="1" FormatString="0"/>
-                                                <NumericUpDown Grid.Column="2" Value="{Binding CostEx}" Width="110" Minimum="0" FormatString="C"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding LineTotalEx, StringFormat=C}" Width="90" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="4" Content="x" Width="30"
-                                                        Command="{Binding $parent[Window].DataContext.GoodsReceivedViewModel.RemoveLineCommand}"
-                                                        CommandParameter="{Binding}"/>
-                                            </Grid>
+                                            <StackPanel>
+                                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center"/>
+                                                    <NumericUpDown Grid.Column="1" Value="{Binding Quantity}" Width="90" Minimum="1" FormatString="0"/>
+                                                    <NumericUpDown Grid.Column="2" Value="{Binding CostEx}" Width="110" Minimum="0" FormatString="C"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding LineTotalEx, StringFormat=C}" Width="90" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="4" Content="x" Width="30"
+                                                            Command="{Binding $parent[Window].DataContext.GoodsReceivedViewModel.RemoveLineCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                                <!-- Phase 6.1: capture a serial per unit so its cost is stamped onto serial_audit
+                                                     at receiving time, instead of only the SKU's overwritten costprice field. -->
+                                                <TextBox IsVisible="{Binding RequiresSerial}"
+                                                         Text="{Binding SerialNumbersText}"
+                                                         Watermark="Serial numbers, one per unit received (comma or newline separated)"
+                                                         Margin="0,2,0,6" FontSize="11"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
