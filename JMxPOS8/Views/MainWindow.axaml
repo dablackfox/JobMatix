@@ -737,7 +737,7 @@
                                             <TextBlock Grid.Column="1" Text="{Binding DateUpdated, StringFormat='{}{0:dd-MMM-yyyy}'}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding JobStatus}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding TechStaffName}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding ProblemSymptoms}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding DisplaySummary}"/>
                                             <TextBlock Grid.Column="5" Text="{Binding Priority}" HorizontalAlignment="Right"/>
                                         </Grid>
                                     </DataTemplate>
@@ -1701,7 +1701,7 @@
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
                                             <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding ProblemShort}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplaySummary}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding JobStatus}" FontWeight="Bold"/>
                                             <TextBlock Grid.Column="4" Text="🔒" IsVisible="{Binding IsLocked}"/>
@@ -1734,7 +1734,7 @@
                                                         <DataTemplate>
                                                             <Grid ColumnDefinitions="50,*,30,150,30" Margin="5,3">
                                                                 <TextBlock Grid.Column="0" Text="{Binding JobId, StringFormat='#{0}'}" FontWeight="Bold"/>
-                                                                <TextBlock Grid.Column="1" Text="{Binding ProblemShort}"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding DisplaySummary}"/>
                                                                 <TextBlock Grid.Column="2" Text="{Binding Priority}"/>
                                                                 <TextBlock Grid.Column="3" Text="{Binding CustomerName}"/>
                                                                 <TextBlock Grid.Column="4" Text="🔒" IsVisible="{Binding IsLocked}"/>

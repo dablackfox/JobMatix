@@ -184,8 +184,43 @@ namespace JMxPOS8.Models
         public string TechStaffName { get; set; } = string.Empty;
         public string JobStatus { get; set; } = string.Empty;
         public string GoodsInCare { get; set; } = string.Empty;
+        public string ProblemShort { get; set; } = string.Empty;
+        public string ProblemLong { get; set; } = string.Empty;
         public string ProblemSymptoms { get; set; } = string.Empty;
         public string Priority { get; set; } = string.Empty;
+
+        public string DisplaySummary => ProblemDescriptionHelper.Summarize(ProblemShort, ProblemLong, ProblemSymptoms);
+    }
+
+    // ProblemShort is overwhelmingly a legacy workflow marker, not a real description - a
+    // direct query found ~85% of real jobs have it set to one of exactly three literal
+    // strings ("customer authorized us to proceed" / "needs a quote first" / a spend-limit
+    // marker), not anything a person would recognize as "what's wrong with this machine".
+    // Shared between JobRecord and CustomerJobSummary so ticket lists show something
+    // actually useful instead of "*PROCEED-WITH-SERVICE*;" (direct feedback, 2026-09-01).
+    public static class ProblemDescriptionHelper
+    {
+        private static readonly HashSet<string> Boilerplate = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "*PROCEED-WITH-SERVICE*;", "*QUOTATION-REQUIRED*;", "*PROCEED-TO-LIMIT*;", "N/A"
+        };
+
+        public static string Summarize(string? problemShort, string? problemLong, string? problemSymptoms, int maxLength = 60)
+        {
+            if (!string.IsNullOrWhiteSpace(problemShort) && !Boilerplate.Contains(problemShort.Trim()))
+                return Truncate(problemShort, maxLength);
+            if (!string.IsNullOrWhiteSpace(problemLong))
+                return Truncate(problemLong.Replace("\r\n", " ").Replace('\n', ' '), maxLength);
+            if (!string.IsNullOrWhiteSpace(problemSymptoms) && !string.Equals(problemSymptoms.Trim(), "N/A", StringComparison.OrdinalIgnoreCase))
+                return Truncate(problemSymptoms, maxLength);
+            return "(no description)";
+        }
+
+        private static string Truncate(string text, int maxLength)
+        {
+            text = text.Trim();
+            return text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
+        }
     }
 
     // The core Job Tracking record. JobStatus follows the legacy 11-state vocabulary
@@ -235,6 +270,7 @@ namespace JMxPOS8.Models
 
         public string Summary => $"#{JobId} - {CustomerName} - {ProblemShort} - {JobStatus}";
         public bool IsLocked => JobStatus is "23-InProcessSusp" or "33-InProcess" or "43-InProcessQA";
+        public string DisplaySummary => ProblemDescriptionHelper.Summarize(ProblemShort, ProblemLong, ProblemSymptoms);
     }
 
     public class JobPartLine

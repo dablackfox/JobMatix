@@ -191,7 +191,7 @@ namespace JMxPOS8.Services
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = $@"
-                        SELECT job_id, dateupdated, techstaffname, jobstatus, goodsincare, problemsymptoms, priority
+                        SELECT job_id, dateupdated, techstaffname, jobstatus, goodsincare, problemshort, problemlong, problemsymptoms, priority
                         FROM jobs
                         WHERE rmcustomer_id = @customerId
                         ORDER BY job_id DESC
@@ -213,6 +213,8 @@ namespace JMxPOS8.Services
                                 TechStaffName = reader["techstaffname"].ToString() ?? "",
                                 JobStatus = reader["jobstatus"].ToString() ?? "",
                                 GoodsInCare = reader["goodsincare"].ToString() ?? "",
+                                ProblemShort = reader["problemshort"].ToString() ?? "",
+                                ProblemLong = reader["problemlong"].ToString() ?? "",
                                 ProblemSymptoms = reader["problemsymptoms"].ToString() ?? "",
                                 Priority = reader["priority"].ToString() ?? ""
                             });
