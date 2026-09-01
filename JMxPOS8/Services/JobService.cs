@@ -22,7 +22,13 @@ public class JobService
         _db = db;
     }
 
-    public async Task<List<JobRecord>> GetOpenJobsAsync(int limit = 200)
+    // 200 was silently cutting off real jobs - only 300 jobs are actually "open" (not
+    // delivered/cancelled) in the full migrated dataset (26k+ jobs total), and the cap sat
+    // right in the middle of that, quietly hiding ~100 of them from every status group in
+    // the Tickets tab's grouped view. 2000 comfortably covers real growth without turning
+    // into an unbounded query - a shop with thousands of jobs sitting open at once would be
+    // its own problem to notice long before this limit mattered.
+    public async Task<List<JobRecord>> GetOpenJobsAsync(int limit = 2000)
     {
         var results = new List<JobRecord>();
         using var conn = _db.GetConnection();
