@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -354,6 +355,51 @@ public partial class JobViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeliver));
         OnPropertyChanged(nameof(CanCancel));
         OnPropertyChanged(nameof(CanAddParts));
+        RebuildStatusOptions();
+    }
+
+    // Unified "change status" control (direct feedback, 2026-09-01): replaces the old row
+    // of separate Start Work/Suspend/Send to QA/Back to Work/Deliver/Cancel buttons with
+    // one dropdown - "valid moves only", not a free-form override. Each option wraps the
+    // exact same existing method (same validation, same side effects, e.g. StartWork still
+    // requires a staff barcode) - this only consolidates the UI trigger.
+    public record StatusOption(string Label, Func<Task> Execute, bool RequiresServiceNotes = false);
+
+    [ObservableProperty]
+    private ObservableCollection<StatusOption> _availableStatusOptions = new();
+
+    [ObservableProperty]
+    private StatusOption? _selectedStatusOption;
+
+    public bool ShowCompleteNotes => SelectedStatusOption?.RequiresServiceNotes == true;
+
+    partial void OnSelectedStatusOptionChanged(StatusOption? value) => OnPropertyChanged(nameof(ShowCompleteNotes));
+
+    private void RebuildStatusOptions()
+    {
+        AvailableStatusOptions.Clear();
+        SelectedStatusOption = null;
+        if (SelectedJob == null) return;
+
+        if (CanStartWork) AvailableStatusOptions.Add(new("Start Work", StartWork));
+        if (CanSuspend) AvailableStatusOptions.Add(new("Suspend", Suspend));
+        if (CanSendToQa) AvailableStatusOptions.Add(new("Send to QA", SendToQa));
+        if (CanReopenFromQa) AvailableStatusOptions.Add(new("Back to Work (from QA)", ReopenFromQa));
+        if (CanComplete) AvailableStatusOptions.Add(new("Complete", Complete, RequiresServiceNotes: true));
+        if (CanDeliver) AvailableStatusOptions.Add(new("Deliver", Deliver));
+        if (CanCancel) AvailableStatusOptions.Add(new("Cancel Ticket", CancelJob));
+    }
+
+    [RelayCommand]
+    private async Task ChangeStatus()
+    {
+        if (SelectedStatusOption == null)
+        {
+            StatusMessage = "Select a status to change to";
+            return;
+        }
+        await SelectedStatusOption.Execute();
+        SelectedStatusOption = null;
     }
 
     [RelayCommand]

@@ -1823,20 +1823,29 @@
                                     </StackPanel>
                                 </StackPanel>
 
+                                <!-- Unified status control (direct feedback, 2026-09-01) - one
+                                     dropdown listing only the statuses reachable from wherever
+                                     this ticket is now, replacing the old row of separate
+                                     Start Work/Suspend/Send to QA/Back to Work/Deliver/Cancel
+                                     buttons. Each option is still the exact same underlying
+                                     action (same validation, same side effects). -->
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBox Width="150" Watermark="Staff barcode" Text="{Binding JobViewModel.ActionStaffBarcode}"/>
-                                    <Button Content="Start Work" Command="{Binding JobViewModel.StartWorkCommand}" IsVisible="{Binding JobViewModel.CanStartWork}"/>
-                                    <Button Content="Suspend" Command="{Binding JobViewModel.SuspendCommand}" IsVisible="{Binding JobViewModel.CanSuspend}"/>
-                                    <Button Content="Send to QA" Command="{Binding JobViewModel.SendToQaCommand}" IsVisible="{Binding JobViewModel.CanSendToQa}"/>
-                                    <Button Content="Back to Work" Command="{Binding JobViewModel.ReopenFromQaCommand}" IsVisible="{Binding JobViewModel.CanReopenFromQa}"/>
-                                    <Button Content="Deliver" Command="{Binding JobViewModel.DeliverCommand}" IsVisible="{Binding JobViewModel.CanDeliver}" Background="ForestGreen" Foreground="White"/>
-                                    <Button Content="Cancel Job" Command="{Binding JobViewModel.CancelJobCommand}" IsVisible="{Binding JobViewModel.CanCancel}" Background="Crimson" Foreground="White"/>
+                                    <ComboBox Width="200" ItemsSource="{Binding JobViewModel.AvailableStatusOptions}"
+                                              SelectedItem="{Binding JobViewModel.SelectedStatusOption}"
+                                              PlaceholderText="Change status to...">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Label}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Content="Change Status" Command="{Binding JobViewModel.ChangeStatusCommand}" Background="ForestGreen" Foreground="White"/>
                                     <Button Content="Print Docket (PDF)" Command="{Binding JobViewModel.PrintDocketCommand}"/>
                                 </StackPanel>
 
-                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding JobViewModel.CanComplete}">
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding JobViewModel.ShowCompleteNotes}">
                                     <TextBox Width="300" Watermark="Service notes" Text="{Binding JobViewModel.ActionServiceNotes}"/>
-                                    <Button Content="Complete" Command="{Binding JobViewModel.CompleteCommand}" Background="ForestGreen" Foreground="White"/>
                                 </StackPanel>
 
                                 <!-- Parts -->
