@@ -5,7 +5,7 @@
 **Project**: Martin Fenwick, solo maintainer, AI-assisted (Claude Code)
 **Status of the software**: JobMatix/JMxPOS was last live in production ~2020–2021 at Precise PCs. It is **not currently running anywhere**. This is a revival for a fresh multi-store IBG rollout, not a live cutover.
 
-**Pick up here next session** (2026-09-01): Brand/model reference data screens are now done too (see below). Good next candidates, roughly in order of value: (1) job docket/quote printing (still blocked on the same Phase 2 CUPS/ESC-POS hardware decision), (2) job reporting (real work - needs the SQL Server `SHAPE`-syntax query rewritten, no Postgres equivalent), (3) the two still-open plaintext-credential fixes from Phase 1 (`staff.password` hashing, `jobs.username`/`userpassword` encryption) - worth doing before any real deployment, not urgent for continued dev. See "Important, independently schedulable" and "Can ship separately" under Phase 3 below for the full remaining list.
+**Pick up here next session** (2026-09-01): Brand/model reference data screens and Phase 6.1 (per-unit serial costing/COGS) are both done now (see below). Good next candidates, roughly in order of value: (1) Phase 6.2 (central multi-store stock/pricing control) - not scoped yet, needs a look at `franky-forge` first, (2) job docket/quote printing (still blocked on the same Phase 2 CUPS/ESC-POS hardware decision), (3) job reporting (real work - needs the SQL Server `SHAPE`-syntax query rewritten, no Postgres equivalent), (4) the two still-open plaintext-credential fixes from Phase 1 (`staff.password` hashing, `jobs.username`/`userpassword` encryption) - worth doing before any real deployment, not urgent for continued dev. See "Important, independently schedulable" and "Can ship separately" under Phase 3 below for the full remaining list.
 
 ---
 
@@ -171,24 +171,25 @@ Job intake, job status/maintenance workflow, and parts lookup/allocation were **
 
 ---
 
-## Phase 6: Serial-Level Costing (COGS/FIFO) & Central Multi-Store Catalog — proposed, not started
+## Phase 6: Serial-Level Costing (COGS/FIFO) & Central Multi-Store Catalog
 
-Raised by the business owner 2026-09-01. Two related asks: real cost-of-goods-sold reporting (per-unit, not per-SKU), and a central place to control stock/pricing across stores, similar to how Fieldpine/Neto work today. Both were investigated against the live schema and code before writing anything here — findings and a recommended approach below, not yet scoped into a session.
+Raised by the business owner 2026-09-01. Two related asks: real cost-of-goods-sold reporting (per-unit, not per-SKU), and a central place to control stock/pricing across stores, similar to how Fieldpine/Neto work today.
 
-### 6.1 Per-unit cost tracking (the "COGS/FIFO" ask)
+### 6.1 Per-unit cost tracking (the "COGS/FIFO" ask) — ✅ done
 
 **The actual problem, confirmed in code**: `stock.costprice` is one field per SKU, overwritten on every goods-received transaction (`GoodsReceivedService.cs` — "latest cost wins"). So a product that came in at two different prices over time can only ever report the most recent one; there's no way to know what a specific unit actually cost when it sold. The real per-receipt cost already exists (`goods_received_line.cost_ex`, tied to a specific `goods_received` batch and `stock_id`), it's just never linked to an individual unit.
 
 **The business's proposed fix** — print a special barcode per incoming unit encoding order number + SKU + serial, for 3 new printers being installed for stock processing — was evaluated and **not recommended**. It requires whoever applies the label to correctly match the right barcode to the right physical unit, which is exactly the failure mode the business itself flagged as likely. It also duplicates data that's already derivable from the database.
 
-**Recommended approach instead** — do it at the database layer, not the label layer:
-- Serial numbers already exist in the schema (`serial_audit`, keyed to `stock_id`), but a real gap was found: **no code anywhere in the app currently creates a `serial_audit` row** — receiving a serialized item was never wired up in this port. This needs building regardless of the costing question.
-- When goods are received, capture the serial number(s) for that line (for `requiresserial` stock items) and stamp each new `serial_audit` row with the cost from that specific `goods_received_line`, e.g. a new `serial_audit.unit_cost` column (or a FK to `goods_received_line`).
-- At sale, when a specific serial is picked, use *that unit's* stored cost for COGS reporting — `stock.costprice` stops being the source of truth for margin/COGS, only for defaulting the sell price on new sales.
-- New report: cost/margin by product using real per-unit cost, alongside the existing `ReportsViewModel` reports.
-- Ordinary product barcodes on the shelf don't change — still scan-to-sell by SKU exactly as today. The only new physical step is printing a serial label at receiving time if the manufacturer doesn't already supply a scannable serial, which is a normal receiving step, not a new decoding scheme for staff to get wrong.
+**Built instead, at the database layer rather than the label layer**:
+- `serial_audit` gained `unit_cost` and `received_line_id` (FK to `goods_received_line`) — see `sql-scripts/create-serial-costing-extensions.sql`. `invoice_lines.serial_audit_id` (already present from the legacy port, 15,619 historical rows populated but never constrained) now has a real FK too, after nulling 1,018 orphaned values (6.5%, consistent with the ~5% orphan rate from the 2026-08-31 cross-database merge).
+- A real gap was found and fixed while building this: **no code anywhere in the app created a `serial_audit` row** — receiving a serialized item was never wired up in this port at all. Goods Received now captures serial numbers per line (for `requiresserial` items) and stamps each new `serial_audit` row with that receipt's actual cost, with non-fatal warnings for a serial-count mismatch or a serial already recorded as in stock.
+- At sale, the specific serial picked now supplies its own cost for `invoice_lines.cost_ex/cost_inc/sell_ex/sell_inc/gross_profit` — `stock.costprice` is no longer the source of truth for COGS/margin, only for defaulting the sell price on new sales. `serial_audit.is_in_stock`/`status` is now kept in sync on Sale (false/SOLD) and Refund (true/IN_STOCK) — previously never written at all, which meant the Sale tab's "available serials" picker (`SerialService.GetAvailableSerialsAsync`) was already silently relying on stale legacy data.
+- Also fixed while in this area: `SerialService`'s "already sold" check queried `invoice_lines.serialnumber`, which is empty for all 14,578 historically-sold serials (they use the legacy `serial_number` column instead) — it now checks both, so a serial sold before this port existed is correctly detected as unavailable.
+- New **Cost / Margin** report (`ReportsViewModel.RunCostMarginReport`) using the real per-unit figures, next to the existing reports.
+- Ordinary product barcodes on the shelf didn't change — still scan-to-sell by SKU exactly as before. The only new physical step is printing a serial label at receiving time if the manufacturer doesn't already supply a scannable serial.
 
-**Effort**: additive, not a rewrite — a Goods Received intake extension (serial capture per line), a small schema addition, a small Sale-flow change (read cost from the serial instead of the SKU), and a new report. Sizes similarly to the other Phase 2/3 features already shipped.
+Verified end-to-end against live data: received a test serial at a distinct cost, sold it, refunded it, and hit the duplicate-serial warning path - confirmed correct cost/margin values at each step and that cleanup left no trace.
 
 ### 6.2 Central multi-store stock/pricing control (Fieldpine/Neto-style)
 
@@ -219,7 +220,7 @@ The business also floated a fully API-controlled hybrid cloud/local model (local
 | ~~Printer/EFTPOS integration complexity~~ | Unchanged from v2 — lower risk than originally feared, well-understood CUPS/ESC-POS work. |
 | ~~Zero FKs in Jobs database~~ | Resolved — was already fixed before this session, confirmed live. |
 | ~~RA tightly coupled to Job Tracking~~ | Resolved by audit — RA is mostly independent (90.5% of real RAs have no job link), can ship on its own schedule. |
-| Serial-receiving pipeline doesn't exist yet (Phase 6.1) | No code anywhere creates a `serial_audit` row — found while investigating the COGS ask. Blocks per-unit costing regardless of the barcode question, needs building either way. |
+| ~~Serial-receiving pipeline doesn't exist yet (Phase 6.1)~~ | Resolved — Goods Received now creates `serial_audit` rows with real per-unit cost; Sale/Refund keep `is_in_stock`/`status` in sync. |
 | Central catalog: build vs. reuse `franky-forge` (Phase 6.2) | Undecided — franky-forge already has a multi-tenant product/pricing model for a related purpose (Neto/Shopify syndication). Needs its schema/API reviewed before Phase 4's central API is designed, to avoid building a second version of the same thing. |
 
 ---
