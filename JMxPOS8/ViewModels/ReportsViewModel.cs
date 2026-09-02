@@ -16,6 +16,7 @@ public partial class ReportsViewModel : ViewModelBase
     private readonly StockService _stockService;
     private readonly CustomerService _customerService;
     private readonly StaffService _staffService;
+    private readonly JobService _jobService;
 
     public ObservableCollection<ReportItem> ReportData { get; }
 
@@ -36,7 +37,7 @@ public partial class ReportsViewModel : ViewModelBase
     // below), and only highlight whichever report button is actually active (ReportTitle
     // doubles as a unique key per report, so no separate "selected index" bookkeeping).
     public bool ShowDateRange => ReportTitle is not ("Stock Value Report" or "Low Stock Report"
-        or "Customer Accounts Report" or "Cash Up" or "Select a report to run");
+        or "Customer Accounts Report" or "Cash Up" or "On-Site Jobs" or "Select a report to run");
     public bool ShowCustomerBarcode => ReportTitle == "Customer Statement";
 
     public bool IsDailySalesSelected => ReportTitle == "Daily Sales Report";
@@ -50,6 +51,7 @@ public partial class ReportsViewModel : ViewModelBase
     public bool IsPartsSelected => ReportTitle == "Parts Report";
     public bool IsStaffSelected => ReportTitle == "Staff Report";
     public bool IsTimesheetSelected => ReportTitle == "Timesheet Report";
+    public bool IsOnSiteJobsSelected => ReportTitle == "On-Site Jobs";
     public bool IsCustomerStatementSelected => ReportTitle == "Customer Statement";
     public bool IsCashupSelected => ReportTitle == "Cash Up";
 
@@ -136,6 +138,7 @@ public partial class ReportsViewModel : ViewModelBase
             case "Parts Report": await RunPartsReport(); break;
             case "Staff Report": await RunStaffReport(); break;
             case "Timesheet Report": await RunTimesheetReport(); break;
+            case "On-Site Jobs": await RunOnSiteJobsReport(); break;
             case "Customer Statement": await RunCustomerStatement(); break;
             case "Cost / Margin Report (serialized items with known cost)": await RunCostMarginReport(); break;
         }
@@ -158,6 +161,7 @@ public partial class ReportsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsPartsSelected));
         OnPropertyChanged(nameof(IsStaffSelected));
         OnPropertyChanged(nameof(IsTimesheetSelected));
+        OnPropertyChanged(nameof(IsOnSiteJobsSelected));
         OnPropertyChanged(nameof(IsCustomerStatementSelected));
         OnPropertyChanged(nameof(IsCashupSelected));
     }
@@ -221,12 +225,13 @@ public partial class ReportsViewModel : ViewModelBase
     public decimal CashupTotalCounted => CashupLines.Sum(l => l.Counted);
     public decimal CashupTotalVariance => CashupTotalCounted - CashupTotalReported;
 
-    public ReportsViewModel(DatabaseService dbService, StockService stockService, CustomerService customerService, StaffService staffService)
+    public ReportsViewModel(DatabaseService dbService, StockService stockService, CustomerService customerService, StaffService staffService, JobService jobService)
     {
         _dbService = dbService;
         _stockService = stockService;
         _customerService = customerService;
         _staffService = staffService;
+        _jobService = jobService;
         ReportData = new ObservableCollection<ReportItem>();
     }
 
@@ -980,6 +985,42 @@ public partial class ReportsViewModel : ViewModelBase
             }
 
             StatusMessage = $"Report complete: {ReportData.Count} sessions";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            ClearSummary();
+        }
+    }
+
+    // On-site job work list (ROADMAP.md "What Changed" #7) - "not a scheduling feature",
+    // just this filtered query, reusing JobService.GetOnSiteJobsAsync rather than
+    // re-deriving the on-site marker/status-filter logic here. Ignores the date range
+    // controls (like Stock Value/Low Stock/Customer Accounts) - this is a work list, not a
+    // period report.
+    [RelayCommand]
+    private async Task RunOnSiteJobsReport()
+    {
+        try
+        {
+            StatusMessage = "Running on-site jobs report...";
+            ReportTitle = "On-Site Jobs";
+            Column1Header = "Ticket"; Column2Header = "Customer"; Column3Header = "Promised"; Column4Header = "Status";
+            ReportData.Clear();
+
+            var jobs = await _jobService.GetOnSiteJobsAsync();
+            foreach (var job in jobs)
+            {
+                ReportData.Add(new ReportItem
+                {
+                    Column1 = $"#{job.JobId} ({(job.TechStaffName.Length > 0 ? job.TechStaffName : job.NominatedTech)})",
+                    Column2 = job.CustomerName,
+                    Column3 = job.HasRealDatePromised ? job.DatePromised!.Value.ToString("dd-MMM-yyyy HH:mm") : "Not set",
+                    Column4 = job.JobStatus
+                });
+            }
+
+            StatusMessage = $"Report complete: {jobs.Count} on-site job(s)";
         }
         catch (Exception ex)
         {

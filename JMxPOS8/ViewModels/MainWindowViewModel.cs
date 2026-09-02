@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -61,8 +62,21 @@ public partial class MainWindowViewModel : ViewModelBase
     // A PIN or other stronger override auth is deferred - barcode/staff-number entry is
     // the mechanism for now.
 
+    // Set around a SelectedTabIndex assignment by a command that's about to do its own
+    // explicit load right after (e.g. Jobs(), StockList()) - those need to reliably reload
+    // even when re-invoked while already on that tab (SelectedTabIndex not actually
+    // changing, so this handler wouldn't otherwise fire at all), but letting both the
+    // explicit call AND this auto-trigger run for the same navigation double-populated
+    // every affected list (Stock/Customers/Stocktake/Goods Received/Return
+    // Authorisations/Jobs/Reference Data all showed each row twice when navigated to from
+    // a menu item/keyboard shortcut, found 2026-09-02 while live-testing the on-site jobs
+    // feature - not something plain tab-strip clicking hits, since that only ever changes
+    // SelectedTabIndex through this setter with no competing explicit load).
+    private bool _suppressTabAutoLoad;
+
     partial void OnSelectedTabIndexChanged(int value)
     {
+        if (_suppressTabAutoLoad) return;
         _ = LoadTabDataAsync(value);
     }
 
@@ -92,9 +106,10 @@ public partial class MainWindowViewModel : ViewModelBase
         _serialService = new SerialService(_dbService);
 
         // Create ViewModels
+        var jobService = new JobService(_dbService);
         CustomerViewModel = new CustomerViewModel(_customerService);
         StockViewModel = new StockViewModel(_stockService);
-        ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService, _staffService);
+        ReportsViewModel = new ReportsViewModel(_dbService, _stockService, _customerService, _staffService, jobService);
         TransactionLookupViewModel = new TransactionLookupViewModel(_dbService, _customerService, _staffService);
         var smsService = new SmsService(_dbService);
         var emailService = new EmailService(_dbService);
@@ -106,7 +121,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ReturnAuthorizationViewModel = new ReturnAuthorizationViewModel(
             new ReturnAuthorizationService(_dbService), _stockService, supplierService, _customerService, _staffService);
         var referenceDataService = new ReferenceDataService(_dbService);
-        JobViewModel = new JobViewModel(new JobService(_dbService), _customerService, _staffService, _stockService, smsService, emailService, new JobTimeService(_dbService), referenceDataService);
+        JobViewModel = new JobViewModel(jobService, _customerService, _staffService, _stockService, smsService, emailService, new JobTimeService(_dbService), referenceDataService);
         GoodsTypesViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.GoodsTypes, "Goods Accepted Types");
         BrandsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Brands, "Brands");
         SymptomsViewModel = new ReferenceDataViewModel(referenceDataService, ReferenceTables.Symptoms, "Problem Symptoms");
@@ -134,7 +149,6 @@ public partial class MainWindowViewModel : ViewModelBase
         ActiveSaleDocument = CreateSaleDocument();
 
         StatusText = "Ready";
-
     }
 
     private SaleViewModel CreateSaleDocument()
@@ -242,7 +256,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task StockList()
     {
         StatusText = "Loading stock list...";
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 1;
+        _suppressTabAutoLoad = false;
         await StockViewModel.LoadStockAsync();
     }
 
@@ -250,7 +266,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task CustomerList()
     {
         StatusText = "Loading customer list...";
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 2;
+        _suppressTabAutoLoad = false;
         await CustomerViewModel.LoadCustomersAsync();
     }
 
@@ -296,7 +314,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task FindStock()
     {
         StatusText = "Loading stock list...";
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 1;
+        _suppressTabAutoLoad = false;
         await StockViewModel.LoadStockAsync();
     }
 
@@ -312,7 +332,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task FindCustomer()
     {
         StatusText = "Loading customer list...";
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 2;
+        _suppressTabAutoLoad = false;
         await CustomerViewModel.LoadCustomersAsync();
     }
 
@@ -371,7 +393,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task Stocktake()
     {
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 6;
+        _suppressTabAutoLoad = false;
         StatusText = "Loading open stocktakes...";
         await StocktakeViewModel.LoadSessionsAsync();
         StatusText = $"Stocktakes loaded: {StocktakeViewModel.Sessions.Count} open";
@@ -380,7 +404,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task GoodsReceived()
     {
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 7;
+        _suppressTabAutoLoad = false;
         StatusText = "Loading recent goods received...";
         await GoodsReceivedViewModel.LoadRecentAsync();
         StatusText = $"Goods received loaded: {GoodsReceivedViewModel.RecentReceipts.Count} recent";
@@ -389,7 +415,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task ReturnAuthorizations()
     {
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 8;
+        _suppressTabAutoLoad = false;
         StatusText = "Loading open return authorisations...";
         await ReturnAuthorizationViewModel.LoadOpenRAsAsync();
         StatusText = $"RAs loaded: {ReturnAuthorizationViewModel.OpenRAs.Count} open";
@@ -398,7 +426,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task Jobs()
     {
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 9;
+        _suppressTabAutoLoad = false;
         StatusText = "Loading open jobs...";
         await JobViewModel.LoadOpenJobsAsync();
         await JobViewModel.LoadIntakeReferenceDataAsync();
@@ -407,7 +437,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task OpenReferenceData(int subTabIndex)
     {
+        _suppressTabAutoLoad = true;
         SelectedTabIndex = 10;
+        _suppressTabAutoLoad = false;
         SelectedReferenceSubTabIndex = subTabIndex;
         StatusText = "Loading reference data...";
         await GoodsTypesViewModel.LoadAsync();

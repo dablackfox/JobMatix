@@ -16,7 +16,7 @@ public class JobService
         databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
         systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
         datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated,
-        customercompany, username, userpassword, goodsother";
+        customercompany, username, userpassword, goodsother, datepromised";
 
     public JobService(DatabaseService db)
     {
@@ -41,6 +41,32 @@ public class JobService
             WHERE jobstatus NOT IN ('70-Delivered', '97-Cancelled')
             ORDER BY job_id DESC
             LIMIT @limit";
+        AddParam(cmd, "@limit", limit);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+            results.Add(ReadJob(reader));
+        return results;
+    }
+
+    // On-site job list (ROADMAP.md "What Changed" #7) - "not a scheduling feature", just
+    // this filtered query: any open job flagged ON-SITE, ordered by its promised
+    // date/time. Broader status filter than the reminder poller below (any open status,
+    // not just not-yet-started) since this is a general work list, not a "needs a
+    // heads-up" trigger.
+    public async Task<List<JobRecord>> GetOnSiteJobsAsync(int limit = 500)
+    {
+        var results = new List<JobRecord>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+            SELECT {SelectColumns}
+            FROM jobs
+            WHERE UPPER(goodsincare) = @marker
+              AND jobstatus NOT IN ('70-Delivered', '97-Cancelled')
+            ORDER BY datepromised ASC, job_id DESC
+            LIMIT @limit";
+        AddParam(cmd, "@marker", JobRecord.OnSiteMarker);
         AddParam(cmd, "@limit", limit);
         using var reader = await Task.Run(() => cmd.ExecuteReader());
         while (await Task.Run(() => reader.Read()))
@@ -99,23 +125,25 @@ public class JobService
         using var conn = _db.GetConnection();
         await Task.Run(() => conn.Open());
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        // RETURNING now reuses SelectColumns (a real bug until 2026-09-02: this used to
+        // hand-duplicate a shorter column list that was missing customercompany/username/
+        // userpassword/goodsother entirely, so ReadJob(reader) always threw
+        // IndexOutOfRangeException reading past the actual result set - every "Create
+        // Ticket" click silently failed with no visible error, since RelayCommand's
+        // AsyncRelayCommand doesn't surface an unobserved task exception to the UI.
+        cmd.CommandText = $@"
             INSERT INTO jobs (
                 customerbarcode, rmcustomer_id, customername, customerphone, customermobile,
                 priority, nominatedtech, goodsincare, goodsbrand, goodsmodel,
                 databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
-                systemunderwarranty, rcvdstaffname
+                systemunderwarranty, rcvdstaffname, datepromised
             ) VALUES (
                 @customerBarcode, @rmCustomerId, @customerName, @customerPhone, @customerMobile,
                 @priority, @nominatedTech, @goodsInCare, @goodsBrand, @goodsModel,
                 @dataBackupReqd, @dataDiskReqd, @problemShort, @problemLong, @problemSymptoms,
-                @systemUnderWarranty, @rcvdStaffName
+                @systemUnderWarranty, @rcvdStaffName, @datePromised
             )
-            RETURNING job_id, customerbarcode, rmcustomer_id, customername, customerphone, customermobile,
-                      priority, nominatedtech, jobstatus, goodsincare, goodsbrand, goodsmodel,
-                      databackupreqd, datadiskreqd, problemshort, problemlong, problemsymptoms,
-                      systemunderwarranty, datecreated, rcvdstaffname, diagnosis, servicenotes,
-                      datecompleted, techstaffname, techrmstaff_id, datedelivered, deliveredstaffname, dateupdated";
+            RETURNING {SelectColumns}";
         AddParam(cmd, "@customerBarcode", job.CustomerBarcode);
         AddParam(cmd, "@rmCustomerId", job.RmCustomerId);
         AddParam(cmd, "@customerName", job.CustomerName);
@@ -133,6 +161,7 @@ public class JobService
         AddParam(cmd, "@problemSymptoms", job.ProblemSymptoms);
         AddParam(cmd, "@systemUnderWarranty", job.SystemUnderWarranty);
         AddParam(cmd, "@rcvdStaffName", job.RcvdStaffName);
+        AddParam(cmd, "@datePromised", job.DatePromised);
 
         using var reader = await Task.Run(() => cmd.ExecuteReader());
         await Task.Run(() => reader.Read());
@@ -765,6 +794,109 @@ public class JobService
         await Task.Run(() => cmd.ExecuteNonQuery());
     }
 
+    // On-site staff SMS reminder poller (ROADMAP.md "What Changed" #7 / Phase 3 "important,
+    // independently schedulable" list). The legacy version (clsStaffReminders.vb) sent up to
+    // 2 SMS/job/day (a same-day "wake up" plus a closer-to-time "reminder") gated by 3
+    // configurable systeminfo keys. Deliberately simplified here to one reminder per job per
+    // day - the real goal ("make sure staff know about today's on-site jobs") doesn't need
+    // the two-stage cadence, and it avoids inventing a small state machine for marginal
+    // value. Only considers jobs not yet started (05-WaitListed/10-Created) - once work has
+    // actually begun the "don't forget about this" reminder has served its purpose.
+    public record OnSiteReminderCandidate(int JobId, string CustomerName, string CustomerPhone,
+        DateTime? DatePromised, string TechLabel, string? TechMobile);
+
+    public async Task<List<OnSiteReminderCandidate>> GetOnSiteJobsDueForReminderAsync(DateTime today)
+    {
+        var results = new List<OnSiteReminderCandidate>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT j.job_id, j.customername, j.customerphone, j.datepromised,
+                   COALESCE(NULLIF(NULLIF(j.techstaffname, ''), 'N/A'), NULLIF(NULLIF(j.nominatedtech, ''), 'N/A'), '') AS tech_label,
+                   COALESCE(
+                       ts.mobile,
+                       -- Correlated subquery, not a JOIN - docket_name isn't unique (real data
+                       -- has duplicate 'Jay' staff rows), so a plain LEFT JOIN on it would fan
+                       -- out into duplicate reminder candidates for the one job and could send
+                       -- the SMS twice. LIMIT 1 picks one deterministically instead.
+                       (SELECT s2.mobile FROM staff s2
+                        WHERE s2.docket_name = j.nominatedtech AND j.nominatedtech <> ''
+                        ORDER BY s2.staff_id LIMIT 1)
+                   ) AS tech_mobile
+            FROM jobs j
+            LEFT JOIN staff ts ON j.techrmstaff_id = ts.staff_id
+            WHERE UPPER(j.goodsincare) = @marker
+              AND j.jobstatus IN ('05-WaitListed', '10-Created')
+              AND j.datepromised::date = @today
+              AND j.datepromised::date <> @sentinel1
+              AND j.datepromised::date <> @sentinel2
+              AND NOT EXISTS (
+                  SELECT 1 FROM jobother jo
+                  WHERE jo.job_id = j.job_id AND jo.fieldname = @sentField AND jo.fieldvalue = @todayStr
+              )";
+        AddParam(cmd, "@marker", JobRecord.OnSiteMarker);
+        AddParam(cmd, "@today", today.Date);
+        AddParam(cmd, "@sentinel1", JobRecord.DatePromisedSentinels[0]);
+        AddParam(cmd, "@sentinel2", JobRecord.DatePromisedSentinels[1]);
+        AddParam(cmd, "@sentField", OnSiteReminderSentField);
+        AddParam(cmd, "@todayStr", today.ToString("yyyy-MM-dd"));
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            results.Add(new OnSiteReminderCandidate(
+                JobId: reader.GetInt32(0),
+                CustomerName: reader.GetString(1),
+                CustomerPhone: reader.GetString(2),
+                DatePromised: reader.IsDBNull(3) ? null : reader.GetDateTime(3),
+                TechLabel: reader.GetString(4),
+                TechMobile: reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+        return results;
+    }
+
+    // Opt-in switch (systeminfo, config-via-DB like LabourHourlyRatePriority* - no
+    // dedicated settings UI, matching that existing precedent) - defaults off, matching
+    // the legacy app's own default, since a fresh unconfigured store shouldn't suddenly
+    // start texting staff.
+    public async Task<bool> IsOnSiteSmsRemindersEnabledAsync()
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT info_value FROM systeminfo WHERE info_key = 'EnableOnSiteSmsReminders'";
+        var result = await Task.Run(() => cmd.ExecuteScalar());
+        return result is string s && s.Equals("Y", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private const string OnSiteReminderSentField = "ONSITE_SMS_SENT";
+
+    public async Task MarkOnSiteReminderSentAsync(int jobId, DateTime today)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO jobother (job_id, fieldname, fieldvalue, datecreated)
+            VALUES (@jobId, @fieldName, @fieldValue, @dateCreated)";
+        AddParam(cmd, "@jobId", jobId);
+        AddParam(cmd, "@fieldName", OnSiteReminderSentField);
+        AddParam(cmd, "@fieldValue", today.ToString("yyyy-MM-dd"));
+        AddParam(cmd, "@dateCreated", DateTime.Now);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
+    public async Task UpdateDatePromisedAsync(int jobId, DateTime? datePromised)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE jobs SET datepromised = @datePromised WHERE job_id = @jobId";
+        AddParam(cmd, "@datePromised", datePromised);
+        AddParam(cmd, "@jobId", jobId);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
     // Matches the legacy pattern (frmNotifyCust22.vb) of logging every sent notification
     // straight onto the job record rather than a separate notifications table.
     public async Task AppendNotificationAsync(int jobId, string note)
@@ -934,7 +1066,8 @@ public class JobService
         CustomerCompany = reader.GetString(28),
         Username = reader.GetString(29),
         UserPassword = reader.GetString(30),
-        GoodsOther = reader.GetString(31)
+        GoodsOther = reader.GetString(31),
+        DatePromised = reader.IsDBNull(32) ? null : reader.GetDateTime(32)
     };
 
     private static void AddParam(System.Data.IDbCommand cmd, string name, object? value)

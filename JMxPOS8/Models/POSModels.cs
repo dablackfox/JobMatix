@@ -341,6 +341,20 @@ namespace JMxPOS8.Models
         public DateTime? DateDelivered { get; set; }
         public string DeliveredStaffName { get; set; } = string.Empty;
         public DateTime DateUpdated { get; set; }
+        // Nullable, not defaulted - the ported schema's own column default (a hardcoded
+        // 2020-12-25 literal, ROADMAP.md's still-open Phase 1 note) and the legacy app's own
+        // "no date set" sentinel (2050-12-25) both show up in real migrated data and are
+        // deliberately NOT treated as real appointment dates anywhere this is used.
+        public DateTime? DatePromised { get; set; }
+        public static readonly DateTime[] DatePromisedSentinels = { new(2020, 12, 25), new(2050, 12, 25) };
+        public bool HasRealDatePromised => DatePromised.HasValue && !DatePromisedSentinels.Contains(DatePromised.Value.Date);
+
+        // On-site jobs aren't a real goods type - the legacy app overwrote the entire
+        // goodsincare field with this exact sentinel instead of a normal type value
+        // (ROADMAP.md "What Changed" #7). Matched by exact equality everywhere, never a
+        // substring/Contains check like the CustomerInstruction markers.
+        public const string OnSiteMarker = "ON-SITE JOB;";
+        public bool IsOnSiteJob => string.Equals(GoodsInCare, OnSiteMarker, StringComparison.OrdinalIgnoreCase);
 
         // Uses DisplaySummary rather than the raw ProblemShort - that field is where the
         // Customer Instruction marker lives (see ProblemDescriptionHelper), so showing it

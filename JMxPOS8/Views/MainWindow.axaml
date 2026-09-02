@@ -1128,6 +1128,7 @@
                             <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsPartsSelected}" Content="Parts" Command="{Binding ReportsViewModel.RunPartsReportCommand}" Width="100"/>
                             <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsStaffSelected}" Content="Staff" Command="{Binding ReportsViewModel.RunStaffReportCommand}" Width="100"/>
                             <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsTimesheetSelected}" Content="Timesheet" Command="{Binding ReportsViewModel.RunTimesheetReportCommand}" Width="110"/>
+                            <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsOnSiteJobsSelected}" Content="On-Site Jobs" Command="{Binding ReportsViewModel.RunOnSiteJobsReportCommand}" Width="120"/>
                             <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCustomerStatementSelected}" Content="Customer Statement" Command="{Binding ReportsViewModel.RunCustomerStatementCommand}" Width="170"/>
                             <Button Classes="reportBtn" Classes.active="{Binding ReportsViewModel.IsCashupSelected}" Content="Cash Up" Command="{Binding ReportsViewModel.LoadCashupCommand}" Width="120"/>
                         </WrapPanel>
@@ -1788,6 +1789,13 @@
                             <CheckBox Content="Data backup required" IsChecked="{Binding JobViewModel.NewDataBackupReqd}"/>
                             <CheckBox Content="Data disk required" IsChecked="{Binding JobViewModel.NewDataDiskReqd}"/>
                             <CheckBox Content="Under warranty" IsChecked="{Binding JobViewModel.NewSystemUnderWarranty}"/>
+                            <!-- On-site job scheduling - only meaningful when Goods Type above is
+                                 set to "ON-SITE JOB;", but shown for every job since a promised
+                                 date is generally useful. Nominated tech resolves the same way as
+                                 the staff barcode below (FindStaffByBarcodeAsync), giving the
+                                 on-site SMS reminder poller a real recipient before work starts. -->
+                            <TextBox Text="{Binding JobViewModel.NewNominatedTechBarcode}" Watermark="Nominated tech barcode (on-site jobs)"/>
+                            <DatePicker SelectedDate="{Binding JobViewModel.NewDatePromised}" HorizontalAlignment="Stretch"/>
                             <TextBox Text="{Binding JobViewModel.NewStaffBarcode}" Watermark="Your staff barcode"/>
                             <Button Content="Create Ticket" Command="{Binding JobViewModel.CreateJobCommand}" Background="ForestGreen" Foreground="White" HorizontalAlignment="Stretch"/>
                             <TextBlock Text="{Binding JobViewModel.StatusMessage}" FontStyle="Italic" TextWrapping="Wrap"/>

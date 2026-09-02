@@ -22,6 +22,7 @@ public partial class JobViewModel : ViewModelBase
     private readonly JobTimeService _jobTimeService;
     private readonly ReferenceDataService _referenceDataService;
     private readonly Avalonia.Threading.DispatcherTimer _timerDisplayTick;
+    private readonly System.Threading.Timer _onSiteReminderTimer;
 
     // Status → display bucket, in the order groups should appear. Mirrors the legacy
     // tree-style ticket list (New/In Progress/QA/etc. with a count per group) that this
@@ -394,6 +395,18 @@ public partial class JobViewModel : ViewModelBase
     [ObservableProperty]
     private bool _newSystemUnderWarranty;
 
+    // On-site job scheduling (ROADMAP.md "What Changed" #7) - a nominated tech (resolved
+    // to a real staff record, same barcode-lookup pattern as NewStaffBarcode/RcvdStaffName)
+    // and a promised date/time, so a job flagged ON-SITE at intake (via the Goods Type
+    // dropdown above) has a real recipient and due date for the reminder poller. Both
+    // optional - only meaningful for on-site jobs, but not restricted to them since a
+    // promised date is a generally useful field for any job.
+    [ObservableProperty]
+    private string _newNominatedTechBarcode = "";
+
+    [ObservableProperty]
+    private DateTimeOffset? _newDatePromised;
+
     [ObservableProperty]
     private string _newStaffBarcode = "";
 
@@ -470,6 +483,58 @@ public partial class JobViewModel : ViewModelBase
             OnPropertyChanged(nameof(RunningTimersCountDisplay));
         };
         _timerDisplayTick.Start();
+
+        // Staff SMS reminder for on-site jobs (ROADMAP.md "What Changed" #7) - runs for the
+        // app's whole lifetime, independent of which tab is selected, not just while the
+        // Tickets tab happens to be open. A background ThreadPool timer, not the UI-thread
+        // DispatcherTimer above - it does real DB/network work, so it must never block the
+        // UI, and (per the legacy implementation's own hard-learned lesson,
+        // clsStaffReminders.vb) opens its own short-lived DB connection per poll rather than
+        // holding one open, to avoid transaction conflicts with whatever the UI thread is
+        // doing. Every exception is caught inside RunOnSiteReminderPollAsync - a
+        // System.Threading.Timer callback that throws would otherwise crash the process.
+        _onSiteReminderTimer = new System.Threading.Timer(
+            _ => _ = RunOnSiteReminderPollAsync(),
+            null,
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(15));
+    }
+
+    private async Task RunOnSiteReminderPollAsync()
+    {
+        try
+        {
+            if (!await _jobService.IsOnSiteSmsRemindersEnabledAsync())
+                return;
+
+            var today = DateTime.Now.Date;
+            foreach (var job in await _jobService.GetOnSiteJobsDueForReminderAsync(today))
+            {
+                if (string.IsNullOrWhiteSpace(job.TechMobile))
+                {
+                    Console.WriteLine($"[ONSITE-REMINDER] Job #{job.JobId}: no resolvable tech mobile number, skipped");
+                    continue;
+                }
+
+                var when = job.DatePromised.HasValue ? job.DatePromised.Value.ToString("h:mmtt") : "today";
+                var message = $"On-site job #{job.JobId} {when} - {job.CustomerName}, {job.CustomerPhone}. - JobMatix";
+                var result = await _smsService.SendSmsAsync(job.TechMobile, message);
+                if (result.Success)
+                {
+                    await _jobService.MarkOnSiteReminderSentAsync(job.JobId, today);
+                    await _jobService.AppendNotificationAsync(job.JobId, $"On-site reminder SMS sent to {job.TechLabel} ({job.TechMobile})");
+                    Console.WriteLine($"[ONSITE-REMINDER] Sent for job #{job.JobId} to {job.TechMobile}");
+                }
+                else
+                {
+                    Console.WriteLine($"[ONSITE-REMINDER] Send failed for job #{job.JobId}: {result.ErrorMessage}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ONSITE-REMINDER] Poll failed: {ex.Message}");
+        }
     }
 
     public async Task LoadOpenJobsAsync()
@@ -687,8 +752,16 @@ public partial class JobViewModel : ViewModelBase
             DataBackupReqd = NewDataBackupReqd,
             DataDiskReqd = NewDataDiskReqd,
             SystemUnderWarranty = NewSystemUnderWarranty,
-            RcvdStaffName = staff.DocketName
+            RcvdStaffName = staff.DocketName,
+            DatePromised = NewDatePromised?.DateTime
         };
+
+        if (!string.IsNullOrWhiteSpace(NewNominatedTechBarcode))
+        {
+            var nominatedTech = await _staffService.FindStaffByBarcodeAsync(NewNominatedTechBarcode.Trim());
+            if (nominatedTech != null)
+                job.NominatedTech = nominatedTech.DocketName;
+        }
 
         if (!string.IsNullOrWhiteSpace(NewCustomerBarcode))
         {
@@ -720,6 +793,8 @@ public partial class JobViewModel : ViewModelBase
         NewSystemUnderWarranty = false;
         NewStaffBarcode = "";
         NewCustomerInstruction = null;
+        NewNominatedTechBarcode = "";
+        NewDatePromised = null;
     }
 
     // Job docket/quote printing (ROADMAP.md Phase 2/3) - PDF only for now, by direct
