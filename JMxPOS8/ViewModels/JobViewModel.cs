@@ -226,6 +226,77 @@ public partial class JobViewModel : ViewModelBase
             Notes.Add(note);
     }
 
+    // Job document attachments (ROADMAP.md Phase 0.4/1) - documents/doc_data already
+    // existed in the schema, completely unbuilt end-to-end until 2026-09-02.
+    public ObservableCollection<JobDocument> Attachments { get; } = new();
+
+    [RelayCommand]
+    private async Task AddAttachment()
+    {
+        if (SelectedJob == null) return;
+        if (string.IsNullOrWhiteSpace(ActionStaffBarcode))
+        {
+            StatusMessage = "Enter your staff barcode to attribute this attachment";
+            return;
+        }
+        var staff = await _staffService.FindStaffByBarcodeAsync(ActionStaffBarcode.Trim());
+        if (staff == null)
+        {
+            StatusMessage = $"Staff not found for '{ActionStaffBarcode}'";
+            return;
+        }
+
+        var picked = await FilePickerService.PickFileAsync("Attach a file to this ticket");
+        if (picked == null) return;
+
+        try
+        {
+            await _jobService.AddJobDocumentAsync(SelectedJob.JobId, picked.FileName, "", staff.DocketName, picked.Content);
+            await LoadAttachmentsAsync(SelectedJob.JobId);
+            StatusMessage = $"Attached: {picked.FileName}";
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error attaching file: {ex.Message}";
+        }
+    }
+
+    // Opens the same way PrintDocket/PrintReceipt do - write to a temp file, hand off to
+    // the OS's own default viewer for that file type, rather than building an in-app
+    // image/PDF/document viewer.
+    [RelayCommand]
+    private async Task ViewAttachment(JobDocument? doc)
+    {
+        if (doc == null) return;
+        try
+        {
+            var content = await _jobService.GetJobDocumentContentAsync(doc.DocId);
+            if (content == null)
+            {
+                StatusMessage = $"'{doc.Filename}' has no stored content (metadata-only historical record)";
+                return;
+            }
+
+            var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "JobMatixDocuments", "Attachments");
+            System.IO.Directory.CreateDirectory(dir);
+            var path = System.IO.Path.Combine(dir, $"Job-{doc.JobId}-{doc.DocId}-{doc.Filename}");
+            await System.IO.File.WriteAllBytesAsync(path, content);
+            StatusMessage = $"Opening: {doc.Filename}";
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error opening attachment: {ex.Message}";
+        }
+    }
+
+    private async Task LoadAttachmentsAsync(int jobId)
+    {
+        Attachments.Clear();
+        foreach (var doc in await _jobService.GetJobDocumentsAsync(jobId))
+            Attachments.Add(doc);
+    }
+
     // Ticket time tracking (direct feedback, 2026-09-01) - concurrent by design, see
     // JobTimeService's own header comment. CurrentJobTimer is this ticket's own running
     // entry if one exists (any ticket can have at most one at a time; a whole separate
@@ -622,6 +693,7 @@ public partial class JobViewModel : ViewModelBase
         Parts.Clear();
         Notes.Clear();
         QuoteParts.Clear();
+        Attachments.Clear();
         if (newJob == null)
             return;
 
@@ -645,6 +717,7 @@ public partial class JobViewModel : ViewModelBase
             QuoteParts.Add(quotePart);
 
         await LoadNotesAsync(newJob.JobId);
+        await LoadAttachmentsAsync(newJob.JobId);
         await LoadCurrentJobTimerAsync(newJob.JobId);
     }
 

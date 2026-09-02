@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using JMxPOS8.Models;
 
@@ -304,6 +305,78 @@ public class ReturnAuthorizationService
         AddParam(cmd, "@raId", raId);
         if (await Task.Run(() => cmd.ExecuteNonQuery()) == 0)
             throw new InvalidOperationException("RA is already closed out.");
+    }
+
+    // RA attachments (ROADMAP.md Phase 0.4/1) - ra_attachments and its doc_file_content
+    // BYTEA column already existed, completely unbuilt end-to-end (no C# code anywhere
+    // read or wrote it before 2026-09-02). Same metadata/content split as
+    // JobService.GetJobDocumentsAsync/GetJobDocumentContentAsync, for the same reason.
+    public async Task<List<RaAttachment>> GetAttachmentsAsync(int raId)
+    {
+        var results = new List<RaAttachment>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT doc_id, doc_ra_id, doc_staff_name, doc_file_format, doc_file_title,
+                   doc_file_is_image, doc_file_size, doc_file_comments, date_created
+            FROM ra_attachments
+            WHERE doc_ra_id = @raId
+            ORDER BY date_created DESC";
+        AddParam(cmd, "@raId", raId);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            results.Add(new RaAttachment
+            {
+                DocId = reader.GetInt32(0),
+                RaId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                StaffName = reader.GetString(2),
+                FileFormat = reader.GetString(3),
+                FileTitle = reader.GetString(4),
+                IsImage = reader.GetBoolean(5),
+                FileSize = reader.GetInt32(6),
+                Comments = reader.GetString(7),
+                DateCreated = reader.GetDateTime(8)
+            });
+        }
+        return results;
+    }
+
+    public async Task<byte[]?> GetAttachmentContentAsync(int docId)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT doc_file_content FROM ra_attachments WHERE doc_id = @docId";
+        AddParam(cmd, "@docId", docId);
+        var result = await Task.Run(() => cmd.ExecuteScalar());
+        return result is byte[] bytes ? bytes : null;
+    }
+
+    private static readonly string[] ImageExtensions = { "JPG", "JPEG", "PNG", "GIF", "BMP", "WEBP" };
+
+    public async Task AddAttachmentAsync(int raId, string filename, string staffName, string comments, byte[] content)
+    {
+        var format = System.IO.Path.GetExtension(filename).TrimStart('.').ToUpperInvariant();
+        var isImage = ImageExtensions.Contains(format);
+
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO ra_attachments (doc_ra_id, doc_staff_name, doc_file_format, doc_file_title,
+                                        doc_file_is_image, doc_file_size, doc_file_content, doc_file_comments)
+            VALUES (@raId, @staffName, @format, @title, @isImage, @size, @content, @comments)";
+        AddParam(cmd, "@raId", raId);
+        AddParam(cmd, "@staffName", staffName);
+        AddParam(cmd, "@format", format);
+        AddParam(cmd, "@title", filename);
+        AddParam(cmd, "@isImage", isImage);
+        AddParam(cmd, "@size", content.Length);
+        AddParam(cmd, "@content", content);
+        AddParam(cmd, "@comments", comments);
+        await Task.Run(() => cmd.ExecuteNonQuery());
     }
 
     private static ReturnAuthorization ReadRa(System.Data.IDataReader reader) => new()

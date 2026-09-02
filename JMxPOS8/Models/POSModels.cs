@@ -396,6 +396,37 @@ namespace JMxPOS8.Models
         public List<InvoiceLineSummary> Lines { get; set; } = new();
     }
 
+    // ROADMAP.md Phase 0.4/1 attachment storage - a plain Postgres BYTEA column
+    // (doc_data), matching the legacy design directly rather than standing up object
+    // storage for this alone. Metadata-only shape here deliberately - content bytes are
+    // fetched separately (JobService.GetJobDocumentContentAsync) only when actually
+    // viewed, so listing a job's attachments never loads blob data into memory.
+    public class JobDocument
+    {
+        public int DocId { get; set; }
+        public int JobId { get; set; }
+        public string Filename { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string DocType { get; set; } = string.Empty;
+        public int Size { get; set; }
+        public DateTime DateCreated { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public bool IsImage { get; set; }
+    }
+
+    public class RaAttachment
+    {
+        public int DocId { get; set; }
+        public int? RaId { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public string FileFormat { get; set; } = string.Empty;
+        public string FileTitle { get; set; } = string.Empty;
+        public bool IsImage { get; set; }
+        public int FileSize { get; set; }
+        public string Comments { get; set; } = string.Empty;
+        public DateTime DateCreated { get; set; }
+    }
+
     public class JobPartLine
     {
         public int PartId { get; set; }

@@ -1722,6 +1722,28 @@
                                     <Button Content="Refuse" Command="{Binding ReturnAuthorizationViewModel.RefuseRaCommand}" Background="Crimson" Foreground="White"/>
                                     <Button Content="Cancel RA" Command="{Binding ReturnAuthorizationViewModel.CancelRaCommand}"/>
                                 </StackPanel>
+
+                                <!-- File attachments (ROADMAP.md Phase 0.4/1) - a plain BYTEA
+                                     column already existed in the schema, wired up 2026-09-02. -->
+                                <TextBlock Text="Attachments" FontWeight="Bold" Margin="0,6,0,0"/>
+                                <ItemsControl ItemsSource="{Binding ReturnAuthorizationViewModel.Attachments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,90,140,60" Margin="0,2">
+                                                <TextBlock Grid.Column="0" Text="{Binding FileTitle}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding FileSize, StringFormat='{}{0:N0} B'}" Foreground="Gray" FontSize="11"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding DateCreated, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" Foreground="Gray" FontSize="11"/>
+                                                <Button Grid.Column="3" Content="View" FontSize="11" Padding="6,2"
+                                                        Command="{Binding $parent[Window].DataContext.ReturnAuthorizationViewModel.ViewAttachmentCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox Width="150" Watermark="Your staff barcode" Text="{Binding ReturnAuthorizationViewModel.ActionStaffBarcode}"/>
+                                    <Button Content="Add Attachment..." Command="{Binding ReturnAuthorizationViewModel.AddAttachmentCommand}"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -2041,6 +2063,27 @@
                                         <Button Content="Add Note" Command="{Binding JobViewModel.AddNoteCommand}"/>
                                     </StackPanel>
                                 </StackPanel>
+
+                                <!-- File attachments (ROADMAP.md Phase 0.4/1) - a plain BYTEA
+                                     column already existed in the schema, wired up 2026-09-02.
+                                     "View" opens the file with the OS's own default handler,
+                                     same pattern as the Print Docket/Receipt buttons. -->
+                                <TextBlock Text="Attachments" FontWeight="Bold" Margin="0,6,0,0"/>
+                                <ItemsControl ItemsSource="{Binding JobViewModel.Attachments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,90,140,60" Margin="0,2">
+                                                <TextBlock Grid.Column="0" Text="{Binding Filename}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Size, StringFormat='{}{0:N0} B'}" Foreground="Gray" FontSize="11"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding DateCreated, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" Foreground="Gray" FontSize="11"/>
+                                                <Button Grid.Column="3" Content="View" FontSize="11" Padding="6,2"
+                                                        Command="{Binding $parent[Window].DataContext.JobViewModel.ViewAttachmentCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Content="Add Attachment..." HorizontalAlignment="Left" Command="{Binding JobViewModel.AddAttachmentCommand}"/>
 
                                 <!-- Unified status control (direct feedback, 2026-09-01) - one
                                      dropdown listing only the statuses reachable from wherever

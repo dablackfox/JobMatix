@@ -1044,6 +1044,79 @@ public class JobService
         return rates;
     }
 
+    // Job document attachments (ROADMAP.md Phase 0.4/1) - the `documents` table and its
+    // doc_data BYTEA column already existed (from the original port), just completely
+    // unbuilt end-to-end: no C# code anywhere read or wrote it before 2026-09-02.
+    // Metadata-only list (no doc_data) - content is fetched separately, only when a
+    // specific attachment is actually opened, so this never loads blob data just to
+    // show a list.
+    public async Task<List<JobDocument>> GetJobDocumentsAsync(int jobId)
+    {
+        var results = new List<JobDocument>();
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT doc_id, job_id, doc_filename, doc_description, doc_type, doc_size,
+                   date_created, staff_name, is_image
+            FROM documents
+            WHERE job_id = @jobId
+            ORDER BY date_created DESC";
+        AddParam(cmd, "@jobId", jobId);
+        using var reader = await Task.Run(() => cmd.ExecuteReader());
+        while (await Task.Run(() => reader.Read()))
+        {
+            results.Add(new JobDocument
+            {
+                DocId = reader.GetInt32(0),
+                JobId = reader.GetInt32(1),
+                Filename = reader.GetString(2),
+                Description = reader.GetString(3),
+                DocType = reader.GetString(4),
+                Size = reader.GetInt32(5),
+                DateCreated = reader.GetDateTime(6),
+                StaffName = reader.GetString(7),
+                IsImage = reader.GetBoolean(8)
+            });
+        }
+        return results;
+    }
+
+    public async Task<byte[]?> GetJobDocumentContentAsync(int docId)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT doc_data FROM documents WHERE doc_id = @docId";
+        AddParam(cmd, "@docId", docId);
+        var result = await Task.Run(() => cmd.ExecuteScalar());
+        return result is byte[] bytes ? bytes : null;
+    }
+
+    private static readonly string[] ImageExtensions = { "JPG", "JPEG", "PNG", "GIF", "BMP", "WEBP" };
+
+    public async Task AddJobDocumentAsync(int jobId, string filename, string description, string staffName, byte[] content)
+    {
+        var docType = System.IO.Path.GetExtension(filename).TrimStart('.').ToUpperInvariant();
+        var isImage = ImageExtensions.Contains(docType);
+
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO documents (job_id, doc_filename, doc_description, doc_data, doc_type, doc_size, staff_name, is_image)
+            VALUES (@jobId, @filename, @description, @content, @docType, @size, @staffName, @isImage)";
+        AddParam(cmd, "@jobId", jobId);
+        AddParam(cmd, "@filename", filename);
+        AddParam(cmd, "@description", description);
+        AddParam(cmd, "@content", content);
+        AddParam(cmd, "@docType", docType);
+        AddParam(cmd, "@size", content.Length);
+        AddParam(cmd, "@staffName", staffName);
+        AddParam(cmd, "@isImage", isImage);
+        await Task.Run(() => cmd.ExecuteNonQuery());
+    }
+
     // Ticket notes (job_notes) - a running log, distinct from the single-value legacy
     // servicenotes/diagnosis columns. See sql-scripts/create-job-notes-table.sql.
     public async Task<List<JobNote>> GetJobNotesAsync(int jobId)

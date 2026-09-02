@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -99,6 +100,10 @@ public partial class ReturnAuthorizationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCloseOut));
         ActionNotes = "";
         ActionCourierBarcode = "";
+
+        Attachments.Clear();
+        if (value != null)
+            _ = LoadAttachmentsAsync(value.RaId);
     }
 
     public async Task LoadOpenRAsAsync()
@@ -106,6 +111,74 @@ public partial class ReturnAuthorizationViewModel : ViewModelBase
         OpenRAs.Clear();
         foreach (var ra in await _raService.GetOpenAsync())
             OpenRAs.Add(ra);
+    }
+
+    // RA attachments (ROADMAP.md Phase 0.4/1) - ra_attachments/doc_file_content already
+    // existed in the schema, completely unbuilt end-to-end until 2026-09-02.
+    public ObservableCollection<RaAttachment> Attachments { get; } = new();
+
+    private async Task LoadAttachmentsAsync(int raId)
+    {
+        Attachments.Clear();
+        foreach (var doc in await _raService.GetAttachmentsAsync(raId))
+            Attachments.Add(doc);
+    }
+
+    [RelayCommand]
+    private async Task AddAttachment()
+    {
+        if (SelectedRa == null) return;
+        if (string.IsNullOrWhiteSpace(ActionStaffBarcode))
+        {
+            StatusMessage = "Enter your staff barcode to attribute this attachment";
+            return;
+        }
+        var staff = await _staffService.FindStaffByBarcodeAsync(ActionStaffBarcode.Trim());
+        if (staff == null)
+        {
+            StatusMessage = $"Staff not found for '{ActionStaffBarcode}'";
+            return;
+        }
+
+        var picked = await FilePickerService.PickFileAsync("Attach a file to this RA");
+        if (picked == null) return;
+
+        try
+        {
+            await _raService.AddAttachmentAsync(SelectedRa.RaId, picked.FileName, staff.DocketName, "", picked.Content);
+            await LoadAttachmentsAsync(SelectedRa.RaId);
+            StatusMessage = $"Attached: {picked.FileName}";
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error attaching file: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ViewAttachment(RaAttachment? doc)
+    {
+        if (doc == null) return;
+        try
+        {
+            var content = await _raService.GetAttachmentContentAsync(doc.DocId);
+            if (content == null)
+            {
+                StatusMessage = $"'{doc.FileTitle}' has no stored content (metadata-only historical record)";
+                return;
+            }
+
+            var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "JobMatixDocuments", "Attachments");
+            System.IO.Directory.CreateDirectory(dir);
+            var path = System.IO.Path.Combine(dir, $"RA-{doc.RaId}-{doc.DocId}-{doc.FileTitle}");
+            await System.IO.File.WriteAllBytesAsync(path, content);
+            StatusMessage = $"Opening: {doc.FileTitle}";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error opening attachment: {ex.Message}";
+        }
     }
 
     [RelayCommand]
