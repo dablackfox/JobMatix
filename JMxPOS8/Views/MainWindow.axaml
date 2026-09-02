@@ -1010,8 +1010,12 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Password:" VerticalAlignment="Center"/>
+                                    <!-- Never shows the stored value (it's a hash, not plaintext to round-trip -
+                                         see StaffViewModel.LoadStaffToForm) - blank and left blank means "leave
+                                         unchanged", typing a new value here sets a new password. -->
                                     <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StaffViewModel.Password}"
                                              PasswordChar="*"
+                                             Watermark="Leave blank to keep unchanged"
                                              IsReadOnly="{Binding !StaffViewModel.IsEditing}"
                                              IsHitTestVisible="{Binding StaffViewModel.IsEditing}" Margin="0,2"/>
 

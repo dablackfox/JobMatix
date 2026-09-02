@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS Staff (
     mobile VARCHAR(20) NOT NULL DEFAULT '',
     emailAddress VARCHAR(250) NOT NULL DEFAULT '',
     status VARCHAR(15) NOT NULL DEFAULT '',
-    password VARCHAR(80) NOT NULL DEFAULT '',
+    password TEXT NOT NULL DEFAULT '', -- PBKDF2 hash (Services/PasswordHasher.cs), never plaintext
     passwordHint VARCHAR(250) NOT NULL DEFAULT '',
     staffPicture BYTEA NULL,
     date_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -297,9 +297,11 @@ CREATE TRIGGER trg_invoice_modified
 -- Sample Data (Optional - for testing)
 -- =========================================================================
 
--- Insert a default admin staff member
-INSERT INTO Staff (barcode, lastName, firstName, docket_name, position, isAdministrator, dateOfBirth, password)
-VALUES ('ADMIN001', 'Admin', 'System', 'Admin', 'Administrator', TRUE, '1980-01-01', 'admin123')
+-- Insert a default admin staff member. No password set here (matches every real staff
+-- row - this field is never used for login, barcode entry is) - the app hashes it on
+-- save if one's ever actually entered through the Staff screen, never plaintext.
+INSERT INTO Staff (barcode, lastName, firstName, docket_name, position, isAdministrator, dateOfBirth)
+VALUES ('ADMIN001', 'Admin', 'System', 'Admin', 'Administrator', TRUE, '1980-01-01')
 ON CONFLICT (barcode) DO NOTHING;
 
 -- Insert a default customer

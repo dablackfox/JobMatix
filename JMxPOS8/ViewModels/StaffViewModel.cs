@@ -87,6 +87,9 @@ public partial class StaffViewModel : ViewModelBase
     [ObservableProperty]
     private string _status = string.Empty;
 
+    // Never loaded from the stored hash (see LoadStaffToForm) - blank means "leave the
+    // existing password unchanged" when editing, or "no password set" for a new staff
+    // member. Only a non-blank value here gets hashed and saved.
     [ObservableProperty]
     private string _password = string.Empty;
 
@@ -94,6 +97,7 @@ public partial class StaffViewModel : ViewModelBase
     private string _passwordHint = string.Empty;
 
     private int _editingStaffId;
+    private string _editingStaffOriginalPasswordHash = string.Empty;
 
     // SMS gateway settings (ROADMAP.md Phase 3) - lives on the Staff admin screen since it's
     // operational configuration, not a per-staff field. DirectSMS only - the real legacy
@@ -299,7 +303,11 @@ public partial class StaffViewModel : ViewModelBase
                 Mobile = Mobile.Trim(),
                 EmailAddress = EmailAddress.Trim(),
                 Status = Status.Trim(),
-                Password = Password,
+                // Blank input preserves whatever hash (or empty string, for a new staff
+                // member) was already on the record - never overwrite it with plaintext,
+                // and never re-hash an already-hashed value just because the form round-
+                // tripped it.
+                Password = string.IsNullOrEmpty(Password) ? _editingStaffOriginalPasswordHash : PasswordHasher.Hash(Password),
                 PasswordHint = PasswordHint.Trim()
             };
 
@@ -378,7 +386,12 @@ public partial class StaffViewModel : ViewModelBase
         Mobile = staff.Mobile;
         EmailAddress = staff.EmailAddress;
         Status = staff.Status;
-        Password = staff.Password;
+        // Deliberately NOT Password = staff.Password - the stored value is a hash, not
+        // something to round-trip back into an editable plaintext-entry field. Blank means
+        // "unchanged" in SaveStaffAsync; the real stored hash is kept out-of-band here so
+        // it's preserved correctly if the form is saved without touching this field.
+        Password = string.Empty;
+        _editingStaffOriginalPasswordHash = staff.Password;
         PasswordHint = staff.PasswordHint;
     }
 
@@ -402,6 +415,7 @@ public partial class StaffViewModel : ViewModelBase
         EmailAddress = string.Empty;
         Status = string.Empty;
         Password = string.Empty;
+        _editingStaffOriginalPasswordHash = string.Empty;
         PasswordHint = string.Empty;
     }
 }
