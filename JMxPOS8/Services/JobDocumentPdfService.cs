@@ -89,6 +89,96 @@ public class JobDocumentPdfService
         return path;
     }
 
+    // Job-completion receipt (clsPrintDocs3.vb's mbPrintReceipt_PageEvent) - the second of
+    // the 5 remaining legacy document types, ported 2026-09-02. The legacy version was a
+    // plain-text single-column "till roll" dump; this keeps the same content but reuses
+    // this class's existing box/section rendering rather than replicating that crude
+    // inline-markup format, since this renders a real A4 PDF, not an 80mm thermal strip.
+    // Reads back the real persisted invoice (see InvoiceForReceipt) rather than
+    // recomputing totals from JobPartLine/billable hours independently, so the receipt can
+    // never disagree with what CompleteJobAndInvoiceAsync actually charged.
+    public byte[] RenderReceipt(JobRecord job, InvoiceForReceipt invoice, string businessName)
+    {
+        using var document = new PdfDocument();
+        var page = document.AddPage();
+        page.Size = PdfSharp.PageSize.A4;
+        using var gfx = XGraphics.FromPdfPage(page);
+
+        var fontTitle = new XFont("Arial", 16, XFontStyleEx.Bold);
+        var fontHeading = new XFont("Arial", 11, XFontStyleEx.Bold);
+        var fontBody = new XFont("Arial", 9, XFontStyleEx.Regular);
+        var fontSmall = new XFont("Arial", 8, XFontStyleEx.Regular);
+
+        double margin = 40;
+        double width = page.Width.Point - margin * 2;
+        double y = margin;
+
+        gfx.DrawString(businessName, fontTitle, XBrushes.Black, new XRect(margin, y, width, 24), XStringFormats.TopLeft);
+        gfx.DrawString("Receipt", fontTitle, XBrushes.DarkSlateGray, new XRect(margin, y, width, 24), XStringFormats.TopRight);
+        y += 28;
+
+        gfx.DrawString($"Invoice {invoice.InvoiceNumber}    {invoice.InvoiceDate:dd-MMM-yyyy HH:mm}    Served by: {invoice.StaffName}",
+            fontSmall, XBrushes.Black, new XRect(margin, y, width, 14), XStringFormats.TopLeft);
+        y += 16;
+        gfx.DrawLine(XPens.Black, margin, y, margin + width, y);
+        y += 10;
+
+        y = DrawWrappedLine(gfx, $"Job #{job.JobId}   Customer: {job.CustomerName}   [{job.CustomerBarcode}]", fontBody, margin, width, y);
+        y = DrawWrappedLine(gfx, $"Goods: {job.GoodsInCare}   Brand: {job.GoodsBrand}   Model: {job.GoodsModel}", fontBody, margin, width, y);
+        if (job.SystemUnderWarranty)
+            y = DrawWrappedLine(gfx, "** System Under Warranty **", fontBody, margin, width, y);
+        y += 10;
+
+        gfx.DrawString("Description", fontHeading, XBrushes.Black, new XPoint(margin, y));
+        gfx.DrawString("Qty", fontHeading, XBrushes.Black, new XRect(margin, y, width - 110, 16), XStringFormats.TopRight);
+        gfx.DrawString("Amount", fontHeading, XBrushes.Black, new XRect(margin, y, width, 16), XStringFormats.TopRight);
+        y += 16;
+        gfx.DrawLine(XPens.Black, margin, y, margin + width, y);
+        y += 4;
+
+        foreach (var line in invoice.Lines)
+        {
+            var lineHeight = fontBody.GetHeight() + 4;
+            gfx.DrawString(line.Description, fontBody, XBrushes.Black, new XRect(margin, y, width - 160, lineHeight), XStringFormats.TopLeft);
+            gfx.DrawString(line.Quantity.ToString("0.##"), fontBody, XBrushes.Black, new XRect(margin, y, width - 110, lineHeight), XStringFormats.TopRight);
+            gfx.DrawString(line.LineTotal.ToString("C", CultureInfo.GetCultureInfo("en-AU")), fontBody, XBrushes.Black, new XRect(margin, y, width, lineHeight), XStringFormats.TopRight);
+            y += lineHeight;
+        }
+
+        y += 6;
+        gfx.DrawLine(XPens.Black, margin, y, margin + width, y);
+        y += 8;
+
+        y = DrawTotalLine(gfx, "Subtotal", invoice.SubtotalEx, fontBody, margin, width, y);
+        y = DrawTotalLine(gfx, "GST", invoice.TaxAmount, fontBody, margin, width, y);
+        y = DrawTotalLine(gfx, "Total", invoice.TotalInc, fontHeading, margin, width, y);
+
+        y += 20;
+        gfx.DrawString("Thank you for your business.", fontBody, XBrushes.Black, new XRect(margin, y, width, 14), XStringFormats.Center);
+
+        using var stream = new MemoryStream();
+        document.Save(stream, false);
+        return stream.ToArray();
+    }
+
+    public string RenderReceiptToFile(JobRecord job, InvoiceForReceipt invoice, string businessName)
+    {
+        var bytes = RenderReceipt(job, invoice, businessName);
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "JobMatixDocuments");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"Job-{job.JobId}-Receipt-{DateTime.Now:yyyyMMdd-HHmmss}.pdf");
+        File.WriteAllBytes(path, bytes);
+        return path;
+    }
+
+    private static double DrawTotalLine(XGraphics gfx, string label, decimal amount, XFont font, double margin, double width, double y)
+    {
+        var lineHeight = font.GetHeight() + 4;
+        gfx.DrawString(label, font, XBrushes.Black, new XRect(margin, y, width - 100, lineHeight), XStringFormats.TopRight);
+        gfx.DrawString(amount.ToString("C", CultureInfo.GetCultureInfo("en-AU")), font, XBrushes.Black, new XRect(margin, y, width, lineHeight), XStringFormats.TopRight);
+        return y + lineHeight;
+    }
+
     private static double DrawHeader(XGraphics gfx, string businessName, JobRecord job, XFont fontTitle, XFont fontSmall,
         double margin, double width, double y)
     {

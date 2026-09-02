@@ -960,6 +960,68 @@ public class JobService
             throw new InvalidOperationException($"Job #{jobId} is not in a state that allows this action.");
     }
 
+    // Backs the job-completion receipt (JobDocumentPdfService.RenderReceipt) - reads back
+    // the real invoice CompleteJobAndInvoiceAsync already created, rather than recomputing
+    // figures independently (see InvoiceForReceipt's own comment for why). Null if the job
+    // hasn't been completed/invoiced yet - a receipt has nothing real to show before that.
+    public async Task<InvoiceForReceipt?> GetInvoiceForJobAsync(int jobId)
+    {
+        using var conn = _db.GetConnection();
+        await Task.Run(() => conn.Open());
+
+        InvoiceForReceipt invoice;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT inv.invoice_id, inv.invoicenumber, inv.invoicedate,
+                       inv.subtotal, inv.taxamount, inv.total_inc,
+                       COALESCE(s.docket_name, '') AS staff_name
+                FROM invoice inv
+                LEFT JOIN staff s ON inv.staff_id = s.staff_id
+                WHERE inv.job_number = @jobId
+                ORDER BY inv.invoice_id DESC
+                LIMIT 1";
+            AddParam(cmd, "@jobId", jobId);
+            using var reader = await Task.Run(() => cmd.ExecuteReader());
+            if (!await Task.Run(() => reader.Read()))
+                return null;
+
+            invoice = new InvoiceForReceipt
+            {
+                InvoiceId = reader.GetInt32(0),
+                InvoiceNumber = reader.GetString(1),
+                InvoiceDate = reader.GetDateTime(2),
+                SubtotalEx = reader.GetDecimal(3),
+                TaxAmount = reader.GetDecimal(4),
+                TotalInc = reader.GetDecimal(5),
+                StaffName = reader.GetString(6)
+            };
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT description, quantity, unitprice, linetotal
+                FROM invoice_lines
+                WHERE invoice_id = @invoiceId
+                ORDER BY line_id";
+            AddParam(cmd, "@invoiceId", invoice.InvoiceId);
+            using var reader = await Task.Run(() => cmd.ExecuteReader());
+            while (await Task.Run(() => reader.Read()))
+            {
+                invoice.Lines.Add(new InvoiceLineSummary
+                {
+                    Description = reader.GetString(0),
+                    Quantity = reader.GetDecimal(1),
+                    UnitPrice = reader.GetDecimal(2),
+                    LineTotal = reader.GetDecimal(3)
+                });
+            }
+        }
+
+        return invoice;
+    }
+
     // Per-priority labour hourly rates (systeminfo, seeded from real legacy values -
     // see sql-scripts/seed-labour-rates.sql). Used for the intake docket's terms
     // section (JobDocumentPdfService) and job reporting (ReportsViewModel).

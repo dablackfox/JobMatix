@@ -2061,6 +2061,7 @@
                                     </ComboBox>
                                     <Button Content="Change Status" Command="{Binding JobViewModel.ChangeStatusCommand}" Background="ForestGreen" Foreground="White"/>
                                     <Button Content="Print Docket (PDF)" Command="{Binding JobViewModel.PrintDocketCommand}"/>
+                                    <Button Content="Print Receipt (PDF)" Command="{Binding JobViewModel.PrintReceiptCommand}"/>
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding JobViewModel.ShowCompleteNotes}">

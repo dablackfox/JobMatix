@@ -824,6 +824,38 @@ public partial class JobViewModel : ViewModelBase
         }
     }
 
+    // Job-completion receipt (ROADMAP.md docket/quote printing - 2nd of the remaining
+    // legacy document types, 2026-09-02). Only has something real to show once the job's
+    // been completed and invoiced (CompleteJobAndInvoiceAsync) - reads that persisted
+    // invoice back rather than guessing at figures before it exists.
+    [RelayCommand]
+    private async Task PrintReceipt()
+    {
+        if (SelectedJob == null)
+        {
+            StatusMessage = "Select a job to print a receipt for";
+            return;
+        }
+
+        try
+        {
+            var invoice = await _jobService.GetInvoiceForJobAsync(SelectedJob.JobId);
+            if (invoice == null)
+            {
+                StatusMessage = $"Job #{SelectedJob.JobId} hasn't been completed/invoiced yet - no receipt to print";
+                return;
+            }
+
+            var path = _pdfService.RenderReceiptToFile(SelectedJob, invoice, "JobMatix");
+            StatusMessage = $"Receipt saved: {path}";
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error printing receipt: {ex.Message}";
+        }
+    }
+
     // Approve a quote awaiting customer confirmation (direct feedback, 2026-09-01) -
     // "standard service charge and quote on what it will cost to fix" scenario: the ticket
     // was created as Quotation Required, the customer calls back to approve, and this

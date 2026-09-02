@@ -371,6 +371,31 @@ namespace JMxPOS8.Models
         public bool IsProceedToLimit => Instruction == CustomerInstruction.ProceedToLimit;
     }
 
+    // The job-completion receipt (JobDocumentPdfService.RenderReceipt) reads back the real
+    // persisted invoice/invoice_lines rows by job_number rather than recomputing figures
+    // independently from JobPartLine + billable hours - the invoice is the one place tax/
+    // cost/margin math has already been done correctly (JobService.CompleteJobAndInvoiceAsync),
+    // so re-deriving it a second way risks silently drifting from what was actually charged.
+    public class InvoiceLineSummary
+    {
+        public string Description { get; set; } = string.Empty;
+        public decimal Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal LineTotal { get; set; }
+    }
+
+    public class InvoiceForReceipt
+    {
+        public int InvoiceId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public DateTime InvoiceDate { get; set; }
+        public decimal SubtotalEx { get; set; }
+        public decimal TaxAmount { get; set; }
+        public decimal TotalInc { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public List<InvoiceLineSummary> Lines { get; set; } = new();
+    }
+
     public class JobPartLine
     {
         public int PartId { get; set; }
