@@ -1126,8 +1126,11 @@ public class JobService
         DeliveredStaffName = reader.GetString(26),
         DateUpdated = reader.GetDateTime(27),
         CustomerCompany = reader.GetString(28),
-        Username = reader.GetString(29),
-        UserPassword = reader.GetString(30),
+        // Decrypted here so every other caller (JobDocumentPdfService, etc.) keeps
+        // working with real plaintext - encryption is contained entirely to this DB
+        // access layer. See Services/CredentialEncryptor.cs.
+        Username = CredentialEncryptor.Decrypt(reader.GetString(29)),
+        UserPassword = CredentialEncryptor.Decrypt(reader.GetString(30)),
         GoodsOther = reader.GetString(31),
         DatePromised = reader.IsDBNull(32) ? null : reader.GetDateTime(32)
     };
