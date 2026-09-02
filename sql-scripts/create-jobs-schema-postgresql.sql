@@ -153,19 +153,24 @@ CREATE INDEX IF NOT EXISTS idx_parts_code ON Parts(PartCode);
 COMMENT ON TABLE Parts IS 'Parts used in job repairs';
 
 -- =========================================================================
--- TABLE: ServiceModelCheckLists (Checklist for service models)
+-- TABLE: ServiceModelCheckLists (Checklist templates per serviceable stock item)
 -- =========================================================================
+-- Keyed by rm_stock_id/task_description, matching what the legacy app
+-- (frmModelEdit3.vb) actually reads/writes - not ModelName/ItemOrder, which were
+-- invented during the initial port and never matched real usage (fixed 2026-09-02,
+-- see sql-scripts/fix-servicemodelchecklists-schema.sql and ROADMAP.md Phase 0.4).
+-- No FK to Stock here, matching every other cross-database reference in this file -
+-- Stock lives in the POS schema, so the FK is added later in
+-- create-jobs-schema-extensions.sql once both schemas are known to coexist in the
+-- same database (see that file's own header for why).
 CREATE TABLE IF NOT EXISTS ServiceModelCheckLists (
     ModelCheckList_Id SERIAL PRIMARY KEY,
-    ModelName VARCHAR(50) NOT NULL DEFAULT 'N/A',
-    CheckListItem VARCHAR(250) NOT NULL DEFAULT '',
-    ItemOrder INTEGER NOT NULL DEFAULT 0,
+    Rm_Stock_Id INTEGER NOT NULL,
+    Task_Description VARCHAR(250) NOT NULL DEFAULT '',
     DateCreated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_servicemodelchecklist_model ON ServiceModelCheckLists(ModelName);
-
-COMMENT ON TABLE ServiceModelCheckLists IS 'Checklists for servicing specific models';
+COMMENT ON TABLE ServiceModelCheckLists IS 'Checklist templates for servicing a specific stock item, applied per job when that item is added';
 
 -- =========================================================================
 -- TABLE: JobCheckLists (Checklist items completed for jobs)
